@@ -19,6 +19,11 @@
   box-sizing: border-box;
 }
 
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
@@ -82,6 +87,7 @@ select {
   position: sticky;
   top: 0;
   z-index: 10;
+  min-width: 0;
 }
 
 .brand {
@@ -90,6 +96,11 @@ select {
   gap: 12px;
   font-weight: 750;
   letter-spacing: 0;
+  min-width: 0;
+}
+
+.brand > div:last-child {
+  min-width: 0;
 }
 
 .brand-mark {
@@ -147,6 +158,7 @@ select {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   min-height: calc(100vh - 71px);
+  min-width: 0;
 }
 
 .sidebar {
@@ -158,6 +170,7 @@ select {
   padding: 22px;
   background: rgba(9, 12, 18, 0.78);
   backdrop-filter: blur(14px);
+  min-width: 0;
 }
 
 .nav-section {
@@ -220,17 +233,20 @@ select {
   position: relative;
   z-index: 1;
   padding: 24px;
+  min-width: 0;
 }
 
 .cockpit {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .mission-strip {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
   gap: 18px;
+  min-width: 0;
 }
 
 .mission-copy,
@@ -307,23 +323,27 @@ h1 {
   display: grid;
   grid-template-columns: minmax(0, 1.38fr) minmax(360px, 0.62fr);
   gap: 18px;
+  min-width: 0;
 }
 
 .telemetry-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.8fr) minmax(280px, 0.8fr) minmax(320px, 0.7fr);
   gap: 18px;
+  min-width: 0;
 }
 
 .bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+  min-width: 0;
 }
 
 .panel {
   border-radius: 8px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .panel-header {
@@ -340,6 +360,7 @@ h1 {
   align-items: center;
   gap: 10px;
   font-weight: 760;
+  min-width: 0;
 }
 
 .command-panel,
@@ -386,6 +407,7 @@ h1 {
   grid-template-columns: repeat(6, minmax(72px, 1fr));
   gap: 8px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .lane-rail::before {
@@ -477,6 +499,7 @@ h1 {
 .layer-row span,
 .layer-row em {
   display: block;
+  overflow-wrap: anywhere;
 }
 
 .layer-row span {
@@ -495,6 +518,7 @@ h1 {
 
 .chart-frame {
   padding: 18px 10px 8px;
+  min-width: 0;
 }
 
 .evidence-table {
@@ -555,12 +579,14 @@ h1 {
   gap: 9px;
   font-weight: 760;
   margin-bottom: 9px;
+  min-width: 0;
 }
 
 .workflow-copy {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.48;
+  overflow-wrap: anywhere;
 }
 
 .workflow-stage {
@@ -610,12 +636,14 @@ h1 {
 
 .lens-label {
   color: #dce3ef;
+  min-width: 0;
 }
 
 .lens-value {
   color: var(--muted);
   text-align: right;
   max-width: 68%;
+  overflow-wrap: anywhere;
 }
 
 .code-strip {
@@ -659,6 +687,44 @@ h1 {
     min-height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border-soft);
+    padding: 16px;
+  }
+
+  .sidebar .nav-section:first-child {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar .nav-section:first-child .nav-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    scroll-snap-align: start;
+  }
+
+  .mode-stack {
+    grid-template-columns: repeat(4, minmax(132px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mode-row {
+    min-width: 132px;
+    scroll-snap-align: start;
   }
 
   .lane {
@@ -670,28 +736,112 @@ h1 {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .topbar > .topbar-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .status-pill {
+    justify-content: center;
+    min-width: 0;
+    text-align: center;
+    white-space: normal;
   }
 
   .main {
-    padding: 16px;
+    padding: 14px;
+  }
+
+  .cockpit {
+    gap: 14px;
   }
 
   .mission-copy {
-    padding: 20px;
+    padding: 18px;
   }
 
-  .mission-metrics,
+  .mission-copy p {
+    font-size: 15px;
+  }
+
+  .mission-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .metric {
+    min-height: 98px;
+    padding: 14px;
+  }
+
+  .metric-value {
+    font-size: 28px;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px;
+  }
+
+  .badge {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .lane-stack,
+  .layer-stack,
   .portfolio,
+  .lens-list,
+  .evidence-table,
+  .code-strip {
+    padding: 14px;
+  }
+
+  .lane {
+    gap: 12px;
+    padding: 12px;
+  }
+
   .lane-rail {
+    grid-template-columns: repeat(6, minmax(82px, 1fr));
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lane-step {
+    scroll-snap-align: start;
+  }
+
+  .portfolio {
     grid-template-columns: 1fr;
   }
 
-  .lane-rail::before,
-  .lane-pulse {
-    display: none;
+  .workflow-card {
+    min-height: auto;
   }
 
-  .lens-row,
+  .chart-frame {
+    padding: 12px 2px 4px;
+  }
+
+  .chart-panel {
+    min-height: 286px;
+  }
+
+  .lens-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
   .evidence-row {
     grid-template-columns: 1fr;
   }
@@ -705,5 +855,84 @@ h1 {
 
   h1 {
     font-size: 38px;
+    line-height: 1.02;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar > .topbar-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-stack {
+    grid-template-columns: repeat(2, minmax(136px, 1fr));
+  }
+
+  .layer-row {
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 11px;
+  }
+
+  .layer-index {
+    width: 30px;
+    height: 30px;
+  }
+
+  .layer-row em {
+    margin-top: 2px;
+  }
+
+  .evidence-row {
+    gap: 6px;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 420px) {
+  .main {
+    padding: 12px;
+  }
+
+  .mission-copy {
+    padding: 16px;
+  }
+
+  .nav-item span,
+  .mode-row,
+  .status-pill,
+  .badge {
+    font-size: 11px;
+  }
+
+  .lane-rail {
+    grid-template-columns: repeat(6, minmax(76px, 1fr));
+  }
+
+  .metric {
+    min-height: 88px;
+    padding: 12px;
+  }
+
+  .metric-value {
+    font-size: 26px;
+  }
+
+  .metric-label {
+    font-size: 12px;
+  }
+
+  h1 {
+    font-size: 32px;
+  }
+}
+
+@media (pointer: coarse) {
+  .nav-item,
+  .mode-row,
+  .lane-step {
+    min-height: 44px;
   }
 }

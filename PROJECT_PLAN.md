@@ -81,6 +81,8 @@ Completed in current phase:
 - Structured logging setup.
 - Minimal Next.js visual command-center shell under `apps/web`.
 - Animated visual command-center UI using Framer Motion and Recharts.
+- Mobile-first responsive command-center pass verified across 360, 390, 768, and 1440 px
+  browser viewports.
 - API health endpoint tests.
 - Vercel production deployment for the visual shell.
 - Basic API status wiring from the web app to `NEXT_PUBLIC_API_BASE_URL`.
