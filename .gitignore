@@ -33,6 +33,7 @@ logs/
 
 # Local infra
 .docker-data/
+.vercel/
 
 # IDE
 .idea/

@@ -22,7 +22,11 @@ The platform must show:
 Phase 0 is complete.
 
 The repo has architecture docs, dependency manifests, workflow registry configs, local infra
-scaffolding, ADRs, and CI scaffolding. Feature implementation has not started.
+scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, and a deployed web shell.
+
+Current production web deployment:
+
+- https://aegisops-agentic-portfolio.vercel.app
 
 ## Milestone Map
 
@@ -77,6 +81,7 @@ Completed in current phase:
 - Structured logging setup.
 - Minimal Next.js visual command-center shell under `apps/web`.
 - API health endpoint tests.
+- Vercel production deployment for the visual shell.
 
 Goal: Make the repo installable and runnable with minimal skeleton services.
 

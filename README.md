@@ -136,6 +136,16 @@ The first implementation milestone will support:
 The public demo should run on free tiers where possible, but the architecture must remain
 deployment-grade. Free hosting is a demo constraint, not a production SLA.
 
+## Current Deployment
+
+The visual command center is deployed on Vercel:
+
+- Production URL: https://aegisops-agentic-portfolio.vercel.app
+- Vercel project: `aegisops-agentic-portfolio`
+
+The deployed web shell is the Phase 1 visual foundation. Live workflow execution remains
+disabled until real connectors, policy checks, backend deployment, and spend controls are wired.
+
 ## License
 
 Private project scaffold. Choose a license before public release.
