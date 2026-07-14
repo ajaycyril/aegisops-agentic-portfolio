@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     max_agent_tool_calls: int = Field(default=25, validation_alias="MAX_AGENT_TOOL_CALLS")
     max_agent_estimated_usd: float = Field(default=1.0, validation_alias="MAX_AGENT_ESTIMATED_USD")
     require_human_approval: bool = Field(default=True, validation_alias="REQUIRE_HUMAN_APPROVAL")
+    live_workflow_runs_enabled: bool = Field(
+        default=False,
+        validation_alias="LIVE_WORKFLOW_RUNS_ENABLED",
+    )
 
 
 @lru_cache

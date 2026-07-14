@@ -21,6 +21,7 @@ run trace.
 The baseline Rego modules live under `policies/aegisops/`:
 
 - `tool_access.rego`
+- `run_eligibility.rego`
 - `approvals.rego`
 - `budget.rego`
 - `data_sensitivity.rego`

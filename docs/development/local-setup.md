@@ -1,6 +1,7 @@
 # Local Development Setup
 
-This guide covers the Phase 1 foundation runtime and Phase 2 governance/data scaffolding.
+This guide covers the foundation runtime, governance/data scaffolding, workflow registry, and
+policy-gated run-start API.
 
 ## Prerequisites
 
@@ -39,7 +40,22 @@ For local frontend-to-backend health checks, keep:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-OpenAI keys are not required for Phase 1 health checks.
+OpenAI keys are not required for health checks, workflow registry reads, or run-start
+eligibility tests. Live agent execution will require model credentials in a later phase.
+
+Run-start safety controls:
+
+```bash
+CONFIGURED_CONNECTORS=github,observability
+MAX_AGENT_RUN_SECONDS=300
+MAX_AGENT_TOOL_CALLS=25
+MAX_AGENT_ESTIMATED_USD=1.00
+REQUIRE_HUMAN_APPROVAL=true
+LIVE_WORKFLOW_RUNS_ENABLED=false
+```
+
+`LIVE_WORKFLOW_RUNS_ENABLED=false` keeps live execution disabled by default. Replay mode still
+requires a captured real-run source id.
 
 ## Run Local Infrastructure
 
@@ -91,10 +107,29 @@ Workflow registry endpoints:
 
 - `GET http://localhost:8000/workflows`
 - `GET http://localhost:8000/workflows/{workflow_id}`
+- `POST http://localhost:8000/workflow-runs`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
 `github,observability`.
+
+Example replay run-start request:
+
+```bash
+curl -X POST http://localhost:8000/workflow-runs \
+  -H 'content-type: application/json' \
+  -d '{
+    "workflow_id": "engineering_issue_to_pr",
+    "execution_mode": "replay",
+    "replay_source_run_id": "captured-real-run-id",
+    "input_payload": {
+      "issue_url": "https://github.com/owner/repo/issues/1"
+    }
+  }'
+```
+
+The request is rejected unless the workflow is ready, required connectors are configured, OPA
+is reachable, and the budget/replay policy permits the start.
 
 ## Run Web
 

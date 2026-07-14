@@ -19,12 +19,13 @@ The platform must show:
 
 ## Current Status
 
-Phases 0, 1, and the Phase 2 implementation slice are complete.
+Phases 0 and 1 are complete. Phase 2 and Phase 3 are implemented at code/test level, with
+live Docker/Postgres/OPA verification still pending on a machine with Docker available.
 
 The repo has architecture docs, dependency manifests, workflow registry configs, local infra
 scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
 database migrations, governance tables, OPA policy scaffolding, an audit writer, and typed
-workflow registry read endpoints.
+workflow registry/read endpoints plus a policy-gated workflow run-start API.
 
 Current production web deployment:
 
@@ -37,7 +38,7 @@ Current production web deployment:
 | 0 | Architecture baseline | Complete | Docs, stack decisions, workflow portfolio, scaffold |
 | 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
 | 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
-| 3 | Workflow registry and run lifecycle | In progress | Config-driven workflow catalog and run API |
+| 3 | Workflow registry and run lifecycle | Implemented, live infra verification pending | Config-driven workflow catalog and run API |
 | 4 | Visual command center shell | Not started | Portfolio UI, graph canvas, trace/evidence placeholders |
 | 5 | Tool and connector substrate | Not started | MCP tool contracts, GitHub connector foundation |
 | 6 | Engineering Issue-to-PR workflow | Not started | First real production workflow |
@@ -198,7 +199,8 @@ Tasks:
 
 ## Phase 3: Workflow Registry and Run Lifecycle
 
-Status: In progress.
+Status: Implemented. Live Postgres/OPA verification is pending because Docker and the OPA CLI
+were not available in the current local environment.
 
 Completed artifacts:
 
@@ -208,8 +210,16 @@ Completed artifacts:
 - `GET /workflows/{workflow_id}`.
 - Connector readiness reporting for registry reads. Workflows remain disabled unless real
   connector names are configured through `CONFIGURED_CONNECTORS`.
+- `POST /workflow-runs` with typed request/response models.
+- Run-start readiness checks for workflow status, required connectors, replay source, replay
+  eligibility, budget envelope, live-run feature flag, and OPA run eligibility.
+- Durable run creation through the governance data model when policy allows or requires
+  approval.
+- Workflow registry snapshots and audit events written during run creation.
+- `aegisops.run_eligibility` Rego policy plus replay/live policy fixtures.
 - Tests for workflow config loading, real-data policy enforcement, disabled-by-default
-  readiness, list endpoint, detail endpoint, and unknown workflow 404s.
+  readiness, list/detail endpoints, unknown workflow 404s, run-start persistence, approval
+  gating, pre-policy rejects, policy rejects, and API rejection responses.
 
 Goal: Convert YAML workflow configs into a typed runtime registry and run lifecycle.
 
@@ -219,12 +229,12 @@ Tasks:
 2. Done: load and validate `configs/workflows/*.yaml`.
 3. Done: expose `GET /workflows`.
 4. Done: expose `GET /workflows/{workflow_id}`.
-5. Add `POST /workflow-runs` with run eligibility checks.
-6. Add run status states: queued, running, waiting_for_approval, completed, failed, canceled.
-7. Add budget envelope model.
-8. Add replay/live execution mode model.
-9. In progress: add connector readiness checks. Read-side readiness is implemented; run-start
-   readiness still needs to be enforced in `POST /workflow-runs`.
+5. Done: add `POST /workflow-runs` with run eligibility checks.
+6. Done: add run status states: queued, running, waiting_for_approval, completed, failed,
+   canceled.
+7. Done: add budget envelope model.
+8. Done: add replay/live execution mode model.
+9. Done: add connector readiness checks for registry reads and run starts.
 
 Acceptance criteria:
 
@@ -233,11 +243,24 @@ Acceptance criteria:
 - Starting a workflow creates a durable run record.
 - Run creation calls OPA before execution.
 
+Validated in current environment:
+
+```bash
+services/api/.venv/bin/pytest services/api/tests
+services/api/.venv/bin/ruff check services/api
+cd services/api && .venv/bin/mypy .
+```
+
+Not run: live Postgres migration and live OPA policy loading/evaluation, because Docker and
+the OPA CLI are not installed in the current environment.
+
 Current next task:
 
-1. Add `POST /workflow-runs` with a typed request/response model.
-2. Enforce connector readiness, replay/live execution mode, budget envelope, and OPA run
-   eligibility before creating durable run records.
+1. Run live Phase 2/3 infrastructure verification on a machine with Docker.
+2. Start Phase 4 by wiring the web command center to `GET /workflows`,
+   `GET /workflows/{workflow_id}`, and safe disabled/enabled run-start controls.
+3. Build a config-driven graph canvas, policy lens, evidence board, trace timeline, and code
+   lens before implementing the first LangGraph workflow.
 
 ## Phase 4: Visual Command Center Shell
 

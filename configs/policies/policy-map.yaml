@@ -2,6 +2,11 @@ version: 1
 description: Policy routing map for agentic workflow governance.
 
 decision_points:
+  run_eligibility:
+    engine: opa
+    package: aegisops.run_eligibility
+    required_for:
+      - run_start
   tool_access:
     engine: opa
     package: aegisops.tool_access

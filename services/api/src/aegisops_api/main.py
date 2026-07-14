@@ -1,10 +1,25 @@
-from fastapi import FastAPI, HTTPException
+from collections.abc import AsyncGenerator, Generator
+from typing import Annotated
+
+import httpx
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.orm import Session
 
 from aegisops_api import __version__
-from aegisops_api.config import get_settings
+from aegisops_api.config import Settings, get_settings
+from aegisops_api.db.session import get_session
 from aegisops_api.logging import configure_logging
+from aegisops_api.policy import OpaClient, PolicyEvaluationError
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
+from aegisops_api.workflows.runs import (
+    OpaRunPolicyEvaluator,
+    RunPolicyEvaluator,
+    WorkflowRunStartRejectedError,
+    WorkflowRunStartRequest,
+    WorkflowRunStartResponse,
+    start_workflow_run,
+)
 
 configure_logging()
 
@@ -13,6 +28,29 @@ app = FastAPI(
     version=__version__,
     summary="API and agent runtime for the AegisOps agentic workflow portfolio.",
 )
+
+
+def get_database_session() -> Generator[Session, None, None]:
+    try:
+        yield from get_session()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="database is not configured") from exc
+
+
+SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+async def get_run_policy_evaluator(
+    settings: SettingsDependency,
+) -> AsyncGenerator[RunPolicyEvaluator, None]:
+    if settings.opa_base_url is None:
+        raise HTTPException(status_code=503, detail="OPA policy engine is not configured")
+
+    opa_client = OpaClient(str(settings.opa_base_url))
+    try:
+        yield OpaRunPolicyEvaluator(opa_client)
+    finally:
+        await opa_client.aclose()
 
 
 @app.get("/health", tags=["system"])
@@ -53,3 +91,36 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         )
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail="workflow not found") from exc
+
+
+@app.post(
+    "/workflow-runs",
+    response_model=WorkflowRunStartResponse,
+    status_code=201,
+    tags=["workflow-runs"],
+)
+async def create_workflow_run(
+    request: WorkflowRunStartRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[RunPolicyEvaluator, Depends(get_run_policy_evaluator)],
+    settings: SettingsDependency,
+) -> WorkflowRunStartResponse:
+    registry = get_workflow_registry()
+    try:
+        return await start_workflow_run(
+            request=request,
+            registry=registry,
+            session=session,
+            policy_evaluator=policy_evaluator,
+            available_connectors=get_available_connectors(),
+            settings=settings,
+        )
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="workflow not found") from exc
+    except WorkflowRunStartRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc

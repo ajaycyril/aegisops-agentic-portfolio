@@ -1,0 +1,32 @@
+{
+  "decision_point": "run_eligibility",
+  "package": "aegisops.run_eligibility",
+  "input": {
+    "workflow_id": "engineering_issue_to_pr",
+    "workflow": {
+      "status": "ready",
+      "data_policy": {
+        "fake_data_allowed": false,
+        "replay_allowed_from_real_runs": true,
+        "regex_business_extraction_allowed": false
+      }
+    },
+    "execution_mode": "replay",
+    "missing_connectors": [],
+    "budget": {
+      "max_estimated_usd": 1.0,
+      "max_tool_calls": 25,
+      "max_run_seconds": 300
+    },
+    "estimated_cost_usd": 0,
+    "tool_call_count": 0,
+    "elapsed_seconds": 0,
+    "replay_source_run_id": "captured-real-run-001",
+    "live_workflow_runs_enabled": false,
+    "require_human_approval": true
+  },
+  "expected": {
+    "allow": true,
+    "requires_approval": false
+  }
+}

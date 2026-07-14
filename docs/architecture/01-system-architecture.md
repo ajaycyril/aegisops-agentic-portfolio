@@ -86,6 +86,7 @@ sequenceDiagram
   UI->>API: POST /workflow-runs
   API->>Policy: Check run eligibility
   Policy-->>API: Allow / block / require approval
+  API->>DB: Persist workflow run, registry snapshot, audit event
   API->>Graph: Start graph with policy context
   Graph->>DB: Persist checkpoint
   Graph->>Model: Structured planning or reasoning call

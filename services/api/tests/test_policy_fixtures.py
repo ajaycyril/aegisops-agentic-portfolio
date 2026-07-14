@@ -4,6 +4,7 @@ from typing import Any, cast
 
 FIXTURE_DIR = Path(__file__).resolve().parents[3] / "configs" / "policies" / "fixtures"
 ALLOWED_DECISION_POINTS = {
+    "run_eligibility",
     "tool_access",
     "human_approval",
     "budget",

@@ -10,7 +10,8 @@ This is not a chatbot demo. It is an agentic workflow platform.
 
 ## Current Phase
 
-Foundation runtime and governance scaffolding are in place.
+Foundation runtime, governance scaffolding, workflow registry, and policy-gated run-start
+scaffolding are in place.
 
 This repository currently defines:
 
@@ -29,6 +30,8 @@ This repository currently defines:
 - OPA/Rego policy baseline and structured policy fixtures.
 - Typed OPA client and audit event writer.
 - Typed workflow registry loader and read-only workflow catalog endpoints.
+- Typed `POST /workflow-runs` start gate with connector readiness, replay/live mode, budget
+  envelope, OPA run eligibility, durable run records, registry snapshots, and audit events.
 
 ## Core Principle
 
@@ -120,9 +123,10 @@ next incomplete task without relying on chat history.
 
 Current next task:
 
-1. Verify Phase 2 live infrastructure on a machine with Docker.
-2. Run Alembic against local Postgres/pgvector.
-3. Continue Phase 3 with `POST /workflow-runs` and OPA-backed run eligibility.
+1. Verify Phase 2/3 live infrastructure on a machine with Docker.
+2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
+3. Start Phase 4 by wiring the web command center to the workflow registry and safe
+   run-start controls.
 
 ## Local Development Target
 
