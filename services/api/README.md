@@ -1,0 +1,29 @@
+# API and Agent Runtime
+
+The API service hosts the backend control plane and agent runtime.
+
+## Responsibilities
+
+- Authenticated workflow execution API.
+- LangGraph runtime and graph registry.
+- OpenAI Responses API calls.
+- OpenAI Agents SDK specialist agents.
+- MCP tool server/client boundaries.
+- OPA policy checks.
+- Human approval state.
+- Postgres persistence, checkpoints, memory, and audit logs.
+- Retrieval over authorized real data.
+- Observability and trace export.
+- Evaluation harness.
+
+## Non-Goals
+
+- No fake data workflows.
+- No regex-based business extraction.
+- No untyped tool calls.
+- No autonomous write actions without policy and approval.
+
+## Package Strategy
+
+The initial manifest defines the production dependency surface. Implementation will be added
+after the architecture baseline is accepted.

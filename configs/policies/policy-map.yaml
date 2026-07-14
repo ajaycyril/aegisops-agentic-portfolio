@@ -1,0 +1,51 @@
+version: 1
+description: Policy routing map for agentic workflow governance.
+
+decision_points:
+  tool_access:
+    engine: opa
+    package: aegisops.tool_access
+    required_for:
+      - every_tool_call
+  human_approval:
+    engine: opa
+    package: aegisops.approvals
+    required_for:
+      - write_actions
+      - external_messages
+      - refunds
+      - pull_request_creation
+      - access_changes
+      - budget_exceptions
+  budget:
+    engine: opa
+    package: aegisops.budget
+    required_for:
+      - run_start
+      - model_call
+      - tool_call
+  data_sensitivity:
+    engine: opa
+    package: aegisops.data_sensitivity
+    required_for:
+      - retrieval
+      - memory_write
+      - external_output
+
+autonomy_levels:
+  read_only:
+    write_actions: blocked
+    external_messages: blocked
+    approvals: not_applicable
+  draft_only:
+    write_actions: draft_with_approval
+    external_messages: draft_with_approval
+    approvals: required
+  approval_required:
+    write_actions: approval_required
+    external_messages: approval_required
+    approvals: required
+  autonomous:
+    write_actions: policy_limited
+    external_messages: policy_limited
+    approvals: risk_based

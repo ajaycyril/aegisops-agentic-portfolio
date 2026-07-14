@@ -1,0 +1,32 @@
+id: sales_rfp_agent
+name: Account Research and RFP Agent
+domain: sales
+status: planned
+enabled_when:
+  connectors:
+    - crm
+    - document_store
+    - web_research
+  required_scopes:
+    - accounts:read
+    - opportunities:read
+    - documents:read
+    - drafts:write
+patterns:
+  - source_grounded_research
+  - rag_agent
+  - evaluator_optimizer
+  - human_in_the_loop
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: draft_only
+approval_required_for:
+  - proposal_export
+  - customer_message
+visual_surfaces:
+  - account_brief
+  - citations
+  - proposal_draft
+  - scoring_rubric

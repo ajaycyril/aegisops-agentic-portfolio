@@ -1,0 +1,19 @@
+{
+  "name": "@aegisops/shared-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "echo \"No shared-contract lint rules implemented yet\"",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --check .",
+    "test": "echo \"No shared-contract tests implemented yet\""
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

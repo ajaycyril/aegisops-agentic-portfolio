@@ -1,0 +1,21 @@
+{
+  "name": "aegisops-agentic-portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "description": "Production-grade visual agentic workflow portfolio.",
+  "scripts": {
+    "dev:web": "pnpm --filter @aegisops/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "pnpm -r format",
+    "test": "pnpm -r test",
+    "docs:check": "node scripts/check-docs-placeholders.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.7.4",
+    "promptfoo": "^0.121.18",
+    "typescript": "^5.9.3"
+  }
+}

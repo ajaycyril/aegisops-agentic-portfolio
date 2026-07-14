@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: aegisops-postgres
+    environment:
+      POSTGRES_DB: aegisops
+      POSTGRES_USER: aegisops
+      POSTGRES_PASSWORD: aegisops
+    ports:
+      - "5432:5432"
+    volumes:
+      - ../.docker-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegisops -d aegisops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    container_name: aegisops-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  opa:
+    image: openpolicyagent/opa:latest
+    container_name: aegisops-opa
+    ports:
+      - "8181:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "/policies"
+    volumes:
+      - ../policies:/policies:ro
