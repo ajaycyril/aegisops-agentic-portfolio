@@ -6,7 +6,7 @@
     "autonomy_level": "approval_required",
     "connector_ready": true,
     "tool": {
-      "name": "github.pull_request.create",
+      "id": "github_pull_request_draft",
       "risk_class": "write",
       "required_scopes": ["pull_requests:write"]
     },

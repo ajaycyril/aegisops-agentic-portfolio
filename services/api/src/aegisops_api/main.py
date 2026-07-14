@@ -10,7 +10,17 @@ from aegisops_api.config import Settings, get_settings
 from aegisops_api.db.session import get_session
 from aegisops_api.logging import configure_logging
 from aegisops_api.policy import OpaClient, PolicyEvaluationError
-from aegisops_api.tools import ToolDetail, ToolNotFoundError, ToolSummary
+from aegisops_api.tools import (
+    OpaToolPolicyEvaluator,
+    ToolCallAuthorizationRequest,
+    ToolCallAuthorizationResponse,
+    ToolDetail,
+    ToolExecutionRejectedError,
+    ToolNotFoundError,
+    ToolPolicyEvaluator,
+    ToolSummary,
+    authorize_tool_call,
+)
 from aegisops_api.tools.registry import get_tool_registry
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
@@ -51,6 +61,19 @@ async def get_run_policy_evaluator(
     opa_client = OpaClient(str(settings.opa_base_url))
     try:
         yield OpaRunPolicyEvaluator(opa_client)
+    finally:
+        await opa_client.aclose()
+
+
+async def get_tool_policy_evaluator(
+    settings: SettingsDependency,
+) -> AsyncGenerator[ToolPolicyEvaluator, None]:
+    if settings.opa_base_url is None:
+        raise HTTPException(status_code=503, detail="OPA policy engine is not configured")
+
+    opa_client = OpaClient(str(settings.opa_base_url))
+    try:
+        yield OpaToolPolicyEvaluator(opa_client)
     finally:
         await opa_client.aclose()
 
@@ -111,6 +134,39 @@ async def get_tool(tool_id: str) -> ToolDetail:
         )
     except ToolNotFoundError as exc:
         raise HTTPException(status_code=404, detail="tool not found") from exc
+
+
+@app.post(
+    "/tool-calls/authorize",
+    response_model=ToolCallAuthorizationResponse,
+    status_code=201,
+    tags=["tools"],
+)
+async def authorize_tool_call_endpoint(
+    request: ToolCallAuthorizationRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+) -> ToolCallAuthorizationResponse:
+    try:
+        return await authorize_tool_call(
+            request=request,
+            workflow_registry=get_workflow_registry(),
+            tool_registry=get_tool_registry(),
+            session=session,
+            policy_evaluator=policy_evaluator,
+            available_connectors=get_available_connectors(),
+        )
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="workflow not found") from exc
+    except ToolNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="tool not found") from exc
+    except ToolExecutionRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
 
 
 @app.post(

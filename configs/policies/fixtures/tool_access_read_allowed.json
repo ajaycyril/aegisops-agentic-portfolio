@@ -6,7 +6,7 @@
     "autonomy_level": "read_only",
     "connector_ready": true,
     "tool": {
-      "name": "github.issue.read",
+      "id": "github_issue_read",
       "risk_class": "read",
       "required_scopes": ["issues:read"]
     },

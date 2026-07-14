@@ -26,8 +26,8 @@ The repo has architecture docs, dependency manifests, workflow registry configs,
 scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
 database migrations, governance tables, OPA policy scaffolding, an audit writer, typed
 workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
-visual command center. Phase 5 has started with typed tool contracts and read-only tool
-registry endpoints.
+visual command center. Phase 5 has started with typed tool contracts, read-only tool registry
+endpoints, an MCP contract server skeleton, and a policy-checked tool authorization boundary.
 
 Current production web deployment:
 
@@ -259,7 +259,8 @@ the OPA CLI are not installed in the current environment.
 Current next task:
 
 1. Run live Phase 2/3 infrastructure verification on a machine with Docker.
-2. Continue Phase 5 with the MCP server skeleton and policy-checked tool execution boundary.
+2. Continue Phase 5 with connector auth registry and real connector adapters behind the
+   policy-checked tool authorization boundary.
 
 ## Phase 4: Visual Command Center Shell
 
@@ -325,11 +326,18 @@ Completed artifacts:
 - Pydantic tool registry models under `services/api/src/aegisops_api/tools/`.
 - Risk classes: read, draft, write, external_message, financial, access_change.
 - Read-only `GET /tools` and `GET /tools/{tool_id}` endpoints.
+- Non-executing MCP contract server skeleton under
+  `services/api/src/aegisops_api/tools/mcp_server.py`.
+- `POST /tool-calls/authorize` policy gate for schema-validated, OPA-checked, audit-logged
+  tool calls.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
 - Observability log search tool contract.
 - Validation that write-class tools require approval by default.
+- JSON Schema validation for tool input payloads before policy evaluation.
+- Durable `tool_calls` and audit events for allowed, blocked, and approval-required tool call
+  authorization attempts.
 
 Goal: Add typed tool infrastructure before workflow-specific tool usage.
 
@@ -338,14 +346,14 @@ Tasks:
 1. Done: define tool contract Pydantic models.
 2. Done: define tool risk classes: read, draft, write, external_message, financial,
    access_change.
-3. Add MCP server skeleton.
+3. Done: add MCP server skeleton.
 4. Done: add tool registry endpoint.
 5. In progress: add GitHub connector config and auth placeholder. Tool contracts and required
    scopes exist; connector auth registry is still pending.
 6. Done: add approved SQL read-only tool contract.
 7. Done: add document retrieval tool contract.
 8. Done: add observability/log retrieval tool contract.
-9. Add per-tool OPA authorization before execution.
+9. Done: add per-tool OPA authorization before execution.
 
 Acceptance criteria:
 
@@ -357,7 +365,7 @@ Acceptance criteria:
 Validated in current environment:
 
 ```bash
-services/api/.venv/bin/pytest services/api/tests/test_tool_registry.py services/api/tests/test_health.py
+services/api/.venv/bin/pytest services/api/tests/test_tool_execution.py services/api/tests/test_tool_registry.py
 services/api/.venv/bin/ruff check services/api
 cd services/api && .venv/bin/mypy .
 ```

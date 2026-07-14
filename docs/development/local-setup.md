@@ -113,6 +113,7 @@ Tool registry endpoints:
 
 - `GET http://localhost:8000/tools`
 - `GET http://localhost:8000/tools/{tool_id}`
+- `POST http://localhost:8000/tool-calls/authorize`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
@@ -135,6 +136,11 @@ curl -X POST http://localhost:8000/workflow-runs \
 
 The request is rejected unless the workflow is ready, required connectors are configured, OPA
 is reachable, and the budget/replay policy permits the start.
+
+Tool authorization validates the selected workflow/tool contract, JSON input schema, connector
+readiness, OPA `tool_access`, and approval status before a non-executed `tool_calls` record is
+created. External connector execution is still intentionally disabled until real adapters and
+auth are implemented.
 
 ## Run Web
 

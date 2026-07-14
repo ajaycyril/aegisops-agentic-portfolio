@@ -37,6 +37,8 @@ This repository currently defines:
   run-start controls.
 - Typed tool contract registry with GitHub, SQL read, document retrieval, and observability
   tool definitions exposed through read-only API endpoints.
+- MCP tool contract server skeleton and `POST /tool-calls/authorize` boundary for
+  schema-validated, OPA-checked, audit-logged tool calls without live connector execution.
 
 ## Core Principle
 
@@ -131,7 +133,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 5 with the MCP server skeleton and policy-checked tool execution boundary.
+3. Continue Phase 5 with connector auth registry and real connector adapters behind the
+   policy-checked tool authorization boundary.
 
 ## Local Development Target
 

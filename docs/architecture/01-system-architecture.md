@@ -91,7 +91,8 @@ sequenceDiagram
   Graph->>DB: Persist checkpoint
   Graph->>Model: Structured planning or reasoning call
   Graph->>Policy: Check tool permission
-  Graph->>Tools: Execute typed tool call
+  Graph->>DB: Persist authorized or blocked tool call
+  Graph->>Tools: Execute typed tool call after authorization
   Tools-->>Graph: Structured result
   Graph->>DB: Persist trace, memory, audit event
   Graph-->>UI: Stream node events and evidence
