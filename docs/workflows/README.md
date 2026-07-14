@@ -20,7 +20,8 @@ Implementation has started with
 `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`. The current module contains
 the first typed LangGraph state/input contract and read-only GitHub issue/file evidence nodes.
 It is exposed through a controlled run-scoped evidence collection route that requires a stored
-live workflow run. The YAML files under `configs/workflows` remain the portfolio registry.
+workflow run. Live mode uses read-only GitHub tools; replay mode requires a captured real-run
+fixture. The YAML files under `configs/workflows` remain the portfolio registry.
 
 ## Workflow Contract
 

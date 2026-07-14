@@ -40,6 +40,7 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
     IssueToPrRunResponse,
     collect_engineering_issue_context,
 )
+from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
 from aegisops_api.workflows.runs import (
     OpaRunPolicyEvaluator,
@@ -298,6 +299,11 @@ async def collect_engineering_issue_to_pr_evidence(
             available_connectors=get_available_connectors(),
         )
     except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except ReplayFixtureError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},

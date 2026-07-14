@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
@@ -23,6 +25,7 @@ from aegisops_api.tools import (
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.execution import ToolPolicyDecisionSummary
 from aegisops_api.tools.registry import ToolRegistry
+from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
@@ -178,12 +181,45 @@ async def test_collect_engineering_issue_context_runs_graph_and_persists_evidenc
 
 
 @pytest.mark.asyncio
-async def test_collect_engineering_issue_context_rejects_replay_until_fixtures() -> None:
+async def test_collect_engineering_issue_context_uses_captured_replay_fixture(
+    tmp_path: Path,
+) -> None:
     run = create_live_engineering_run()
     run.execution_mode = "replay"
+    run.input_payload = {"replay_source_run_id": "captured-real-run-001"}
+    session = RuntimeSession({run.id: run})
+    write_replay_fixture(tmp_path, "captured-real-run-001")
+
+    response = await collect_engineering_issue_context(
+        run_id=run.id,
+        request=IssueToPrRunRequest(actor_id="user-123"),
+        session=cast(Session, session),
+        workflow_registry=cast(WorkflowRegistry, object()),
+        tool_registry=cast(ToolRegistry, object()),
+        policy_evaluator=FakeToolPolicyEvaluator(),
+        adapter_registry=ToolAdapterRegistry({}),
+        available_connectors={"github"},
+        replay_fixture_dir=tmp_path,
+    )
+
+    assert run.status == "running"
+    assert response.stage == "issue_context_collected"
+    assert response.issue_title == "Captured issue from authorized run"
+    assert response.policy_decision_ids == ["captured-policy-decision"]
+    assert len(response.evidence_records) == 2
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_engineering_issue_context_reports_missing_replay_fixture(
+    tmp_path: Path,
+) -> None:
+    run = create_live_engineering_run()
+    run.execution_mode = "replay"
+    run.input_payload = {"replay_source_run_id": "missing-real-run"}
     session = RuntimeSession({run.id: run})
 
-    with pytest.raises(IssueToPrRunRejectedError, match="Replay fixtures are next"):
+    with pytest.raises(ReplayFixtureError, match="Replay fixture was not found"):
         await collect_engineering_issue_context(
             run_id=run.id,
             request=IssueToPrRunRequest(),
@@ -193,10 +229,11 @@ async def test_collect_engineering_issue_context_rejects_replay_until_fixtures()
             policy_evaluator=FakeToolPolicyEvaluator(),
             adapter_registry=ToolAdapterRegistry({}),
             available_connectors={"github"},
-            tool_runtime=FakeIssueToPrToolRuntime(),
+            replay_fixture_dir=tmp_path,
         )
 
-    assert session.commit_count == 0
+    assert run.status == "failed"
+    assert session.commit_count == 1
 
 
 def test_parse_github_issue_url_uses_structured_url_parts() -> None:
@@ -232,3 +269,42 @@ def test_engineering_issue_context_endpoint_returns_404_for_missing_run() -> Non
 
     assert response.status_code == 404
     assert response.json()["detail"]["reason_code"] == "workflow_run_not_found"
+
+
+def write_replay_fixture(directory: Path, source_run_id: str) -> None:
+    (directory / f"{source_run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "engineering_issue_to_pr.replay.v1",
+                "workflow_id": "engineering_issue_to_pr",
+                "provenance": "captured_real_run",
+                "source_run_id": source_run_id,
+                "captured_at": "2026-07-14T00:00:00+00:00",
+                "repository": "acme/app",
+                "issue_number": 42,
+                "ref": "main",
+                "issue": {
+                    "title": "Captured issue from authorized run",
+                    "body": "Captured issue body from an authorized real run.",
+                    "labels": ["bug"],
+                    "author": "maintainer",
+                    "url": "https://github.com/acme/app/issues/42",
+                },
+                "context_files": [
+                    {
+                        "path": "src/service.py",
+                        "ref": "main",
+                        "content": "def handler():\n    return 'ok'\n",
+                        "sha": "abc123",
+                    }
+                ],
+                "tool_call_ids": ["captured-tool-call"],
+                "policy_decision_ids": ["captured-policy-decision"],
+                "data_policy": {
+                    "fake_data_allowed": False,
+                    "replay_allowed_from_real_runs": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )

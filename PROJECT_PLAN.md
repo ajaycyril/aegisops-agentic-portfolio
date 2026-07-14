@@ -31,7 +31,8 @@ endpoints, an MCP contract server skeleton, a connector auth/readiness registry,
 policy-checked tool authorization boundary. The first read-only GitHub App adapter is in place
 for issue and file reads through a stored authorized tool call, and the Engineering Issue-to-PR
 LangGraph module now orchestrates those read-only nodes through a controlled run-scoped
-evidence collection route.
+evidence collection route. Captured-real-run replay schema and loading are wired for the same
+route without committing fabricated replay payloads.
 
 Current production web deployment:
 
@@ -354,6 +355,9 @@ Completed artifacts:
   the implemented read-only graph stage only after a stored live workflow run exists.
 - Evidence metadata persistence for GitHub issue and code-file sources through
   `evidence_records`, with hashes and source URIs rather than full code content in metadata.
+- Captured-real-run replay fixture schema and loader under
+  `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/replay.py`.
+- Replay fixture directory contract under `configs/replays/engineering_issue_to_pr/`.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -396,8 +400,8 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add captured real-run replay schema for GitHub issue/file evidence.
-2. Add replay loader for `POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence`.
+1. Add PR planning and evaluator nodes that consume collected GitHub evidence.
+2. Add a proposal artifact schema for patch plans and test plans.
 3. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
 
@@ -551,5 +555,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding captured real-run replay fixtures for the Engineering Issue-to-PR evidence
-stage and wiring replay mode into the run-scoped route.
+Continue by adding PR planning and evaluator nodes that consume the collected GitHub evidence
+without enabling branch or pull-request writes.

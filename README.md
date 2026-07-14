@@ -52,6 +52,8 @@ This repository currently defines:
   `POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence`, gated by a stored live
   workflow run, typed input, tool policy authorization, GitHub adapter execution, persisted
   evidence metadata, and audit events.
+- Captured-real-run replay fixture schema and loader for the same Engineering evidence route.
+  The repo documents fixture placement but does not ship fabricated replay payloads.
 
 ## Core Principle
 
@@ -147,8 +149,7 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding captured real-run replay fixtures for the Engineering
-   Issue-to-PR evidence stage.
+3. Continue Phase 6 by adding PR planning/evaluator nodes on top of collected GitHub evidence.
 
 ## Local Development Target
 

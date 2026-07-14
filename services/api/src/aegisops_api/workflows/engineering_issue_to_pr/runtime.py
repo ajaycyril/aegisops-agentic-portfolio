@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
+from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -24,6 +25,7 @@ from aegisops_api.workflows.engineering_issue_to_pr.graph import (
     as_issue_to_pr_state,
     create_engineering_issue_to_pr_graph,
 )
+from aegisops_api.workflows.engineering_issue_to_pr.replay import load_issue_to_pr_replay_fixture
 from aegisops_api.workflows.registry import WorkflowRegistry
 
 IssueToPrRunStage = Literal["issue_context_collected"]
@@ -91,6 +93,7 @@ async def collect_engineering_issue_context(
     adapter_registry: ToolAdapterRegistry,
     available_connectors: set[str],
     tool_runtime: IssueToPrToolRuntime | None = None,
+    replay_fixture_dir: Path | None = None,
 ) -> IssueToPrRunResponse:
     run = session.get(WorkflowRun, run_id)
     if run is None:
@@ -101,19 +104,43 @@ async def collect_engineering_issue_context(
         )
     ensure_run_can_collect_issue_context(run)
 
-    graph_input = build_graph_input_from_run(run, request)
-    runtime = tool_runtime or PolicyBackedIssueToPrToolRuntime(
-        workflow_registry=workflow_registry,
-        tool_registry=tool_registry,
-        session=session,
-        policy_evaluator=policy_evaluator,
-        adapter_registry=adapter_registry,
-        available_connectors=available_connectors,
-    )
-    graph = create_engineering_issue_to_pr_graph(IssueToPrGraphDependencies(tool_runtime=runtime))
-
     try:
         run.status = "running"
+        graph_state: IssueToPrState | None = None
+        graph_input: IssueToPrGraphInput | None = None
+        graph: Any | None = None
+        if run.execution_mode == "replay":
+            ensure_replay_request_does_not_override_fixture(request)
+            graph_state = load_replay_graph_state(run, request, replay_fixture_dir)
+            start_payload = {
+                "stage": "issue_context_collection",
+                "execution_mode": "replay",
+                "replay_source_run_id": get_replay_source_run_id(run),
+                "repository": graph_state["repository"],
+                "issue_number": graph_state["issue_number"],
+                "context_path_count": len(graph_state.get("context_paths", [])),
+            }
+        else:
+            graph_input = build_graph_input_from_run(run, request)
+            start_payload = {
+                "stage": "issue_context_collection",
+                "execution_mode": "live",
+                "repository": graph_input.repository,
+                "issue_number": graph_input.issue_number,
+                "context_path_count": len(graph_input.context_paths),
+            }
+            runtime = tool_runtime or PolicyBackedIssueToPrToolRuntime(
+                workflow_registry=workflow_registry,
+                tool_registry=tool_registry,
+                session=session,
+                policy_evaluator=policy_evaluator,
+                adapter_registry=adapter_registry,
+                available_connectors=available_connectors,
+            )
+            graph = create_engineering_issue_to_pr_graph(
+                IssueToPrGraphDependencies(tool_runtime=runtime)
+            )
+
         write_audit_event(
             session,
             AuditEventInput(
@@ -126,16 +153,17 @@ async def collect_engineering_issue_context(
                 resource_type="workflow_run",
                 resource_id=str(run.id),
                 trace_id=request.trace_id,
-                payload={
-                    "stage": "issue_context_collection",
-                    "repository": graph_input.repository,
-                    "issue_number": graph_input.issue_number,
-                    "context_path_count": len(graph_input.context_paths),
-                },
+                payload=start_payload,
             ),
         )
         session.flush()
-        graph_state = as_issue_to_pr_state(await graph.ainvoke(graph_input.to_initial_state()))
+        if graph_state is None:
+            if graph is None or graph_input is None:
+                raise IssueToPrRunRejectedError(
+                    reason_code="workflow_graph_not_initialized",
+                    message="Workflow graph was not initialized.",
+                )
+            graph_state = as_issue_to_pr_state(await graph.ainvoke(graph_input.to_initial_state()))
         evidence_records = persist_graph_evidence(session, run, graph_state)
         policy_decision_ids = collect_tool_policy_decision_ids(graph_state)
         write_audit_event(
@@ -217,12 +245,17 @@ def ensure_run_can_collect_issue_context(run: WorkflowRun) -> None:
             message=f"Workflow run status is {run.status}.",
         )
     if run.execution_mode != "live":
+        if run.execution_mode == "replay":
+            if get_replay_source_run_id(run) is None:
+                raise IssueToPrRunRejectedError(
+                    reason_code="replay_source_required",
+                    message="Replay mode requires replay_source_run_id from a captured real run.",
+                    http_status=422,
+                )
+            return
         raise IssueToPrRunRejectedError(
-            reason_code="replay_execution_not_implemented",
-            message=(
-                "Live evidence collection requires a live workflow run. "
-                "Replay fixtures are next."
-            ),
+            reason_code="execution_mode_not_supported",
+            message=f"Workflow run execution mode is {run.execution_mode}.",
         )
 
 
@@ -262,6 +295,50 @@ def build_graph_input_from_run(
         actor_id=request.actor_id or string_or_none(payload.get("actor_id")),
         trace_id=request.trace_id or string_or_none(payload.get("trace_id")),
     )
+
+
+def load_replay_graph_state(
+    run: WorkflowRun,
+    request: IssueToPrRunRequest,
+    replay_fixture_dir: Path | None,
+) -> IssueToPrState:
+    source_run_id = get_replay_source_run_id(run)
+    if source_run_id is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="replay_source_required",
+            message="Replay mode requires replay_source_run_id from a captured real run.",
+            http_status=422,
+        )
+    fixture = load_issue_to_pr_replay_fixture(source_run_id, replay_fixture_dir)
+    return fixture.to_graph_state(
+        run_id=run.id,
+        autonomy_level=cast(Any, run.autonomy_level),
+        actor_id=request.actor_id,
+        trace_id=request.trace_id,
+    )
+
+
+def get_replay_source_run_id(run: WorkflowRun) -> str | None:
+    payload = run.input_payload or {}
+    return string_or_none(payload.get("replay_source_run_id"))
+
+
+def ensure_replay_request_does_not_override_fixture(request: IssueToPrRunRequest) -> None:
+    if any(
+        value is not None
+        for value in (
+            request.repository,
+            request.issue_number,
+            request.issue_url,
+            request.ref,
+            request.context_paths,
+        )
+    ):
+        raise IssueToPrRunRejectedError(
+            reason_code="replay_input_override_not_allowed",
+            message="Replay evidence collection must use the captured replay fixture inputs.",
+            http_status=422,
+        )
 
 
 def parse_github_issue_url(issue_url: str) -> tuple[str, int]:

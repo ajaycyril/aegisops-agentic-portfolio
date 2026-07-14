@@ -160,9 +160,13 @@ The first live adapter is read-only GitHub App REST access for:
 - `github_file_read`
 
 The Engineering Issue-to-PR graph can be invoked through the run-scoped evidence route only
-after a stored live workflow run exists. It collects GitHub issue/file evidence, persists
-evidence records with hashes/source URIs, and leaves the run in `running` status because PR
-planning and write actions are not implemented yet.
+after a stored workflow run exists. Live mode collects GitHub issue/file evidence through the
+read-only GitHub adapter. Replay mode loads a captured real-run fixture by
+`replay_source_run_id`, persists the same evidence metadata, and never calls GitHub.
+
+Replay fixtures resolve from `configs/replays/engineering_issue_to_pr/` by default, or from
+`REPLAY_FIXTURE_DIR` when set. Do not add invented fixture data; fixtures must declare
+`provenance: captured_real_run`.
 
 `github_pull_request_draft` remains contract-only until the approval UI and write-action
 review path are wired.
