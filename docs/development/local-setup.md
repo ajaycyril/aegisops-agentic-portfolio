@@ -109,6 +109,11 @@ Workflow registry endpoints:
 - `GET http://localhost:8000/workflows/{workflow_id}`
 - `POST http://localhost:8000/workflow-runs`
 
+Tool registry endpoints:
+
+- `GET http://localhost:8000/tools`
+- `GET http://localhost:8000/tools/{tool_id}`
+
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
 `github,observability`.

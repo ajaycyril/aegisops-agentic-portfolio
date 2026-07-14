@@ -1,0 +1,49 @@
+id: github_pull_request_draft
+name: GitHub Pull Request Draft
+description: Create or update a pull request draft after policy and human approval.
+connector: github
+mcp_server: aegisops.github
+status: contract_ready
+risk_class: write
+required_scopes:
+  - pull_requests:write
+allowed_workflows:
+  - engineering_issue_to_pr
+  - security_vulnerability_remediation
+approval_required: true
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - repository
+    - title
+    - body
+    - head_branch
+    - base_branch
+  properties:
+    repository:
+      type: string
+    title:
+      type: string
+    body:
+      type: string
+    head_branch:
+      type: string
+    base_branch:
+      type: string
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - pull_request_url
+    - number
+    - draft
+  properties:
+    pull_request_url:
+      type: string
+      format: uri
+    number:
+      type: integer
+      minimum: 1
+    draft:
+      type: boolean

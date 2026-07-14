@@ -1,0 +1,54 @@
+id: observability_log_search
+name: Observability Log Search
+description: Search configured logs and traces for incident investigation and operational analytics.
+connector: observability
+mcp_server: aegisops.observability
+status: contract_ready
+risk_class: read
+required_scopes:
+  - logs:read
+  - traces:read
+allowed_workflows:
+  - incident_response_investigator
+  - data_bi_executive_analyst
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - service
+    - time_window
+  properties:
+    service:
+      type: string
+    time_window:
+      type: object
+      additionalProperties: false
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+    severity:
+      type: string
+      enum:
+        - debug
+        - info
+        - warning
+        - error
+        - critical
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - events
+  properties:
+    events:
+      type: array
+      items:
+        type: object
+        additionalProperties: true

@@ -10,6 +10,8 @@ from aegisops_api.config import Settings, get_settings
 from aegisops_api.db.session import get_session
 from aegisops_api.logging import configure_logging
 from aegisops_api.policy import OpaClient, PolicyEvaluationError
+from aegisops_api.tools import ToolDetail, ToolNotFoundError, ToolSummary
+from aegisops_api.tools.registry import get_tool_registry
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
 from aegisops_api.workflows.runs import (
@@ -91,6 +93,24 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         )
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail="workflow not found") from exc
+
+
+@app.get("/tools", response_model=list[ToolSummary], tags=["tools"])
+async def list_tools() -> list[ToolSummary]:
+    registry = get_tool_registry()
+    return registry.list_tools(available_connectors=get_available_connectors())
+
+
+@app.get("/tools/{tool_id}", response_model=ToolDetail, tags=["tools"])
+async def get_tool(tool_id: str) -> ToolDetail:
+    registry = get_tool_registry()
+    try:
+        return registry.get_tool(
+            tool_id,
+            available_connectors=get_available_connectors(),
+        )
+    except ToolNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="tool not found") from exc
 
 
 @app.post(

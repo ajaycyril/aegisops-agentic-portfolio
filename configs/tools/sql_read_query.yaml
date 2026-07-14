@@ -1,0 +1,42 @@
+id: sql_read_query
+name: Approved SQL Read Query
+description: Execute an approved read-only SQL query against a configured analytics database.
+connector: postgres
+mcp_server: aegisops.sql
+status: contract_ready
+risk_class: read
+required_scopes:
+  - analytics:read
+allowed_workflows:
+  - data_bi_executive_analyst
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - query_id
+    - parameters
+  properties:
+    query_id:
+      type: string
+      description: Identifier for a pre-approved SQL template.
+    parameters:
+      type: object
+      additionalProperties: true
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - columns
+    - rows
+    - source
+  properties:
+    columns:
+      type: array
+      items:
+        type: string
+    rows:
+      type: array
+      items:
+        type: object
+    source:
+      type: string

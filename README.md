@@ -35,6 +35,8 @@ This repository currently defines:
 - Registry-aware visual command center with portfolio selection, execution segmentation,
   React Flow graph, evidence board, policy lens, trace timeline, code lens, and safe disabled
   run-start controls.
+- Typed tool contract registry with GitHub, SQL read, document retrieval, and observability
+  tool definitions exposed through read-only API endpoints.
 
 ## Core Principle
 
@@ -76,6 +78,7 @@ only for captured real runs and must be labeled as replay.
 │   └── shared-contracts/     # Shared TypeScript contracts and generated schemas
 ├── configs/
 │   ├── policies/             # Policy routing and approval metadata
+│   ├── tools/                # Typed tool contract definitions
 │   └── workflows/            # Workflow registry definitions
 ├── docs/
 │   ├── architecture/          # System design and stack decisions
@@ -128,8 +131,7 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Start Phase 5 with typed tool contracts, MCP server skeleton, and the tool registry
-   endpoint.
+3. Continue Phase 5 with the MCP server skeleton and policy-checked tool execution boundary.
 
 ## Local Development Target
 

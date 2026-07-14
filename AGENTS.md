@@ -95,5 +95,5 @@ latency, memory access, evidence sources, and approval status when applicable.
 The repository has completed the architecture baseline, foundation runtime, governance/data
 layer, workflow registry/run-start gate, and visual command center shell.
 
-Next major milestone: implement the typed tool and connector substrate. See `PROJECT_PLAN.md`,
-Phase 5.
+Next major milestone: continue the typed tool and connector substrate with the MCP server
+skeleton and policy-checked tool execution boundary. See `PROJECT_PLAN.md`, Phase 5.

@@ -26,7 +26,8 @@ The repo has architecture docs, dependency manifests, workflow registry configs,
 scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
 database migrations, governance tables, OPA policy scaffolding, an audit writer, typed
 workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
-visual command center.
+visual command center. Phase 5 has started with typed tool contracts and read-only tool
+registry endpoints.
 
 Current production web deployment:
 
@@ -41,7 +42,7 @@ Current production web deployment:
 | 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
 | 3 | Workflow registry and run lifecycle | Implemented, live infra verification pending | Config-driven workflow catalog and run API |
 | 4 | Visual command center shell | Implemented | Portfolio UI, graph canvas, trace/evidence placeholders |
-| 5 | Tool and connector substrate | Not started | MCP tool contracts, GitHub connector foundation |
+| 5 | Tool and connector substrate | In progress | MCP tool contracts, GitHub connector foundation |
 | 6 | Engineering Issue-to-PR workflow | Not started | First real production workflow |
 | 7 | Incident Investigator workflow | Not started | Real observability/deployment investigation workflow |
 | 8 | Customer Support Escalation workflow | Not started | Real support/KB/CRM workflow path |
@@ -258,8 +259,7 @@ the OPA CLI are not installed in the current environment.
 Current next task:
 
 1. Run live Phase 2/3 infrastructure verification on a machine with Docker.
-2. Start Phase 5 with typed tool contract Pydantic models, MCP server skeleton, and tool
-   registry endpoint.
+2. Continue Phase 5 with the MCP server skeleton and policy-checked tool execution boundary.
 
 ## Phase 4: Visual Command Center Shell
 
@@ -317,18 +317,34 @@ and all six React Flow nodes rendered.
 
 ## Phase 5: Tool and Connector Substrate
 
+Status: In progress.
+
+Completed artifacts:
+
+- Tool contract YAML configs under `configs/tools/`.
+- Pydantic tool registry models under `services/api/src/aegisops_api/tools/`.
+- Risk classes: read, draft, write, external_message, financial, access_change.
+- Read-only `GET /tools` and `GET /tools/{tool_id}` endpoints.
+- GitHub issue/file/PR draft tool contracts.
+- Approved SQL read-only query tool contract.
+- Document retrieval tool contract.
+- Observability log search tool contract.
+- Validation that write-class tools require approval by default.
+
 Goal: Add typed tool infrastructure before workflow-specific tool usage.
 
 Tasks:
 
-1. Define tool contract Pydantic models.
-2. Define tool risk classes: read, draft, write, external_message, financial, access_change.
+1. Done: define tool contract Pydantic models.
+2. Done: define tool risk classes: read, draft, write, external_message, financial,
+   access_change.
 3. Add MCP server skeleton.
-4. Add tool registry endpoint.
-5. Add GitHub connector config and auth placeholder.
-6. Add approved SQL read-only tool contract.
-7. Add document retrieval tool contract.
-8. Add observability/log retrieval tool contract.
+4. Done: add tool registry endpoint.
+5. In progress: add GitHub connector config and auth placeholder. Tool contracts and required
+   scopes exist; connector auth registry is still pending.
+6. Done: add approved SQL read-only tool contract.
+7. Done: add document retrieval tool contract.
+8. Done: add observability/log retrieval tool contract.
 9. Add per-tool OPA authorization before execution.
 
 Acceptance criteria:
@@ -337,6 +353,14 @@ Acceptance criteria:
 - Every tool has required auth scopes.
 - Every tool call produces an audit event.
 - Write-class tools require approval by default.
+
+Validated in current environment:
+
+```bash
+services/api/.venv/bin/pytest services/api/tests/test_tool_registry.py services/api/tests/test_health.py
+services/api/.venv/bin/ruff check services/api
+cd services/api && .venv/bin/mypy .
+```
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 

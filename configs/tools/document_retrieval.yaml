@@ -1,0 +1,55 @@
+id: document_retrieval
+name: Document Retrieval
+description: Retrieve source documents with metadata for grounded drafting and evidence collection.
+connector: document_store
+mcp_server: aegisops.documents
+status: contract_ready
+risk_class: read
+required_scopes:
+  - documents:read
+allowed_workflows:
+  - customer_support_escalation
+  - finance_invoice_exception
+  - sales_rfp_agent
+  - compliance_audit_evidence
+  - hr_it_onboarding
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - query
+    - collection
+  properties:
+    query:
+      type: string
+    collection:
+      type: string
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 20
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - documents
+  properties:
+    documents:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - title
+          - excerpt
+          - source_uri
+        properties:
+          id:
+            type: string
+          title:
+            type: string
+          excerpt:
+            type: string
+          source_uri:
+            type: string
