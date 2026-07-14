@@ -84,6 +84,10 @@ Open:
 If the API is running and `NEXT_PUBLIC_API_BASE_URL` is set, the web app shows backend runtime
 status. If not, it shows that the API is not configured for the deployment.
 
+The Phase 1 web shell uses Framer Motion for command-center motion and Recharts for telemetry
+visuals. Keep future UI work inside the operational cockpit pattern rather than turning the
+homepage into a marketing page.
+
 ## Validation
 
 ```bash

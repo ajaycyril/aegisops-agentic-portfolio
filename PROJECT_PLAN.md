@@ -80,6 +80,7 @@ Completed in current phase:
 - `/health`, `/ready`, and `/version` endpoints.
 - Structured logging setup.
 - Minimal Next.js visual command-center shell under `apps/web`.
+- Animated visual command-center UI using Framer Motion and Recharts.
 - API health endpoint tests.
 - Vercel production deployment for the visual shell.
 - Basic API status wiring from the web app to `NEXT_PUBLIC_API_BASE_URL`.
