@@ -38,8 +38,11 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     IssueToPrRunResponse,
+    OpenAIIssueToPrPlanner,
+    OpenAIPlannerConfig,
     collect_engineering_issue_context,
 )
+from aegisops_api.workflows.engineering_issue_to_pr.graph import IssueToPrPlanner
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
 from aegisops_api.workflows.runs import (
@@ -98,6 +101,24 @@ async def get_tool_policy_evaluator(
 
 def get_tool_adapter_registry() -> ToolAdapterRegistry:
     return create_default_tool_adapter_registry()
+
+
+def build_engineering_issue_to_pr_planner(
+    settings: Settings,
+    session: Session,
+    run_id: UUID,
+    trace_id: str | None,
+) -> IssueToPrPlanner | None:
+    model = settings.openai_reasoning_model or settings.openai_default_model
+    if settings.openai_api_key is None or model is None:
+        return None
+    return OpenAIIssueToPrPlanner.from_api_key(
+        api_key=settings.openai_api_key,
+        session=session,
+        run_id=run_id,
+        config=OpenAIPlannerConfig(model=model),
+        trace_id=trace_id,
+    )
 
 
 @app.get("/health", tags=["system"])
@@ -286,8 +307,17 @@ async def collect_engineering_issue_to_pr_evidence(
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
     adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+    settings: SettingsDependency,
 ) -> IssueToPrRunResponse:
     try:
+        planner = None
+        if request.include_proposal:
+            planner = build_engineering_issue_to_pr_planner(
+                settings=settings,
+                session=session,
+                run_id=run_id,
+                trace_id=request.trace_id,
+            )
         return await collect_engineering_issue_context(
             run_id=run_id,
             request=request,
@@ -297,6 +327,7 @@ async def collect_engineering_issue_to_pr_evidence(
             policy_evaluator=policy_evaluator,
             adapter_registry=adapter_registry,
             available_connectors=get_available_connectors(),
+            planner=planner,
         )
     except IssueToPrRunRejectedError as exc:
         raise HTTPException(

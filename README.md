@@ -60,6 +60,9 @@ This repository currently defines:
 - OpenAI Responses API planner adapter for those proposal/evaluator contracts, with
   `model_calls` audit records for model, prompt version, token counts, latency, trace ID, and
   failure status.
+- `include_proposal=true` support on the Engineering evidence route when `OPENAI_API_KEY` and
+  an explicit OpenAI model are configured. Proposal/evaluation output remains non-writing and
+  approval-required.
 
 ## Core Principle
 
@@ -155,8 +158,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by wiring the model-backed planner into the run-scoped evidence route
-   behind explicit configuration.
+3. Continue Phase 6 by surfacing proposal/evaluation output in the visual command center and
+   adding the approval-review path before any branch or PR write adapter.
 
 ## Local Development Target
 

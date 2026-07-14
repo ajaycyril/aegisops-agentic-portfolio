@@ -23,8 +23,9 @@ It is exposed through a controlled run-scoped evidence collection route that req
 workflow run. Live mode uses read-only GitHub tools; replay mode requires a captured real-run
 fixture. Optional planner/evaluator nodes can produce typed patch-plan and test-plan artifacts
 when a real planner implementation is injected. The OpenAI Responses API planner adapter
-records `model_calls` but is not yet wired into the run route. The YAML files under
-`configs/workflows` remain the portfolio registry.
+records `model_calls` and is available from the run route with `include_proposal=true` when
+OpenAI credentials and a model are configured. The YAML files under `configs/workflows` remain
+the portfolio registry.
 
 ## Workflow Contract
 

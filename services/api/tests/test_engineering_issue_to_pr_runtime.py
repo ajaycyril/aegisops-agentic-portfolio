@@ -25,6 +25,11 @@ from aegisops_api.tools import (
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.execution import ToolPolicyDecisionSummary
 from aegisops_api.tools.registry import ToolRegistry
+from aegisops_api.workflows.engineering_issue_to_pr.graph import (
+    IssueToPrEvaluation,
+    IssueToPrProposal,
+    IssueToPrState,
+)
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
     IssueToPrRunRejectedError,
@@ -104,6 +109,31 @@ class FakeIssueToPrToolRuntime:
             output_hash="hash",
             output_payload=output_payload,
             latency_ms=8,
+        )
+
+
+class FakeIssueToPrPlanner:
+    async def create_patch_plan(self, state: IssueToPrState) -> IssueToPrProposal:
+        return IssueToPrProposal(
+            summary="Plan from captured evidence.",
+            problem_statement=str(state["issue"]["title"]),
+            source_evidence_uris=[item["source_uri"] for item in state["evidence"]],
+            planned_changes=[],
+            test_plan=[],
+            risk_notes=["No write action is enabled."],
+        )
+
+    async def evaluate_patch_plan(
+        self,
+        _state: IssueToPrState,
+        proposal: IssueToPrProposal,
+    ) -> IssueToPrEvaluation:
+        return IssueToPrEvaluation(
+            grounded=bool(proposal.source_evidence_uris),
+            requires_more_context=True,
+            risk_level="medium",
+            findings=["Proposal is grounded but needs implementation context."],
+            blocking_issues=[],
         )
 
 
@@ -208,6 +238,56 @@ async def test_collect_engineering_issue_context_uses_captured_replay_fixture(
     assert response.policy_decision_ids == ["captured-policy-decision"]
     assert len(response.evidence_records) == 2
     assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_engineering_issue_context_can_include_proposal_with_planner(
+    tmp_path: Path,
+) -> None:
+    run = create_live_engineering_run()
+    run.execution_mode = "replay"
+    run.input_payload = {"replay_source_run_id": "captured-real-run-001"}
+    session = RuntimeSession({run.id: run})
+    write_replay_fixture(tmp_path, "captured-real-run-001")
+
+    response = await collect_engineering_issue_context(
+        run_id=run.id,
+        request=IssueToPrRunRequest(include_proposal=True),
+        session=cast(Session, session),
+        workflow_registry=cast(WorkflowRegistry, object()),
+        tool_registry=cast(ToolRegistry, object()),
+        policy_evaluator=FakeToolPolicyEvaluator(),
+        adapter_registry=ToolAdapterRegistry({}),
+        available_connectors={"github"},
+        replay_fixture_dir=tmp_path,
+        planner=FakeIssueToPrPlanner(),
+    )
+
+    assert response.proposal is not None
+    assert response.proposal["write_actions_enabled"] is False
+    assert response.evaluation is not None
+    assert response.evaluation["grounded"] is True
+
+
+@pytest.mark.asyncio
+async def test_collect_engineering_issue_context_rejects_proposal_without_planner() -> None:
+    run = create_live_engineering_run()
+    session = RuntimeSession({run.id: run})
+
+    with pytest.raises(IssueToPrRunRejectedError, match="Proposal generation requires"):
+        await collect_engineering_issue_context(
+            run_id=run.id,
+            request=IssueToPrRunRequest(include_proposal=True),
+            session=cast(Session, session),
+            workflow_registry=cast(WorkflowRegistry, object()),
+            tool_registry=cast(ToolRegistry, object()),
+            policy_evaluator=FakeToolPolicyEvaluator(),
+            adapter_registry=ToolAdapterRegistry({}),
+            available_connectors={"github"},
+            tool_runtime=FakeIssueToPrToolRuntime(),
+        )
+
+    assert session.commit_count == 0
 
 
 @pytest.mark.asyncio

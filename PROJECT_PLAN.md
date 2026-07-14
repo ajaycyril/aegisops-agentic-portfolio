@@ -34,8 +34,9 @@ LangGraph module now orchestrates those read-only nodes through a controlled run
 evidence collection route. Captured-real-run replay schema and loading are wired for the same
 route without committing fabricated replay payloads. Optional proposal and evaluator graph
 nodes now exist with typed patch-plan, test-plan, and evaluation contracts, but no write
-actions are enabled. A model-backed OpenAI Responses API planner adapter now exists and records
-`model_calls`, but it is not yet wired into the public run route.
+actions are enabled. A model-backed OpenAI Responses API planner adapter now records
+`model_calls` and can be invoked from the run-scoped Engineering route with
+`include_proposal=true` when OpenAI credentials and an explicit model are configured.
 
 Current production web deployment:
 
@@ -366,6 +367,8 @@ Completed artifacts:
 - OpenAI Responses API planner adapter for patch planning and plan evaluation.
 - `model_calls` audit persistence for planner/evaluator model calls, including prompt version,
   token counts, latency, trace ID, status, and request/response metadata.
+- `include_proposal=true` request support for the Engineering route, gated by explicit OpenAI
+  configuration. Proposal and evaluation outputs are returned but do not enable write actions.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -408,9 +411,8 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Wire the model-backed planner into the run-scoped Engineering route behind explicit
-   configuration.
-2. Add UI/API response fields for proposal and evaluation summaries.
+1. Surface proposal and evaluation summaries in the visual command center.
+2. Add approval-review records and UI state for proposed branch/PR actions.
 3. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
 
@@ -564,5 +566,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by wiring the model-backed planner into the run-scoped Engineering route behind
-explicit configuration. Do not enable branch or pull-request writes.
+Continue by surfacing proposal/evaluation output in the visual command center and adding the
+approval-review path. Do not enable branch or pull-request writes.

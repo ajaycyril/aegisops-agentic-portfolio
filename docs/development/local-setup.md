@@ -168,6 +168,12 @@ Replay fixtures resolve from `configs/replays/engineering_issue_to_pr/` by defau
 `REPLAY_FIXTURE_DIR` when set. Do not add invented fixture data; fixtures must declare
 `provenance: captured_real_run`.
 
+Set `include_proposal=true` on the evidence route to run the OpenAI-backed proposal/evaluator
+planner. This requires `OPENAI_API_KEY` plus `OPENAI_REASONING_MODEL` or
+`OPENAI_DEFAULT_MODEL`. The planner writes `model_calls` audit records and returns typed
+proposal/evaluation payloads; it does not create branches, commits, comments, or pull
+requests.
+
 `github_pull_request_draft` remains contract-only until the approval UI and write-action
 review path are wired.
 

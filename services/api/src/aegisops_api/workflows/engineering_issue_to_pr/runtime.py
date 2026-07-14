@@ -19,6 +19,7 @@ from aegisops_api.workflows.engineering_issue_to_pr.graph import (
     ENGINEERING_WORKFLOW_ID,
     IssueToPrGraphDependencies,
     IssueToPrGraphInput,
+    IssueToPrPlanner,
     IssueToPrState,
     IssueToPrToolRuntime,
     PolicyBackedIssueToPrToolRuntime,
@@ -49,6 +50,7 @@ class IssueToPrRunRequest(BaseModel):
     context_paths: list[str] | None = Field(default=None, max_length=10)
     actor_id: str | None = None
     trace_id: str | None = None
+    include_proposal: bool = False
 
     @model_validator(mode="after")
     def validate_issue_locator(self) -> IssueToPrRunRequest:
@@ -81,6 +83,8 @@ class IssueToPrRunResponse(BaseModel):
     tool_call_ids: list[str]
     evidence_records: list[EvidenceRecordSummary]
     policy_decision_ids: list[str]
+    proposal: dict[str, Any] | None = None
+    evaluation: dict[str, Any] | None = None
 
 
 async def collect_engineering_issue_context(
@@ -93,6 +97,7 @@ async def collect_engineering_issue_context(
     adapter_registry: ToolAdapterRegistry,
     available_connectors: set[str],
     tool_runtime: IssueToPrToolRuntime | None = None,
+    planner: IssueToPrPlanner | None = None,
     replay_fixture_dir: Path | None = None,
 ) -> IssueToPrRunResponse:
     run = session.get(WorkflowRun, run_id)
@@ -103,6 +108,15 @@ async def collect_engineering_issue_context(
             http_status=404,
         )
     ensure_run_can_collect_issue_context(run)
+    if request.include_proposal and planner is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="planner_not_configured",
+            message=(
+                "Proposal generation requires OPENAI_API_KEY and an explicit OpenAI model "
+                "configuration."
+            ),
+            http_status=503,
+        )
 
     try:
         run.status = "running"
@@ -138,7 +152,10 @@ async def collect_engineering_issue_context(
                 available_connectors=available_connectors,
             )
             graph = create_engineering_issue_to_pr_graph(
-                IssueToPrGraphDependencies(tool_runtime=runtime)
+                IssueToPrGraphDependencies(
+                    tool_runtime=runtime,
+                    planner=planner if request.include_proposal else None,
+                )
             )
 
         write_audit_event(
@@ -164,6 +181,8 @@ async def collect_engineering_issue_context(
                     message="Workflow graph was not initialized.",
                 )
             graph_state = as_issue_to_pr_state(await graph.ainvoke(graph_input.to_initial_state()))
+        elif request.include_proposal and planner is not None:
+            graph_state = await add_planner_outputs_to_graph_state(planner, graph_state)
         evidence_records = persist_graph_evidence(session, run, graph_state)
         policy_decision_ids = collect_tool_policy_decision_ids(graph_state)
         write_audit_event(
@@ -183,6 +202,8 @@ async def collect_engineering_issue_context(
                     "evidence_count": len(evidence_records),
                     "tool_call_count": len(graph_state.get("tool_call_ids", [])),
                     "policy_decision_ids": policy_decision_ids,
+                    "proposal_generated": "proposal" in graph_state,
+                    "evaluation_generated": "evaluation" in graph_state,
                 },
             ),
         )
@@ -230,6 +251,8 @@ async def collect_engineering_issue_context(
             for record in evidence_records
         ],
         policy_decision_ids=policy_decision_ids,
+        proposal=graph_state.get("proposal"),
+        evaluation=graph_state.get("evaluation"),
     )
 
 
@@ -316,6 +339,44 @@ def load_replay_graph_state(
         actor_id=request.actor_id,
         trace_id=request.trace_id,
     )
+
+
+async def add_planner_outputs_to_graph_state(
+    planner: IssueToPrPlanner,
+    graph_state: IssueToPrState,
+) -> IssueToPrState:
+    if not graph_state.get("evidence"):
+        graph_state["evidence"] = build_evidence_from_state(graph_state)
+    proposal = await planner.create_patch_plan(graph_state)
+    graph_state["proposal"] = proposal.model_dump(mode="json")
+    evaluation = await planner.evaluate_patch_plan(graph_state, proposal)
+    graph_state["evaluation"] = evaluation.model_dump(mode="json")
+    return graph_state
+
+
+def build_evidence_from_state(graph_state: IssueToPrState) -> list[dict[str, Any]]:
+    issue = graph_state["issue"]
+    evidence: list[dict[str, Any]] = [
+        {
+            "kind": "github_issue",
+            "title": issue["title"],
+            "source_uri": issue["url"],
+        }
+    ]
+    for file_payload in graph_state.get("context_files", []):
+        evidence.append(
+            {
+                "kind": "github_file",
+                "title": file_payload["path"],
+                "source_uri": build_github_blob_uri(
+                    repository=graph_state["repository"],
+                    ref=file_payload["ref"],
+                    path=file_payload["path"],
+                ),
+                "sha": file_payload["sha"],
+            }
+        )
+    return evidence
 
 
 def get_replay_source_run_id(run: WorkflowRun) -> str | None:
