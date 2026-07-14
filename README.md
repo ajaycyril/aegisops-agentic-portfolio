@@ -46,6 +46,8 @@ This repository currently defines:
   output hash, and audit events.
 - Read-only GitHub App adapter for real issue and file reads through installation-token REST
   calls. Write adapters remain intentionally unavailable.
+- Engineering Issue-to-PR LangGraph module with typed input, issue read node, context file read
+  node, evidence assembly node, and policy-backed tool runtime integration.
 
 ## Core Principle
 
@@ -141,8 +143,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 5 by wiring the first LangGraph Engineering Issue-to-PR nodes to the
-   read-only GitHub adapter and keeping write actions behind approval.
+3. Continue Phase 6 by exposing the Engineering Issue-to-PR graph through a controlled runtime
+   path and adding captured real-run replay fixtures.
 
 ## Local Development Target
 

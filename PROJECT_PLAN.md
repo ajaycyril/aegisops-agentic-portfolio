@@ -28,8 +28,9 @@ database migrations, governance tables, OPA policy scaffolding, an audit writer,
 workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
 visual command center. Phase 5 has started with typed tool contracts, read-only tool registry
 endpoints, an MCP contract server skeleton, a connector auth/readiness registry, and a
-policy-checked tool authorization boundary. The first read-only GitHub App adapter is now in
-place for issue and file reads through a stored authorized tool call.
+policy-checked tool authorization boundary. The first read-only GitHub App adapter is in place
+for issue and file reads through a stored authorized tool call, and the Engineering Issue-to-PR
+LangGraph module now orchestrates those read-only nodes.
 
 Current production web deployment:
 
@@ -344,6 +345,10 @@ Completed artifacts:
 - Tool execution updates durable status, output hash, latency, completion timestamp, and audit
   events. Response payload returns the live tool output, while persistence stores hashes and
   metadata rather than full retrieved content.
+- Engineering Issue-to-PR LangGraph module under
+  `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
+- Typed graph input contract, read issue node, read context files node, evidence assembly node,
+  and policy-backed tool runtime adapter.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -384,10 +389,10 @@ services/api/.venv/bin/ruff check services/api
 cd services/api && .venv/bin/mypy .
 ```
 
-Next Phase 5 slice:
+Next slice:
 
-1. Add Engineering Issue-to-PR LangGraph state and first read-only nodes that call
-   authorization plus `POST /tool-calls/{tool_call_id}/execute`.
+1. Add a controlled API/runtime path for invoking the Engineering Issue-to-PR graph after a run
+   has passed `POST /workflow-runs`.
 2. Add captured real-run replay schema for GitHub issue/file evidence.
 3. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
@@ -527,5 +532,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue Phase 5 by wiring the read-only GitHub adapter into the Engineering Issue-to-PR
-LangGraph state and graph nodes.
+Continue by exposing the Engineering Issue-to-PR LangGraph module through the run lifecycle and
+adding captured real-run replay fixtures.

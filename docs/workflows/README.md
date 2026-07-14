@@ -16,8 +16,10 @@ workflows/<workflow_id>/
 └── tests/                # Graph, policy, and tool-contract tests
 ```
 
-The actual workflow folders will be created when implementation starts. The current YAML files
-under `configs/workflows` define the portfolio registry.
+Implementation has started with
+`services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`. The current module contains
+the first typed LangGraph state/input contract and read-only GitHub issue/file evidence nodes.
+The YAML files under `configs/workflows` remain the portfolio registry.
 
 ## Workflow Contract
 
