@@ -19,7 +19,8 @@ workflows/<workflow_id>/
 Implementation has started with
 `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`. The current module contains
 the first typed LangGraph state/input contract and read-only GitHub issue/file evidence nodes.
-The YAML files under `configs/workflows` remain the portfolio registry.
+It is exposed through a controlled run-scoped evidence collection route that requires a stored
+live workflow run. The YAML files under `configs/workflows` remain the portfolio registry.
 
 ## Workflow Contract
 

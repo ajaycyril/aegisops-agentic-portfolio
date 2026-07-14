@@ -30,7 +30,8 @@ visual command center. Phase 5 has started with typed tool contracts, read-only 
 endpoints, an MCP contract server skeleton, a connector auth/readiness registry, and a
 policy-checked tool authorization boundary. The first read-only GitHub App adapter is in place
 for issue and file reads through a stored authorized tool call, and the Engineering Issue-to-PR
-LangGraph module now orchestrates those read-only nodes.
+LangGraph module now orchestrates those read-only nodes through a controlled run-scoped
+evidence collection route.
 
 Current production web deployment:
 
@@ -46,7 +47,7 @@ Current production web deployment:
 | 3 | Workflow registry and run lifecycle | Implemented, live infra verification pending | Config-driven workflow catalog and run API |
 | 4 | Visual command center shell | Implemented | Portfolio UI, graph canvas, trace/evidence placeholders |
 | 5 | Tool and connector substrate | In progress | MCP tool contracts, GitHub connector foundation |
-| 6 | Engineering Issue-to-PR workflow | Not started | First real production workflow |
+| 6 | Engineering Issue-to-PR workflow | In progress | First real production workflow |
 | 7 | Incident Investigator workflow | Not started | Real observability/deployment investigation workflow |
 | 8 | Customer Support Escalation workflow | Not started | Real support/KB/CRM workflow path |
 | 9 | Evals, replay, and demo hardening | Not started | Captured real-run replay and quality gates |
@@ -349,6 +350,10 @@ Completed artifacts:
   `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
 - Typed graph input contract, read issue node, read context files node, evidence assembly node,
   and policy-backed tool runtime adapter.
+- `POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence` runtime route for running
+  the implemented read-only graph stage only after a stored live workflow run exists.
+- Evidence metadata persistence for GitHub issue and code-file sources through
+  `evidence_records`, with hashes and source URIs rather than full code content in metadata.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -391,23 +396,37 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add a controlled API/runtime path for invoking the Engineering Issue-to-PR graph after a run
-   has passed `POST /workflow-runs`.
-2. Add captured real-run replay schema for GitHub issue/file evidence.
+1. Add captured real-run replay schema for GitHub issue/file evidence.
+2. Add replay loader for `POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence`.
 3. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
+Status: In progress.
+
+Completed artifacts:
+
+- Workflow package under `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
+- Typed graph input/state contract for read-only issue context collection.
+- LangGraph nodes for GitHub issue ingestion, repository context file reads, and evidence
+  assembly.
+- Policy-backed graph runtime that routes tool use through authorization and execution
+  boundaries.
+- Run-scoped API route for live evidence collection after `POST /workflow-runs`.
+- Evidence metadata persistence and audit events for the implemented read-only stage.
+
 Goal: Implement the first flagship production workflow against a real GitHub repository.
 
 Tasks:
 
-1. Create `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
-2. Add typed state and contracts.
-3. Add graph nodes: eligibility, issue ingestion, repo context, plan, patch proposal,
+1. Done: create `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
+2. Done: add typed state and contracts for issue context collection.
+3. In progress: add graph nodes. Done for issue ingestion and repo context reads; pending plan,
+   patch proposal,
    test plan, evaluator, approval request, PR draft.
-4. Add GitHub tools for issue read, file read, branch draft, PR draft.
+4. In progress: add GitHub tools. Done for issue read and file read; branch and PR draft write
+   adapters remain disabled.
 5. Add policy rules for branch and PR approval.
 6. Add visual graph mapping for UI.
 7. Add tests for branch decisions and approval paths.
@@ -532,5 +551,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by exposing the Engineering Issue-to-PR LangGraph module through the run lifecycle and
-adding captured real-run replay fixtures.
+Continue by adding captured real-run replay fixtures for the Engineering Issue-to-PR evidence
+stage and wiring replay mode into the run-scoped route.

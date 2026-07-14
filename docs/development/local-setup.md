@@ -124,6 +124,7 @@ Tool registry endpoints:
 - `GET http://localhost:8000/tools/{tool_id}`
 - `POST http://localhost:8000/tool-calls/authorize`
 - `POST http://localhost:8000/tool-calls/{tool_call_id}/execute`
+- `POST http://localhost:8000/workflow-runs/{run_id}/engineering-issue-to-pr/evidence`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
@@ -157,6 +158,11 @@ The first live adapter is read-only GitHub App REST access for:
 
 - `github_issue_read`
 - `github_file_read`
+
+The Engineering Issue-to-PR graph can be invoked through the run-scoped evidence route only
+after a stored live workflow run exists. It collects GitHub issue/file evidence, persists
+evidence records with hashes/source URIs, and leaves the run in `running` status because PR
+planning and write actions are not implemented yet.
 
 `github_pull_request_draft` remains contract-only until the approval UI and write-action
 review path are wired.

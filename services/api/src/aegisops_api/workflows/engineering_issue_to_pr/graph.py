@@ -65,6 +65,7 @@ class IssueToPrGraphInput(BaseModel):
             "actor_id": self.actor_id,
             "trace_id": self.trace_id,
             "tool_call_ids": [],
+            "policy_decision_ids": [],
             "context_files": [],
             "evidence": [],
         }
@@ -83,6 +84,7 @@ class IssueToPrState(TypedDict, total=False):
     issue: dict[str, Any]
     context_files: list[dict[str, Any]]
     tool_call_ids: list[str]
+    policy_decision_ids: list[str]
     evidence: list[dict[str, Any]]
 
 
@@ -185,9 +187,13 @@ def create_read_issue_node(
                 trace_id=state.get("trace_id"),
             ),
         )
+        policy_decision_ids = list(state.get("policy_decision_ids", []))
+        if authorization.policy_decision.decision_id is not None:
+            policy_decision_ids.append(authorization.policy_decision.decision_id)
         return {
             "issue": execution.output_payload,
             "tool_call_ids": [*state.get("tool_call_ids", []), str(authorization.id)],
+            "policy_decision_ids": policy_decision_ids,
         }
 
     return read_issue_node
@@ -199,6 +205,7 @@ def create_read_context_files_node(
     async def read_context_files_node(state: IssueToPrState) -> IssueToPrState:
         context_files: list[dict[str, Any]] = []
         tool_call_ids = list(state.get("tool_call_ids", []))
+        policy_decision_ids = list(state.get("policy_decision_ids", []))
         for path in state.get("context_paths", []):
             input_payload = {
                 "repository": state["repository"],
@@ -227,7 +234,13 @@ def create_read_context_files_node(
             )
             context_files.append(execution.output_payload)
             tool_call_ids.append(str(authorization.id))
-        return {"context_files": context_files, "tool_call_ids": tool_call_ids}
+            if authorization.policy_decision.decision_id is not None:
+                policy_decision_ids.append(authorization.policy_decision.decision_id)
+        return {
+            "context_files": context_files,
+            "tool_call_ids": tool_call_ids,
+            "policy_decision_ids": policy_decision_ids,
+        }
 
     return read_context_files_node
 

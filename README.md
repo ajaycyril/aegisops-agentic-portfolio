@@ -48,6 +48,10 @@ This repository currently defines:
   calls. Write adapters remain intentionally unavailable.
 - Engineering Issue-to-PR LangGraph module with typed input, issue read node, context file read
   node, evidence assembly node, and policy-backed tool runtime integration.
+- Controlled Engineering Issue-to-PR evidence collection route at
+  `POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence`, gated by a stored live
+  workflow run, typed input, tool policy authorization, GitHub adapter execution, persisted
+  evidence metadata, and audit events.
 
 ## Core Principle
 
@@ -143,8 +147,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by exposing the Engineering Issue-to-PR graph through a controlled runtime
-   path and adding captured real-run replay fixtures.
+3. Continue Phase 6 by adding captured real-run replay fixtures for the Engineering
+   Issue-to-PR evidence stage.
 
 ## Local Development Target
 

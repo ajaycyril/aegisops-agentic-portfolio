@@ -34,6 +34,12 @@ from aegisops_api.tools.adapters import (
 )
 from aegisops_api.tools.registry import get_tool_registry
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
+from aegisops_api.workflows.engineering_issue_to_pr import (
+    IssueToPrRunRejectedError,
+    IssueToPrRunRequest,
+    IssueToPrRunResponse,
+    collect_engineering_issue_context,
+)
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
 from aegisops_api.workflows.runs import (
     OpaRunPolicyEvaluator,
@@ -266,3 +272,40 @@ async def create_workflow_run(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/engineering-issue-to-pr/evidence",
+    response_model=IssueToPrRunResponse,
+    tags=["workflow-runs"],
+)
+async def collect_engineering_issue_to_pr_evidence(
+    run_id: UUID,
+    request: IssueToPrRunRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+    adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+) -> IssueToPrRunResponse:
+    try:
+        return await collect_engineering_issue_context(
+            run_id=run_id,
+            request=request,
+            session=session,
+            workflow_registry=get_workflow_registry(),
+            tool_registry=get_tool_registry(),
+            policy_evaluator=policy_evaluator,
+            adapter_registry=adapter_registry,
+            available_connectors=get_available_connectors(),
+        )
+    except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (ToolExecutionRejectedError, ToolAdapterExecutionError) as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="workflow graph execution failed") from exc
