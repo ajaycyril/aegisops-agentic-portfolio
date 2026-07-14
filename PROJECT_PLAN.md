@@ -27,7 +27,8 @@ scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web
 database migrations, governance tables, OPA policy scaffolding, an audit writer, typed
 workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
 visual command center. Phase 5 has started with typed tool contracts, read-only tool registry
-endpoints, an MCP contract server skeleton, and a policy-checked tool authorization boundary.
+endpoints, an MCP contract server skeleton, a connector auth/readiness registry, and a
+policy-checked tool authorization boundary.
 
 Current production web deployment:
 
@@ -330,6 +331,11 @@ Completed artifacts:
   `services/api/src/aegisops_api/tools/mcp_server.py`.
 - `POST /tool-calls/authorize` policy gate for schema-validated, OPA-checked, audit-logged
   tool calls.
+- Connector auth/readiness YAML configs under `configs/connectors/`.
+- Pydantic connector registry models under `services/api/src/aegisops_api/connectors/`.
+- Read-only `GET /connectors` and `GET /connectors/{connector_id}` endpoints.
+- Coverage tests requiring every workflow/tool connector to have an explicit readiness
+  contract.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -348,8 +354,8 @@ Tasks:
    access_change.
 3. Done: add MCP server skeleton.
 4. Done: add tool registry endpoint.
-5. In progress: add GitHub connector config and auth placeholder. Tool contracts and required
-   scopes exist; connector auth registry is still pending.
+5. Done: add connector auth registry, GitHub auth placeholder, and enterprise connector
+   readiness contracts.
 6. Done: add approved SQL read-only tool contract.
 7. Done: add document retrieval tool contract.
 8. Done: add observability/log retrieval tool contract.
@@ -369,6 +375,13 @@ services/api/.venv/bin/pytest services/api/tests/test_tool_execution.py services
 services/api/.venv/bin/ruff check services/api
 cd services/api && .venv/bin/mypy .
 ```
+
+Next Phase 5 slice:
+
+1. Implement real GitHub App auth and read-only GitHub issue/file adapters.
+2. Route adapter execution through `POST /tool-calls/authorize` decisions and durable
+   `tool_calls` records.
+3. Keep write adapters disabled until approval persistence and UI review are wired.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -505,7 +518,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Start Phase 1.
-
-First concrete task: start Phase 2 by adding the SQLAlchemy database module and Alembic
-migration setup.
+Continue Phase 5 by implementing the first real read-only GitHub connector adapter behind the
+existing policy-checked tool authorization boundary.

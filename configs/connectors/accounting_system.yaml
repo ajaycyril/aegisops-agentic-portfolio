@@ -1,0 +1,23 @@
+id: accounting_system
+name: Accounting System
+provider: enterprise_accounting
+category: finance_ops
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - ACCOUNTING_SYSTEM_CONNECTION_ID
+supported_scopes:
+  - invoices:read
+  - vendors:read
+  - approvals:write
+tool_ids: []
+workflow_ids:
+  - finance_invoice_exception
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - invoice_metadata
+    - vendor_master_data
+    - approval_records

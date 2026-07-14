@@ -1,0 +1,22 @@
+id: email
+name: Email
+provider: transactional_email_or_inbox
+category: communications
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - EMAIL_CONNECTION_ID
+supported_scopes:
+  - approvals:write
+  - drafts:write
+tool_ids: []
+workflow_ids:
+  - finance_invoice_exception
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: true
+  external_network_access: true
+  permitted_data_classes:
+    - message_metadata
+    - message_draft
+    - approval_context

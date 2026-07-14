@@ -1,0 +1,21 @@
+id: knowledge_base
+name: Knowledge Base
+provider: enterprise_knowledge
+category: knowledge
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - KNOWLEDGE_BASE_CONNECTION_ID
+supported_scopes:
+  - knowledge:read
+tool_ids: []
+workflow_ids:
+  - customer_support_escalation
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - article_content
+    - policy_document
+    - citation_metadata

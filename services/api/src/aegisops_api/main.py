@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from aegisops_api import __version__
 from aegisops_api.config import Settings, get_settings
+from aegisops_api.connectors import ConnectorDetail, ConnectorNotFoundError, ConnectorSummary
+from aegisops_api.connectors.registry import get_connector_registry
 from aegisops_api.db.session import get_session
 from aegisops_api.logging import configure_logging
 from aegisops_api.policy import OpaClient, PolicyEvaluationError
@@ -116,6 +118,24 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
         )
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail="workflow not found") from exc
+
+
+@app.get("/connectors", response_model=list[ConnectorSummary], tags=["connectors"])
+async def list_connectors() -> list[ConnectorSummary]:
+    registry = get_connector_registry()
+    return registry.list_connectors(configured_connectors=get_available_connectors())
+
+
+@app.get("/connectors/{connector_id}", response_model=ConnectorDetail, tags=["connectors"])
+async def get_connector(connector_id: str) -> ConnectorDetail:
+    registry = get_connector_registry()
+    try:
+        return registry.get_connector(
+            connector_id,
+            configured_connectors=get_available_connectors(),
+        )
+    except ConnectorNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="connector not found") from exc
 
 
 @app.get("/tools", response_model=list[ToolSummary], tags=["tools"])

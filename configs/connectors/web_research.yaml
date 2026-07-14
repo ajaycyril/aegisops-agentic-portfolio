@@ -1,0 +1,21 @@
+id: web_research
+name: Approved Web Research
+provider: openai_web_search_or_approved_search_api
+category: research
+status: planned
+auth_type: api_key
+required_env_vars:
+  - OPENAI_API_KEY
+supported_scopes:
+  - research:read
+tool_ids: []
+workflow_ids:
+  - sales_rfp_agent
+  - supply_chain_supplier_risk
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - public_web_page
+    - source_citation

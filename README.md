@@ -29,6 +29,8 @@ This repository currently defines:
 - SQLAlchemy governance data model and Alembic migration.
 - OPA/Rego policy baseline and structured policy fixtures.
 - Typed OPA client and audit event writer.
+- Typed connector auth/readiness catalog covering all enterprise systems referenced by the
+  workflow and tool registries.
 - Typed workflow registry loader and read-only workflow catalog endpoints.
 - Typed `POST /workflow-runs` start gate with connector readiness, replay/live mode, budget
   envelope, OPA run eligibility, durable run records, registry snapshots, and audit events.
@@ -79,6 +81,7 @@ only for captured real runs and must be labeled as replay.
 ├── packages/
 │   └── shared-contracts/     # Shared TypeScript contracts and generated schemas
 ├── configs/
+│   ├── connectors/           # Connector auth, scope, and data-boundary contracts
 │   ├── policies/             # Policy routing and approval metadata
 │   ├── tools/                # Typed tool contract definitions
 │   └── workflows/            # Workflow registry definitions
@@ -133,8 +136,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 5 with connector auth registry and real connector adapters behind the
-   policy-checked tool authorization boundary.
+3. Continue Phase 5 with real connector adapters behind the policy-checked tool authorization
+   boundary.
 
 ## Local Development Target
 

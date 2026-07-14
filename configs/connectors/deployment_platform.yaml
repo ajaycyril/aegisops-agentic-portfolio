@@ -1,0 +1,22 @@
+id: deployment_platform
+name: Deployment Platform
+provider: vercel_or_enterprise_ci
+category: delivery
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - DEPLOYMENT_PLATFORM_CONNECTION_ID
+supported_scopes:
+  - deployments:read
+  - audit_exports:write
+tool_ids: []
+workflow_ids:
+  - compliance_audit_evidence
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - deployment_metadata
+    - build_artifacts
+    - control_evidence

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
     opa_base_url: AnyHttpUrl | None = Field(default=None, validation_alias="OPA_BASE_URL")
+    connector_config_dir: Path | None = Field(default=None, validation_alias="CONNECTOR_CONFIG_DIR")
     workflow_config_dir: Path | None = Field(default=None, validation_alias="WORKFLOW_CONFIG_DIR")
     configured_connectors: str = Field(default="", validation_alias="CONFIGURED_CONNECTORS")
     max_agent_run_seconds: int = Field(default=300, validation_alias="MAX_AGENT_RUN_SECONDS")

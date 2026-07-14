@@ -54,6 +54,13 @@ REQUIRE_HUMAN_APPROVAL=true
 LIVE_WORKFLOW_RUNS_ENABLED=false
 ```
 
+Connector readiness has two layers:
+
+- `CONFIGURED_CONNECTORS` is the coarse deployment toggle used by workflow/tool readiness.
+- `configs/connectors/*.yaml` declares auth type, scopes, data boundaries, and required env var
+  names for each connector. `GET /connectors` reports missing env var names only and never
+  returns secret values.
+
 `LIVE_WORKFLOW_RUNS_ENABLED=false` keeps live execution disabled by default. Replay mode still
 requires a captured real-run source id.
 
@@ -111,6 +118,8 @@ Workflow registry endpoints:
 
 Tool registry endpoints:
 
+- `GET http://localhost:8000/connectors`
+- `GET http://localhost:8000/connectors/{connector_id}`
 - `GET http://localhost:8000/tools`
 - `GET http://localhost:8000/tools/{tool_id}`
 - `POST http://localhost:8000/tool-calls/authorize`

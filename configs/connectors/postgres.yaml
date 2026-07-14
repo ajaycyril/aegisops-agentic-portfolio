@@ -1,0 +1,22 @@
+id: postgres
+name: Postgres Analytics Database
+provider: postgres
+category: data
+status: contract_ready
+auth_type: database_url
+required_env_vars:
+  - DATABASE_URL
+supported_scopes:
+  - analytics:read
+tool_ids:
+  - sql_read_query
+workflow_ids:
+  - data_bi_executive_analyst
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: true
+  external_network_access: false
+  permitted_data_classes:
+    - approved_analytics_view
+    - aggregate_metric
+    - read_only_query_result

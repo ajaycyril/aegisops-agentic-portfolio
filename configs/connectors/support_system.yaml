@@ -1,0 +1,22 @@
+id: support_system
+name: Support System
+provider: enterprise_support
+category: customer_support
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - SUPPORT_SYSTEM_CONNECTION_ID
+supported_scopes:
+  - drafts:write
+  - tickets:read
+tool_ids: []
+workflow_ids:
+  - customer_support_escalation
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: true
+  external_network_access: true
+  permitted_data_classes:
+    - support_ticket
+    - customer_message
+    - response_draft

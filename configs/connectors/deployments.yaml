@@ -1,0 +1,21 @@
+id: deployments
+name: Deployment Events
+provider: deployment_event_stream
+category: incident_response
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - DEPLOYMENTS_CONNECTION_ID
+supported_scopes:
+  - deployments:read
+tool_ids: []
+workflow_ids:
+  - incident_response_investigator
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - deployment_metadata
+    - release_events
+    - build_checks
