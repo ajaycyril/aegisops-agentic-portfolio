@@ -1,11 +1,27 @@
 import { z } from "zod";
 
-import { localWorkflowCatalog, type WorkflowCatalog, type WorkflowDetail } from "@/lib/workflows";
+import {
+  localWorkflowCatalog,
+  type WorkflowCatalog,
+  type WorkflowDetail,
+} from "@/lib/workflows";
 
 export type ApiHealth = {
   status: string;
   service: string;
 };
+
+const apiReadinessSchema = z.object({
+  status: z.string(),
+  environment: z.string(),
+  policy_configured: z.boolean(),
+  database_configured: z.boolean(),
+  live_runs_require_approval: z.boolean(),
+  engineering_issue_to_pr_planner_configured: z.boolean(),
+  openai_planner_model: z.string().nullable(),
+});
+
+export type ApiReadiness = z.infer<typeof apiReadinessSchema>;
 
 export type ApiStatus =
   | {
@@ -18,6 +34,7 @@ export type ApiStatus =
       label: "online";
       message: string;
       health: ApiHealth;
+      readiness: ApiReadiness;
     }
   | {
       configured: true;
@@ -37,7 +54,8 @@ export async function getApiStatus(): Promise<ApiStatus> {
   }
 
   try {
-    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/health`, {
+    const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+    const response = await fetch(`${normalizedBaseUrl}/health`, {
       cache: "no-store",
       headers: {
         accept: "application/json",
@@ -53,11 +71,29 @@ export async function getApiStatus(): Promise<ApiStatus> {
     }
 
     const health = (await response.json()) as ApiHealth;
+    const readinessResponse = await fetch(`${normalizedBaseUrl}/ready`, {
+      cache: "no-store",
+      headers: {
+        accept: "application/json",
+      },
+    });
+
+    if (!readinessResponse.ok) {
+      return {
+        configured: true,
+        label: "unreachable",
+        message: `API readiness check returned HTTP ${readinessResponse.status}.`,
+      };
+    }
+
+    const readiness = apiReadinessSchema.parse(await readinessResponse.json());
+
     return {
       configured: true,
       label: "online",
       message: "API health endpoint is reachable.",
       health,
+      readiness,
     };
   } catch {
     return {
@@ -69,7 +105,12 @@ export async function getApiStatus(): Promise<ApiStatus> {
 }
 
 const workflowStatusSchema = z.enum(["planned", "ready", "gated", "disabled"]);
-const autonomyLevelSchema = z.enum(["read_only", "draft_only", "approval_required", "autonomous"]);
+const autonomyLevelSchema = z.enum([
+  "read_only",
+  "draft_only",
+  "approval_required",
+  "autonomous",
+]);
 
 const workflowSummarySchema = z.object({
   id: z.string(),
@@ -102,7 +143,9 @@ export async function getWorkflowCatalog(): Promise<WorkflowCatalog> {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   if (!baseUrl) {
-    return repositoryMirrorCatalog("API URL is not configured for this deployment.");
+    return repositoryMirrorCatalog(
+      "API URL is not configured for this deployment.",
+    );
   }
 
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
@@ -116,21 +159,30 @@ export async function getWorkflowCatalog(): Promise<WorkflowCatalog> {
     });
 
     if (!summaryResponse.ok) {
-      return repositoryMirrorCatalog(`Workflow registry returned HTTP ${summaryResponse.status}.`);
+      return repositoryMirrorCatalog(
+        `Workflow registry returned HTTP ${summaryResponse.status}.`,
+      );
     }
 
-    const summaries = workflowSummaryListSchema.parse(await summaryResponse.json());
+    const summaries = workflowSummaryListSchema.parse(
+      await summaryResponse.json(),
+    );
     const details = await Promise.all(
       summaries.map(async (workflow) => {
-        const detailResponse = await fetch(`${normalizedBaseUrl}/workflows/${workflow.id}`, {
-          cache: "no-store",
-          headers: {
-            accept: "application/json",
+        const detailResponse = await fetch(
+          `${normalizedBaseUrl}/workflows/${workflow.id}`,
+          {
+            cache: "no-store",
+            headers: {
+              accept: "application/json",
+            },
           },
-        });
+        );
 
         if (!detailResponse.ok) {
-          throw new Error(`Workflow detail returned HTTP ${detailResponse.status}.`);
+          throw new Error(
+            `Workflow detail returned HTTP ${detailResponse.status}.`,
+          );
         }
 
         return workflowDetailSchema.parse(await detailResponse.json());
@@ -144,7 +196,9 @@ export async function getWorkflowCatalog(): Promise<WorkflowCatalog> {
       workflows: details,
     };
   } catch {
-    return repositoryMirrorCatalog("Workflow registry API could not be reached.");
+    return repositoryMirrorCatalog(
+      "Workflow registry API could not be reached.",
+    );
   }
 }
 

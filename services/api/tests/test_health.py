@@ -21,6 +21,8 @@ def test_ready_endpoint_does_not_require_openai_key() -> None:
     payload = response.json()
     assert payload["status"] == "ready"
     assert payload["live_runs_require_approval"] is True
+    assert payload["engineering_issue_to_pr_planner_configured"] is False
+    assert payload["openai_planner_model"] is None
 
 
 def test_version_endpoint() -> None:

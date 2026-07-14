@@ -45,8 +45,12 @@ import {
   YAxis,
 } from "recharts";
 
-import type { ApiStatus } from "@/lib/api";
-import type { WorkflowCatalog, WorkflowDetail, WorkflowStatus } from "@/lib/workflows";
+import type { ApiReadiness, ApiStatus } from "@/lib/api";
+import type {
+  WorkflowCatalog,
+  WorkflowDetail,
+  WorkflowStatus,
+} from "@/lib/workflows";
 
 type CommandCenterProps = {
   apiStatus: ApiStatus;
@@ -79,10 +83,34 @@ type GraphInspector = {
   policy: string;
 };
 
+type GateState = "open" | "closed" | "neutral";
+
+type ProposalReviewModel = {
+  badge: string;
+  route: string;
+  routeState: GateState;
+  routeNote: string;
+  readiness: Array<{
+    label: string;
+    value: string;
+    state: GateState;
+  }>;
+  requestContract: Array<{
+    label: string;
+    value: string;
+  }>;
+  outputContract: Array<{
+    label: string;
+    value: string;
+  }>;
+  approvalStops: string[];
+};
+
 const navItems: NavItem[] = [
   { label: "Portfolio", icon: Boxes },
   { label: "Command", icon: Gauge },
   { label: "Graph", icon: Workflow },
+  { label: "Review", icon: BrainCircuit },
   { label: "Evidence", icon: Database },
   { label: "Policy", icon: LockKeyhole },
   { label: "Trace", icon: Activity },
@@ -136,32 +164,57 @@ const runtimeModes = [
   },
 ];
 
-export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps) {
+export function CommandCenter({
+  apiStatus,
+  workflowCatalog,
+}: CommandCenterProps) {
   const shouldReduceMotion = useReducedMotion();
   const workflows = workflowCatalog.workflows;
   const [activeNav, setActiveNav] = useState(navItems[0].label);
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState(workflows[0]?.id ?? "");
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState(
+    workflows[0]?.id ?? "",
+  );
   const [selectedNodeId, setSelectedNodeId] = useState("source");
 
   const selectedWorkflow = useMemo(
-    () => workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? workflows[0],
+    () =>
+      workflows.find((workflow) => workflow.id === selectedWorkflowId) ??
+      workflows[0],
     [selectedWorkflowId, workflows],
   );
 
-  const graph = useMemo(() => createWorkflowGraph(selectedWorkflow), [selectedWorkflow]);
-  const activeNodeId = graph.inspectors.some((node) => node.id === selectedNodeId)
+  const graph = useMemo(
+    () => createWorkflowGraph(selectedWorkflow),
+    [selectedWorkflow],
+  );
+  const activeNodeId = graph.inspectors.some(
+    (node) => node.id === selectedNodeId,
+  )
     ? selectedNodeId
     : "source";
-  const selectedNode = graph.inspectors.find((node) => node.id === activeNodeId) ?? graph.inspectors[0];
+  const selectedNode =
+    graph.inspectors.find((node) => node.id === activeNodeId) ??
+    graph.inspectors[0];
   const domainData = useMemo(() => createDomainChart(workflows), [workflows]);
-  const connectorData = useMemo(() => createConnectorChart(workflows), [workflows]);
+  const connectorData = useMemo(
+    () => createConnectorChart(workflows),
+    [workflows],
+  );
+  const apiBacked =
+    workflowCatalog.source === "api" && apiStatus.label === "online";
+  const readiness = apiStatus.label === "online" ? apiStatus.readiness : null;
+  const proposalReview = useMemo(
+    () => createProposalReview(selectedWorkflow, apiBacked, readiness),
+    [apiBacked, readiness, selectedWorkflow],
+  );
   const enabledCount = workflows.filter((workflow) => workflow.enabled).length;
-  const connectorCount = new Set(workflows.flatMap((workflow) => workflow.required_connectors)).size;
+  const connectorCount = new Set(
+    workflows.flatMap((workflow) => workflow.required_connectors),
+  ).size;
   const approvalCount = workflows.reduce(
     (total, workflow) => total + workflow.approval_required_for.length,
     0,
   );
-  const apiBacked = workflowCatalog.source === "api" && apiStatus.label === "online";
   const canAttemptReplay = apiBacked && selectedWorkflow.enabled;
 
   return (
@@ -187,7 +240,9 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
           </span>
           <span className="status-pill status-muted">
             <Database size={14} />
-            {workflowCatalog.source === "api" ? "Live registry" : "Repository registry"}
+            {workflowCatalog.source === "api"
+              ? "Live registry"
+              : "Repository registry"}
           </span>
         </div>
       </header>
@@ -228,21 +283,32 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
               <div className="eyebrow">Production-grade agentic AI</div>
               <h1>Every workflow layer visible, gated, and inspectable.</h1>
               <p>
-                The command center separates deterministic rules, dynamic policy, AI workflow
-                calls, and agentic tool loops before any live action is allowed.
+                The command center separates deterministic rules, dynamic
+                policy, AI workflow calls, and agentic tool loops before any
+                live action is allowed.
               </p>
             </div>
             <div className="mission-metrics" aria-label="Architecture metrics">
-              <Metric value={String(workflows.length)} label="workflow configs" />
+              <Metric
+                value={String(workflows.length)}
+                label="workflow configs"
+              />
               <Metric value={String(enabledCount)} label="connector-ready" />
-              <Metric value={String(connectorCount)} label="connector classes" />
+              <Metric
+                value={String(connectorCount)}
+                label="connector classes"
+              />
               <Metric value={String(approvalCount)} label="approval gates" />
             </div>
           </section>
 
           <section className="ops-grid">
             <section className="panel portfolio-panel">
-              <PanelHeader icon={Sparkles} title="Enterprise Workflow Portfolio" badge={workflowCatalog.message} />
+              <PanelHeader
+                icon={Sparkles}
+                title="Enterprise Workflow Portfolio"
+                badge={workflowCatalog.message}
+              />
               <div className="portfolio">
                 {workflows.map((workflow, index) => (
                   <WorkflowCard
@@ -258,9 +324,16 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
             </section>
 
             <section className="panel workflow-inspector">
-              <PanelHeader icon={GitPullRequest} title={selectedWorkflow.name} badge={statusCopy[selectedWorkflow.status]} />
+              <PanelHeader
+                icon={GitPullRequest}
+                title={selectedWorkflow.name}
+                badge={statusCopy[selectedWorkflow.status]}
+              />
               <div className="workflow-detail">
-                <ReadinessBlock workflow={selectedWorkflow} apiBacked={apiBacked} />
+                <ReadinessBlock
+                  workflow={selectedWorkflow}
+                  apiBacked={apiBacked}
+                />
                 <div className="run-control-grid">
                   <RunButton
                     icon={PlayCircle}
@@ -269,7 +342,8 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
                     reason={
                       canAttemptReplay
                         ? "Captured real-run source id required"
-                        : selectedWorkflow.disabled_reason ?? "Registry or connector gate is closed"
+                        : (selectedWorkflow.disabled_reason ??
+                          "Registry or connector gate is closed")
                     }
                   />
                   <RunButton
@@ -284,17 +358,25 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
           </section>
 
           <section className="panel runtime-panel">
-            <PanelHeader icon={Layers3} title="Execution Segmentation" badge="clear boundaries" />
+            <PanelHeader
+              icon={Layers3}
+              title="Execution Segmentation"
+              badge="clear boundaries"
+            />
             <div className="runtime-grid">
               {runtimeModes.map((mode, index) => (
                 <motion.article
                   className="runtime-card"
                   key={mode.title}
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  animate={
+                    shouldReduceMotion ? undefined : { opacity: 1, y: 0 }
+                  }
                   transition={{ delay: 0.04 * index, duration: 0.3 }}
                 >
-                  <div className="runtime-index">{String(index + 1).padStart(2, "0")}</div>
+                  <div className="runtime-index">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
                   <div>
                     <h2>{mode.title}</h2>
                     <strong>{mode.engine}</strong>
@@ -307,7 +389,11 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
           </section>
 
           <section className="panel graph-panel">
-            <PanelHeader icon={Network} title="Agent Graph" badge={selectedWorkflow.id} />
+            <PanelHeader
+              icon={Network}
+              title="Agent Graph"
+              badge={selectedWorkflow.id}
+            />
             <div className="graph-shell">
               <div className="graph-frame">
                 <ReactFlow
@@ -332,51 +418,115 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
                 <p>{selectedNode.state}</p>
                 <div className="lens-list compact">
                   <LensRow label="Policy" value={selectedNode.policy} />
-                  <LensRow label="Evidence" value={selectedNode.evidence.join(", ")} />
+                  <LensRow
+                    label="Evidence"
+                    value={selectedNode.evidence.join(", ")}
+                  />
                 </div>
               </aside>
             </div>
           </section>
 
+          <ProposalReviewPanel review={proposalReview} />
+
           <section className="telemetry-grid">
             <section className="panel chart-panel">
-              <PanelHeader icon={Gauge} title="Portfolio Distribution" badge="from configs" />
+              <PanelHeader
+                icon={Gauge}
+                title="Portfolio Distribution"
+                badge="from configs"
+              />
               <div className="chart-frame">
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={domainData}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#9aa5b8" />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} stroke="#9aa5b8" />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                    <Bar dataKey="workflows" fill="#35c2a7" radius={[6, 6, 0, 0]} />
+                    <CartesianGrid
+                      stroke="rgba(255,255,255,0.08)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      stroke="#9aa5b8"
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      stroke="#9aa5b8"
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    />
+                    <Bar
+                      dataKey="workflows"
+                      fill="#35c2a7"
+                      radius={[6, 6, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </section>
 
             <section className="panel chart-panel">
-              <PanelHeader icon={KeyRound} title="Connector Demand" badge="real integrations" />
+              <PanelHeader
+                icon={KeyRound}
+                title="Connector Demand"
+                badge="real integrations"
+              />
               <div className="chart-frame">
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={connectorData}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#9aa5b8" />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} stroke="#9aa5b8" />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                    <Bar dataKey="workflows" fill="#78a6ff" radius={[6, 6, 0, 0]} />
+                    <CartesianGrid
+                      stroke="rgba(255,255,255,0.08)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      stroke="#9aa5b8"
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      stroke="#9aa5b8"
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    />
+                    <Bar
+                      dataKey="workflows"
+                      fill="#78a6ff"
+                      radius={[6, 6, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </section>
 
             <section className="panel evidence-panel">
-              <PanelHeader icon={Database} title="Evidence Board" badge="empty until real runs" />
+              <PanelHeader
+                icon={Database}
+                title="Evidence Board"
+                badge="empty until real runs"
+              />
               <div className="evidence-table">
                 {selectedWorkflow.required_connectors.map((connector) => (
                   <div className="evidence-row" key={connector}>
                     <span>{connector}</span>
-                    <strong>{selectedWorkflow.missing_connectors.includes(connector) ? "Connector gated" : "Connector ready"}</strong>
-                    <em>{matchingScopes(selectedWorkflow, connector).join(", ") || "Scope mapping pending"}</em>
+                    <strong>
+                      {selectedWorkflow.missing_connectors.includes(connector)
+                        ? "Connector gated"
+                        : "Connector ready"}
+                    </strong>
+                    <em>
+                      {matchingScopes(selectedWorkflow, connector).join(", ") ||
+                        "Scope mapping pending"}
+                    </em>
                   </div>
                 ))}
               </div>
@@ -385,39 +535,157 @@ export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps
 
           <section className="bottom-grid">
             <section className="panel">
-              <PanelHeader icon={LockKeyhole} title="Policy Lens" badge="OPA first" />
+              <PanelHeader
+                icon={LockKeyhole}
+                title="Policy Lens"
+                badge="OPA first"
+              />
               <div className="lens-list">
-                <LensRow label="Run eligibility" value="workflow status, connector readiness, replay source, budget envelope" />
-                <LensRow label="Replay allowed" value={String(selectedWorkflow.data_policy.replay_allowed_from_real_runs)} />
-                <LensRow label="Fake data" value={String(selectedWorkflow.data_policy.fake_data_allowed)} />
-                <LensRow label="Regex extraction" value={String(selectedWorkflow.data_policy.regex_business_extraction_allowed)} />
-                <LensRow label="Approval actions" value={selectedWorkflow.approval_required_for.map(humanize).join(", ")} />
+                <LensRow
+                  label="Run eligibility"
+                  value="workflow status, connector readiness, replay source, budget envelope"
+                />
+                <LensRow
+                  label="Replay allowed"
+                  value={String(
+                    selectedWorkflow.data_policy.replay_allowed_from_real_runs,
+                  )}
+                />
+                <LensRow
+                  label="Fake data"
+                  value={String(selectedWorkflow.data_policy.fake_data_allowed)}
+                />
+                <LensRow
+                  label="Regex extraction"
+                  value={String(
+                    selectedWorkflow.data_policy
+                      .regex_business_extraction_allowed,
+                  )}
+                />
+                <LensRow
+                  label="Approval actions"
+                  value={selectedWorkflow.approval_required_for
+                    .map(humanize)
+                    .join(", ")}
+                />
               </div>
             </section>
 
             <section className="panel">
-              <PanelHeader icon={TimerReset} title="Trace Timeline" badge="not executed" />
+              <PanelHeader
+                icon={TimerReset}
+                title="Trace Timeline"
+                badge="not executed"
+              />
               <div className="timeline">
-                {["run_start", "policy_decision", "graph_checkpoint", "tool_call", "approval_request"].map(
-                  (event, index) => (
-                    <div className="timeline-row" key={event}>
-                      <span>{String(index + 1).padStart(2, "0")}</span>
-                      <strong>{humanize(event)}</strong>
-                      <em>{index < 2 ? "implemented gate" : "waiting for runtime"}</em>
-                    </div>
-                  ),
-                )}
+                {[
+                  "run_start",
+                  "policy_decision",
+                  "graph_checkpoint",
+                  "tool_call",
+                  "approval_request",
+                ].map((event, index) => (
+                  <div className="timeline-row" key={event}>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{humanize(event)}</strong>
+                    <em>
+                      {index < 2 ? "implemented gate" : "waiting for runtime"}
+                    </em>
+                  </div>
+                ))}
               </div>
             </section>
 
             <section className="panel code-panel">
-              <PanelHeader icon={FileCode2} title="Code Lens" badge="workflow yaml" />
+              <PanelHeader
+                icon={FileCode2}
+                title="Code Lens"
+                badge="workflow yaml"
+              />
               <pre>{formatWorkflowConfig(selectedWorkflow)}</pre>
             </section>
           </section>
         </section>
       </div>
     </main>
+  );
+}
+
+function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
+  return (
+    <section className="panel proposal-panel">
+      <PanelHeader
+        icon={BrainCircuit}
+        title="Proposal Review"
+        badge={review.badge}
+      />
+      <div className="proposal-review">
+        <div className={`proposal-route route-${review.routeState}`}>
+          <span>Run-scoped route</span>
+          <code>{review.route}</code>
+          <p>{review.routeNote}</p>
+        </div>
+
+        <div className="proposal-readiness">
+          {review.readiness.map((item) => (
+            <div className="review-check" key={item.label}>
+              <span className={`review-state ${item.state}`} />
+              <div>
+                <strong>{item.label}</strong>
+                <em>{item.value}</em>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="proposal-contract">
+          <div className="contract-title">Request Contract</div>
+          {review.requestContract.map((item) => (
+            <ContractRow
+              key={item.label}
+              label={item.label}
+              value={item.value}
+            />
+          ))}
+        </div>
+
+        <div className="proposal-contract output-contract">
+          <div className="contract-title">Planner and Evaluator Output</div>
+          {review.outputContract.map((item) => (
+            <ContractRow
+              key={item.label}
+              label={item.label}
+              value={item.value}
+            />
+          ))}
+        </div>
+
+        <div className="approval-review">
+          <div className="contract-title">Approval Stops</div>
+          <div className="approval-stop-list">
+            {review.approvalStops.map((stop, index) => (
+              <div className="approval-stop" key={stop}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{humanize(stop)}</strong>
+                <em>
+                  write action blocked until policy and review records approve
+                  it
+                </em>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContractRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="contract-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -450,34 +718,69 @@ function WorkflowCard({
         <span>{workflow.name}</span>
       </div>
       <div className="workflow-copy">
-        {humanize(workflow.domain)} · {workflow.patterns.map(humanize).join(" / ")}
+        {humanize(workflow.domain)} ·{" "}
+        {workflow.patterns.map(humanize).join(" / ")}
       </div>
-      <div className={`workflow-stage stage-${workflow.status}`}>{workflow.enabled ? "enabled" : statusCopy[workflow.status]}</div>
+      <div className={`workflow-stage stage-${workflow.status}`}>
+        {workflow.enabled ? "enabled" : statusCopy[workflow.status]}
+      </div>
     </motion.button>
   );
 }
 
-function ReadinessBlock({ workflow, apiBacked }: { workflow: WorkflowDetail; apiBacked: boolean }) {
+function ReadinessBlock({
+  workflow,
+  apiBacked,
+}: {
+  workflow: WorkflowDetail;
+  apiBacked: boolean;
+}) {
   return (
     <div className="readiness-grid">
-      <ReadinessItem label="Registry" value={apiBacked ? "API backed" : "Repository backed"} state={apiBacked} />
-      <ReadinessItem label="Workflow" value={statusCopy[workflow.status]} state={workflow.status === "ready"} />
+      <ReadinessItem
+        label="Registry"
+        value={apiBacked ? "API backed" : "Repository backed"}
+        state={apiBacked}
+      />
+      <ReadinessItem
+        label="Workflow"
+        value={statusCopy[workflow.status]}
+        state={workflow.status === "ready"}
+      />
       <ReadinessItem
         label="Connectors"
-        value={workflow.missing_connectors.length === 0 ? "Configured" : workflow.missing_connectors.join(", ")}
+        value={
+          workflow.missing_connectors.length === 0
+            ? "Configured"
+            : workflow.missing_connectors.join(", ")
+        }
         state={workflow.missing_connectors.length === 0}
       />
-      <ReadinessItem label="Autonomy" value={humanize(workflow.default_autonomy)} state={workflow.default_autonomy !== "autonomous"} />
+      <ReadinessItem
+        label="Autonomy"
+        value={humanize(workflow.default_autonomy)}
+        state={workflow.default_autonomy !== "autonomous"}
+      />
     </div>
   );
 }
 
-function ReadinessItem({ label, value, state }: { label: string; value: string; state: boolean }) {
+function ReadinessItem({
+  label,
+  value,
+  state,
+}: {
+  label: string;
+  value: string;
+  state: boolean;
+}) {
   return (
     <div className="readiness-item">
       <span>{label}</span>
       <strong>{value}</strong>
-      <em className={state ? "gate-open" : "gate-closed"}>{state ? "open" : "closed"}</em>
+      <em className={state ? "gate-open" : "gate-closed"}>
+        {state ? "open" : "closed"}
+      </em>
     </div>
   );
 }
@@ -579,14 +882,20 @@ function createWorkflowGraph(workflow: WorkflowDetail): {
       layer: "deterministic",
       state: `Requires ${workflow.required_connectors.join(", ")} before any run can start.`,
       evidence: workflow.required_scopes,
-      policy: "Connector readiness is checked before OPA and before persistence.",
+      policy:
+        "Connector readiness is checked before OPA and before persistence.",
     },
     {
       id: "policy",
       title: "Run Eligibility",
       layer: "dynamic policy",
-      state: "OPA decides allow, deny, or approval-required for the run-start gate.",
-      evidence: ["aegisops.run_eligibility", "budget envelope", "replay source"],
+      state:
+        "OPA decides allow, deny, or approval-required for the run-start gate.",
+      evidence: [
+        "aegisops.run_eligibility",
+        "budget envelope",
+        "replay source",
+      ],
       policy: "No model decides whether the run is allowed.",
     },
     {
@@ -598,18 +907,36 @@ function createWorkflowGraph(workflow: WorkflowDetail): {
       policy: "Graph execution waits until durable run creation succeeds.",
     },
     {
+      id: "proposal",
+      title: "Proposal and Evaluator",
+      layer: "structured AI review",
+      state:
+        workflow.id === "engineering_issue_to_pr"
+          ? "OpenAI Responses emits typed patch-plan and evaluation contracts when include_proposal=true."
+          : "Workflow-specific proposal and evaluator contracts are planned from the registry patterns.",
+      evidence:
+        workflow.id === "engineering_issue_to_pr"
+          ? ["IssueToPrProposal", "IssueToPrEvaluation", "model_calls"]
+          : workflow.patterns,
+      policy:
+        "Planner output cannot enable writes; approval_required remains true.",
+    },
+    {
       id: "tools",
       title: "Typed Tool Plane",
       layer: "agentic",
-      state: "MCP contracts will bind every tool call to schemas, scopes, and risk classes.",
+      state:
+        "MCP contracts will bind every tool call to schemas, scopes, and risk classes.",
       evidence: workflow.required_connectors,
-      policy: "Each tool call will require tool-access policy before execution.",
+      policy:
+        "Each tool call will require tool-access policy before execution.",
     },
     {
       id: "memory",
       title: "Memory and Evidence",
       layer: "data plane",
-      state: "Postgres and pgvector store checkpoints, evidence, memory records, and trace links.",
+      state:
+        "Postgres and pgvector store checkpoints, evidence, memory records, and trace links.",
       evidence: ["workflow_runs", "evidence_records", "memory_records"],
       policy: "Memory writes require sensitivity and retention checks.",
     },
@@ -624,12 +951,13 @@ function createWorkflowGraph(workflow: WorkflowDetail): {
   ];
 
   const nodePositions = [
-    ["source", 0, 120],
-    ["policy", 170, 42],
-    ["graph", 340, 120],
-    ["tools", 520, 42],
-    ["memory", 520, 198],
-    ["approval", 700, 120],
+    ["source", 0, 158],
+    ["policy", 170, 80],
+    ["graph", 340, 158],
+    ["proposal", 520, 80],
+    ["tools", 700, 80],
+    ["memory", 520, 236],
+    ["approval", 880, 158],
   ] as const;
 
   return {
@@ -641,7 +969,13 @@ function createWorkflowGraph(workflow: WorkflowDetail): {
         type: "default",
         position: { x, y },
         data: {
-          label: <GraphNodeLabel active={workflow.enabled} title={inspector?.title ?? id} layer={inspector?.layer ?? ""} />,
+          label: (
+            <GraphNodeLabel
+              active={workflow.enabled}
+              title={inspector?.title ?? id}
+              layer={inspector?.layer ?? ""}
+            />
+          ),
           title: inspector?.title ?? id,
           layer: inspector?.layer ?? "",
           state: inspector?.state ?? "",
@@ -654,15 +988,25 @@ function createWorkflowGraph(workflow: WorkflowDetail): {
     edges: [
       edge("source", "policy"),
       edge("policy", "graph"),
-      edge("graph", "tools"),
+      edge("graph", "proposal"),
       edge("graph", "memory"),
+      edge("proposal", "tools"),
+      edge("proposal", "approval"),
       edge("tools", "approval"),
       edge("memory", "approval"),
     ],
   };
 }
 
-function GraphNodeLabel({ active, title, layer }: { active: boolean; title: string; layer: string }) {
+function GraphNodeLabel({
+  active,
+  title,
+  layer,
+}: {
+  active: boolean;
+  title: string;
+  layer: string;
+}) {
   return (
     <div className="graph-node-label">
       <span className={active ? "node-dot node-open" : "node-dot"} />
@@ -689,17 +1033,198 @@ function edge(source: string, target: string): WorkflowEdge {
 }
 
 function createDomainChart(workflows: WorkflowDetail[]) {
-  return [...countBy(workflows.map((workflow) => humanize(workflow.domain))).entries()]
+  return [
+    ...countBy(
+      workflows.map((workflow) => humanize(workflow.domain)),
+    ).entries(),
+  ]
     .map(([name, workflowsCount]) => ({ name, workflows: workflowsCount }))
     .sort((a, b) => b.workflows - a.workflows)
     .slice(0, 6);
 }
 
 function createConnectorChart(workflows: WorkflowDetail[]) {
-  return [...countBy(workflows.flatMap((workflow) => workflow.required_connectors)).entries()]
+  return [
+    ...countBy(
+      workflows.flatMap((workflow) => workflow.required_connectors),
+    ).entries(),
+  ]
     .map(([name, workflowsCount]) => ({ name, workflows: workflowsCount }))
     .sort((a, b) => b.workflows - a.workflows)
     .slice(0, 6);
+}
+
+function createProposalReview(
+  workflow: WorkflowDetail,
+  apiBacked: boolean,
+  readiness: ApiReadiness | null,
+): ProposalReviewModel {
+  if (workflow.id !== "engineering_issue_to_pr") {
+    return {
+      badge: "workflow contract planned",
+      route: "workflow-specific run route pending",
+      routeState: "neutral",
+      routeNote: `${workflow.name} is present in the production registry, with runtime implementation still gated by the build plan.`,
+      readiness: [
+        {
+          label: "Registry source",
+          value: apiBacked ? "live API registry" : "repository mirror",
+          state: apiBacked ? "open" : "neutral",
+        },
+        {
+          label: "Workflow status",
+          value: statusCopy[workflow.status],
+          state: workflow.status === "ready" ? "open" : "neutral",
+        },
+        {
+          label: "Connector readiness",
+          value:
+            workflow.missing_connectors.length === 0
+              ? "all configured"
+              : workflow.missing_connectors.join(", "),
+          state: workflow.missing_connectors.length === 0 ? "open" : "closed",
+        },
+        {
+          label: "Autonomy ceiling",
+          value: humanize(workflow.default_autonomy),
+          state: workflow.default_autonomy === "autonomous" ? "closed" : "open",
+        },
+      ],
+      requestContract: [
+        {
+          label: "Required connectors",
+          value: workflow.required_connectors.join(", "),
+        },
+        {
+          label: "Required scopes",
+          value: workflow.required_scopes.join(", "),
+        },
+        {
+          label: "Patterns",
+          value: workflow.patterns.map(humanize).join(", "),
+        },
+        {
+          label: "Replay policy",
+          value: String(workflow.data_policy.replay_allowed_from_real_runs),
+        },
+      ],
+      outputContract: [
+        {
+          label: "Visual surfaces",
+          value: workflow.visual_surfaces.map(humanize).join(", "),
+        },
+        {
+          label: "Fake data allowed",
+          value: String(workflow.data_policy.fake_data_allowed),
+        },
+        {
+          label: "Regex business extraction",
+          value: String(workflow.data_policy.regex_business_extraction_allowed),
+        },
+        {
+          label: "Approval actions",
+          value: workflow.approval_required_for.map(humanize).join(", "),
+        },
+      ],
+      approvalStops: workflow.approval_required_for,
+    };
+  }
+
+  const plannerConfigured =
+    readiness?.engineering_issue_to_pr_planner_configured ?? false;
+  const plannerModel =
+    readiness?.openai_planner_model ??
+    "OPENAI_REASONING_MODEL or OPENAI_DEFAULT_MODEL";
+
+  return {
+    badge: plannerConfigured ? "planner configured" : "planner gated",
+    route: "POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence",
+    routeState: apiBacked ? "open" : "neutral",
+    routeNote:
+      "Set include_proposal=true after a stored workflow run exists; the route returns typed proposal and evaluation payloads, not branch or PR writes.",
+    readiness: [
+      {
+        label: "Registry source",
+        value: apiBacked ? "live API registry" : "repository mirror",
+        state: apiBacked ? "open" : "neutral",
+      },
+      {
+        label: "OPA policy",
+        value: readiness
+          ? readiness.policy_configured
+            ? "configured"
+            : "not configured"
+          : "ready check unavailable",
+        state: readiness
+          ? readiness.policy_configured
+            ? "open"
+            : "closed"
+          : "neutral",
+      },
+      {
+        label: "Database",
+        value: readiness
+          ? readiness.database_configured
+            ? "configured"
+            : "not configured"
+          : "ready check unavailable",
+        state: readiness
+          ? readiness.database_configured
+            ? "open"
+            : "closed"
+          : "neutral",
+      },
+      {
+        label: "OpenAI planner",
+        value: plannerConfigured
+          ? plannerModel
+          : "OPENAI_API_KEY plus explicit model required",
+        state: plannerConfigured ? "open" : "closed",
+      },
+      {
+        label: "Write actions",
+        value: "disabled until approval-review persistence is wired",
+        state: "closed",
+      },
+    ],
+    requestContract: [
+      {
+        label: "Issue locator",
+        value: "issue_url or repository plus issue_number",
+      },
+      { label: "Context paths", value: "up to 10 relative repository paths" },
+      { label: "Planner switch", value: "include_proposal: true" },
+      {
+        label: "Audit context",
+        value: "actor_id and trace_id optional but persisted when supplied",
+      },
+    ],
+    outputContract: [
+      {
+        label: "Patch proposal",
+        value:
+          "summary, problem_statement, planned_changes[], source_evidence_uris[]",
+      },
+      {
+        label: "Test plan",
+        value: "command, purpose, risk_covered for each step",
+      },
+      {
+        label: "Evaluator",
+        value:
+          "grounded, requires_more_context, risk_level, findings[], blocking_issues[]",
+      },
+      {
+        label: "Model audit",
+        value: "model_calls rows for patch plan and plan evaluation",
+      },
+      {
+        label: "Write guard",
+        value: "approval_required=true and write_actions_enabled=false",
+      },
+    ],
+    approvalStops: workflow.approval_required_for,
+  };
 }
 
 function countBy(values: string[]) {
@@ -743,6 +1268,8 @@ function formatWorkflowConfig(workflow: WorkflowDetail) {
 function humanize(value: string) {
   return value
     .split("_")
-    .map((word) => (word.length > 0 ? `${word[0].toUpperCase()}${word.slice(1)}` : word))
+    .map((word) =>
+      word.length > 0 ? `${word[0].toUpperCase()}${word.slice(1)}` : word,
+    )
     .join(" ");
 }

@@ -30,7 +30,13 @@ body {
   background: var(--background);
   color: var(--text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 body {
@@ -119,7 +125,11 @@ p {
   height: 38px;
   border: 1px solid rgba(53, 194, 167, 0.55);
   background:
-    linear-gradient(135deg, rgba(53, 194, 167, 0.18), rgba(120, 166, 255, 0.12)),
+    linear-gradient(
+      135deg,
+      rgba(53, 194, 167, 0.18),
+      rgba(120, 166, 255, 0.12)
+    ),
     var(--surface-2);
   color: var(--teal);
   border-radius: 8px;
@@ -337,14 +347,20 @@ h1 {
 
 .telemetry-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.75fr) minmax(280px, 0.75fr) minmax(340px, 0.75fr);
+  grid-template-columns: minmax(280px, 0.75fr) minmax(280px, 0.75fr) minmax(
+      340px,
+      0.75fr
+    );
   gap: 18px;
   min-width: 0;
 }
 
 .bottom-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.82fr) minmax(280px, 0.7fr) minmax(360px, 0.9fr);
+  grid-template-columns: minmax(280px, 0.82fr) minmax(280px, 0.7fr) minmax(
+      360px,
+      0.9fr
+    );
   gap: 18px;
   min-width: 0;
 }
@@ -685,6 +701,174 @@ h1 {
   line-height: 1.5;
 }
 
+.proposal-review {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 0.92fr);
+  gap: 12px;
+  padding: 18px;
+  min-width: 0;
+}
+
+.proposal-route,
+.review-check,
+.proposal-contract,
+.approval-review {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.proposal-route {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  padding: 15px;
+  border-color: rgba(53, 194, 167, 0.18);
+  background:
+    linear-gradient(90deg, rgba(53, 194, 167, 0.08), rgba(120, 166, 255, 0.06)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.proposal-route span,
+.contract-title {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.proposal-route code {
+  max-width: 100%;
+  color: #edf5ff;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.proposal-route p {
+  margin-bottom: 0;
+  color: #c9d2e1;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.proposal-readiness {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.review-check {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px;
+}
+
+.review-state {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 18px rgba(150, 163, 184, 0.18);
+}
+
+.review-state.open {
+  background: var(--teal);
+  box-shadow: 0 0 18px rgba(53, 194, 167, 0.32);
+}
+
+.review-state.closed {
+  background: var(--amber);
+  box-shadow: 0 0 18px rgba(244, 201, 93, 0.28);
+}
+
+.review-check strong,
+.contract-row strong,
+.approval-stop strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #f0f4fb;
+  font-size: 13px;
+}
+
+.review-check em,
+.approval-stop em {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.proposal-contract,
+.approval-review {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  padding: 14px;
+  min-width: 0;
+}
+
+.contract-title {
+  margin-bottom: 8px;
+}
+
+.contract-row {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.44fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contract-row:last-child {
+  border-bottom: 0;
+}
+
+.contract-row span {
+  color: #dce3ef;
+  font-size: 12px;
+}
+
+.approval-review {
+  grid-column: 1 / -1;
+}
+
+.approval-stop-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.approval-stop {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid rgba(255, 122, 144, 0.2);
+  background: rgba(255, 122, 144, 0.055);
+  border-radius: 8px;
+}
+
+.approval-stop span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 122, 144, 0.26);
+  color: #ffc4ce;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .chart-panel,
 .evidence-panel {
   min-height: 336px;
@@ -824,7 +1008,9 @@ h1 {
   overflow: auto;
   color: #dce8ff;
   background: rgba(7, 9, 13, 0.62);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
   font-size: 12px;
   line-height: 1.55;
 }
@@ -834,7 +1020,17 @@ h1 {
   .ops-grid,
   .telemetry-grid,
   .bottom-grid,
-  .graph-shell {
+  .graph-shell,
+  .proposal-review {
+    grid-template-columns: 1fr;
+  }
+
+  .proposal-route,
+  .approval-review {
+    grid-column: auto;
+  }
+
+  .approval-stop-list {
     grid-template-columns: 1fr;
   }
 
@@ -967,6 +1163,7 @@ h1 {
   .portfolio,
   .workflow-detail,
   .runtime-grid,
+  .proposal-review,
   .evidence-table,
   .lens-list,
   .timeline,
@@ -997,6 +1194,11 @@ h1 {
 
   .evidence-row {
     grid-template-columns: 1fr;
+  }
+
+  .contract-row {
+    grid-template-columns: 1fr;
+    gap: 5px;
   }
 
   .lens-value,

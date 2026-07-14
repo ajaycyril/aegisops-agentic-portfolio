@@ -36,7 +36,10 @@ route without committing fabricated replay payloads. Optional proposal and evalu
 nodes now exist with typed patch-plan, test-plan, and evaluation contracts, but no write
 actions are enabled. A model-backed OpenAI Responses API planner adapter now records
 `model_calls` and can be invoked from the run-scoped Engineering route with
-`include_proposal=true` when OpenAI credentials and an explicit model are configured.
+`include_proposal=true` when OpenAI credentials and an explicit model are configured. The
+visual command center now surfaces the proposal/evaluation contract, planner readiness,
+model-call audit path, and approval stop-points without showing fake run output or enabling
+branch/PR writes.
 
 Current production web deployment:
 
@@ -50,7 +53,7 @@ Current production web deployment:
 | 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
 | 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
 | 3 | Workflow registry and run lifecycle | Implemented, live infra verification pending | Config-driven workflow catalog and run API |
-| 4 | Visual command center shell | Implemented | Portfolio UI, graph canvas, trace/evidence placeholders |
+| 4 | Visual command center shell | Implemented | Portfolio UI, graph canvas, review, trace/evidence placeholders |
 | 5 | Tool and connector substrate | In progress | MCP tool contracts, GitHub connector foundation |
 | 6 | Engineering Issue-to-PR workflow | In progress | First real production workflow |
 | 7 | Incident Investigator workflow | Not started | Real observability/deployment investigation workflow |
@@ -288,6 +291,8 @@ Completed artifacts:
 - Policy Lens derived from workflow data policy, OPA run-start rules, and approval actions.
 - Trace Timeline empty state showing implemented run-start gates and runtime-pending events.
 - Code Lens rendering the selected workflow YAML contract.
+- Proposal Review surface showing run route, readiness gates, typed planner/evaluator output
+  contracts, model-call audit path, and approval stop-points.
 - Favicon and mobile-first responsive styling.
 
 Goal: Build the UI surface before deep workflow implementation.
@@ -305,6 +310,7 @@ Tasks:
 8. Done: add Code Lens read-only panes for YAML config and policy metadata.
 9. Done: add visual status for connector readiness, replay availability, and live-run
    eligibility.
+10. Done: add Proposal Review surface and graph node for planner/evaluator contracts.
 
 Acceptance criteria:
 
@@ -322,8 +328,8 @@ pnpm --filter @aegisops/web build
 ```
 
 Browser smoke checks were run with Playwright against `http://localhost:3000` at 1440 px and
-390 px widths. Both passed with no console warnings, no horizontal overflow, no clipped text,
-and all six React Flow nodes rendered.
+390 px widths. Both passed with no console errors, no horizontal overflow, no clipped text,
+and all seven React Flow nodes rendered.
 
 ## Phase 5: Tool and Connector Substrate
 
@@ -411,9 +417,8 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Surface proposal and evaluation summaries in the visual command center.
-2. Add approval-review records and UI state for proposed branch/PR actions.
-3. Keep branch and PR write adapters disabled until approval persistence and UI review are
+1. Add approval-review records and UI state for proposed branch/PR actions.
+2. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -566,5 +571,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by surfacing proposal/evaluation output in the visual command center and adding the
-approval-review path. Do not enable branch or pull-request writes.
+Continue by adding approval-review persistence and UI state for proposed branch/PR actions. Do
+not enable branch or pull-request writes.

@@ -63,6 +63,8 @@ This repository currently defines:
 - `include_proposal=true` support on the Engineering evidence route when `OPENAI_API_KEY` and
   an explicit OpenAI model are configured. Proposal/evaluation output remains non-writing and
   approval-required.
+- Visual Proposal Review cockpit showing the route contract, planner readiness, typed
+  proposal/evaluation output, model-call audit path, and approval stop-points.
 
 ## Core Principle
 
@@ -158,8 +160,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by surfacing proposal/evaluation output in the visual command center and
-   adding the approval-review path before any branch or PR write adapter.
+3. Continue Phase 6 by adding approval-review persistence and UI state before any branch or PR
+   write adapter.
 
 ## Local Development Target
 

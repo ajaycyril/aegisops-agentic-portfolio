@@ -174,6 +174,9 @@ planner. This requires `OPENAI_API_KEY` plus `OPENAI_REASONING_MODEL` or
 proposal/evaluation payloads; it does not create branches, commits, comments, or pull
 requests.
 
+`GET /ready` exposes `engineering_issue_to_pr_planner_configured` and `openai_planner_model`
+so the web cockpit can show planner readiness without exposing `OPENAI_API_KEY`.
+
 `github_pull_request_draft` remains contract-only until the approval UI and write-action
 review path are wired.
 

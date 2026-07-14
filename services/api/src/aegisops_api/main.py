@@ -129,12 +129,17 @@ async def health() -> dict[str, str]:
 @app.get("/ready", tags=["system"])
 async def ready() -> dict[str, object]:
     settings = get_settings()
+    openai_planner_model = settings.openai_reasoning_model or settings.openai_default_model
     return {
         "status": "ready",
         "environment": settings.app_env,
         "policy_configured": settings.opa_base_url is not None,
         "database_configured": settings.database_url is not None,
         "live_runs_require_approval": settings.require_human_approval,
+        "engineering_issue_to_pr_planner_configured": (
+            settings.openai_api_key is not None and openai_planner_model is not None
+        ),
+        "openai_planner_model": openai_planner_model,
     }
 
 
