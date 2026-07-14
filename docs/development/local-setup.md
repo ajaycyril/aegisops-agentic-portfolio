@@ -87,6 +87,15 @@ Health endpoints:
 - `GET http://localhost:8000/ready`
 - `GET http://localhost:8000/version`
 
+Workflow registry endpoints:
+
+- `GET http://localhost:8000/workflows`
+- `GET http://localhost:8000/workflows/{workflow_id}`
+
+By default, workflows are visible but disabled because no real connectors are configured. For
+local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
+`github,observability`.
+
 ## Run Web
 
 ```bash

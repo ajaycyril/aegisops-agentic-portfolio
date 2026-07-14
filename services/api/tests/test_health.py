@@ -30,3 +30,39 @@ def test_version_endpoint() -> None:
 
     assert response.status_code == 200
     assert response.json()["version"] == "0.1.0"
+
+
+def test_workflows_endpoint_lists_disabled_real_workflows() -> None:
+    client = TestClient(app)
+
+    response = client.get("/workflows")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 10
+    assert {workflow["id"] for workflow in payload} >= {
+        "engineering_issue_to_pr",
+        "incident_response_investigator",
+    }
+    assert all(workflow["enabled"] is False for workflow in payload)
+
+
+def test_workflow_detail_endpoint_returns_config_contract() -> None:
+    client = TestClient(app)
+
+    response = client.get("/workflows/engineering_issue_to_pr")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == "engineering_issue_to_pr"
+    assert payload["data_policy"]["fake_data_allowed"] is False
+    assert payload["data_policy"]["regex_business_extraction_allowed"] is False
+    assert payload["missing_connectors"] == ["github"]
+
+
+def test_workflow_detail_endpoint_returns_404_for_unknown_workflow() -> None:
+    client = TestClient(app)
+
+    response = client.get("/workflows/not_a_workflow")
+
+    assert response.status_code == 404

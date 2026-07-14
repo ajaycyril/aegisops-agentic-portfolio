@@ -28,6 +28,7 @@ This repository currently defines:
 - SQLAlchemy governance data model and Alembic migration.
 - OPA/Rego policy baseline and structured policy fixtures.
 - Typed OPA client and audit event writer.
+- Typed workflow registry loader and read-only workflow catalog endpoints.
 
 ## Core Principle
 
@@ -121,7 +122,7 @@ Current next task:
 
 1. Verify Phase 2 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector.
-3. Start Phase 3 by loading and validating workflow YAML configs into a typed registry.
+3. Continue Phase 3 with `POST /workflow-runs` and OPA-backed run eligibility.
 
 ## Local Development Target
 

@@ -23,7 +23,8 @@ Phases 0, 1, and the Phase 2 implementation slice are complete.
 
 The repo has architecture docs, dependency manifests, workflow registry configs, local infra
 scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
-database migrations, governance tables, OPA policy scaffolding, and an audit writer.
+database migrations, governance tables, OPA policy scaffolding, an audit writer, and typed
+workflow registry read endpoints.
 
 Current production web deployment:
 
@@ -36,7 +37,7 @@ Current production web deployment:
 | 0 | Architecture baseline | Complete | Docs, stack decisions, workflow portfolio, scaffold |
 | 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
 | 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
-| 3 | Workflow registry and run lifecycle | Not started | Config-driven workflow catalog and run API |
+| 3 | Workflow registry and run lifecycle | In progress | Config-driven workflow catalog and run API |
 | 4 | Visual command center shell | Not started | Portfolio UI, graph canvas, trace/evidence placeholders |
 | 5 | Tool and connector substrate | Not started | MCP tool contracts, GitHub connector foundation |
 | 6 | Engineering Issue-to-PR workflow | Not started | First real production workflow |
@@ -197,19 +198,33 @@ Tasks:
 
 ## Phase 3: Workflow Registry and Run Lifecycle
 
+Status: In progress.
+
+Completed artifacts:
+
+- Pydantic workflow config models under `services/api/src/aegisops_api/workflows/`.
+- YAML loader for `configs/workflows/*.yaml`.
+- `GET /workflows`.
+- `GET /workflows/{workflow_id}`.
+- Connector readiness reporting for registry reads. Workflows remain disabled unless real
+  connector names are configured through `CONFIGURED_CONNECTORS`.
+- Tests for workflow config loading, real-data policy enforcement, disabled-by-default
+  readiness, list endpoint, detail endpoint, and unknown workflow 404s.
+
 Goal: Convert YAML workflow configs into a typed runtime registry and run lifecycle.
 
 Tasks:
 
-1. Add Pydantic models for workflow config files.
-2. Load and validate `configs/workflows/*.yaml`.
-3. Expose `GET /workflows`.
-4. Expose `GET /workflows/{workflow_id}`.
+1. Done: add Pydantic models for workflow config files.
+2. Done: load and validate `configs/workflows/*.yaml`.
+3. Done: expose `GET /workflows`.
+4. Done: expose `GET /workflows/{workflow_id}`.
 5. Add `POST /workflow-runs` with run eligibility checks.
 6. Add run status states: queued, running, waiting_for_approval, completed, failed, canceled.
 7. Add budget envelope model.
 8. Add replay/live execution mode model.
-9. Add connector readiness checks.
+9. In progress: add connector readiness checks. Read-side readiness is implemented; run-start
+   readiness still needs to be enforced in `POST /workflow-runs`.
 
 Acceptance criteria:
 
@@ -217,6 +232,12 @@ Acceptance criteria:
 - Workflows are disabled until connector requirements are satisfied.
 - Starting a workflow creates a durable run record.
 - Run creation calls OPA before execution.
+
+Current next task:
+
+1. Add `POST /workflow-runs` with a typed request/response model.
+2. Enforce connector readiness, replay/live execution mode, budget envelope, and OPA run
+   eligibility before creating durable run records.
 
 ## Phase 4: Visual Command Center Shell
 
