@@ -22,8 +22,9 @@ the first typed LangGraph state/input contract and read-only GitHub issue/file e
 It is exposed through a controlled run-scoped evidence collection route that requires a stored
 workflow run. Live mode uses read-only GitHub tools; replay mode requires a captured real-run
 fixture. Optional planner/evaluator nodes can produce typed patch-plan and test-plan artifacts
-when a real planner implementation is injected. The YAML files under `configs/workflows`
-remain the portfolio registry.
+when a real planner implementation is injected. The OpenAI Responses API planner adapter
+records `model_calls` but is not yet wired into the run route. The YAML files under
+`configs/workflows` remain the portfolio registry.
 
 ## Workflow Contract
 

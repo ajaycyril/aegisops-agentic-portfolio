@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     app_env: str = Field(default="local", validation_alias="APP_ENV")
     public_app_url: AnyHttpUrl | None = Field(default=None, validation_alias="PUBLIC_APP_URL")
     api_base_url: AnyHttpUrl | None = Field(default=None, validation_alias="API_BASE_URL")
+    openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_default_model: str | None = Field(default=None, validation_alias="OPENAI_DEFAULT_MODEL")
+    openai_reasoning_model: str | None = Field(
+        default=None,
+        validation_alias="OPENAI_REASONING_MODEL",
+    )
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
     opa_base_url: AnyHttpUrl | None = Field(default=None, validation_alias="OPA_BASE_URL")

@@ -9,6 +9,11 @@ from aegisops_api.workflows.engineering_issue_to_pr.graph import (
     TestPlanStep,
     create_engineering_issue_to_pr_graph,
 )
+from aegisops_api.workflows.engineering_issue_to_pr.planner import (
+    OpenAIIssueToPrPlanner,
+    OpenAIPlannerConfig,
+    PlannerModelCallError,
+)
 from aegisops_api.workflows.engineering_issue_to_pr.replay import (
     IssueToPrReplayFixture,
     ReplayFixtureError,
@@ -30,7 +35,10 @@ __all__ = [
     "IssueToPrRunRejectedError",
     "IssueToPrRunRequest",
     "IssueToPrRunResponse",
+    "OpenAIIssueToPrPlanner",
+    "OpenAIPlannerConfig",
     "PolicyBackedIssueToPrToolRuntime",
+    "PlannerModelCallError",
     "PlannedFileChange",
     "ReplayFixtureError",
     "TestPlanStep",

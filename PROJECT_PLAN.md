@@ -34,7 +34,8 @@ LangGraph module now orchestrates those read-only nodes through a controlled run
 evidence collection route. Captured-real-run replay schema and loading are wired for the same
 route without committing fabricated replay payloads. Optional proposal and evaluator graph
 nodes now exist with typed patch-plan, test-plan, and evaluation contracts, but no write
-actions are enabled.
+actions are enabled. A model-backed OpenAI Responses API planner adapter now exists and records
+`model_calls`, but it is not yet wired into the public run route.
 
 Current production web deployment:
 
@@ -362,6 +363,9 @@ Completed artifacts:
 - Replay fixture directory contract under `configs/replays/engineering_issue_to_pr/`.
 - Optional planner/evaluator graph nodes and contracts for patch proposals, test plans,
   evidence grounding, and risk evaluation.
+- OpenAI Responses API planner adapter for patch planning and plan evaluation.
+- `model_calls` audit persistence for planner/evaluator model calls, including prompt version,
+  token counts, latency, trace ID, status, and request/response metadata.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -404,8 +408,9 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add a model-backed planner implementation for the typed proposal/evaluator contracts.
-2. Persist model-call audit records for planner/evaluator calls.
+1. Wire the model-backed planner into the run-scoped Engineering route behind explicit
+   configuration.
+2. Add UI/API response fields for proposal and evaluation summaries.
 3. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
 
@@ -559,5 +564,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding a model-backed planner implementation for the typed proposal/evaluator
-contracts, including model-call audit records. Do not enable branch or pull-request writes.
+Continue by wiring the model-backed planner into the run-scoped Engineering route behind
+explicit configuration. Do not enable branch or pull-request writes.

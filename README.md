@@ -57,6 +57,9 @@ This repository currently defines:
 - Optional Engineering Issue-to-PR proposal/evaluator graph nodes with typed patch-plan,
   test-plan, and evaluation contracts. They require an injected planner and do not enable
   branch or pull-request writes.
+- OpenAI Responses API planner adapter for those proposal/evaluator contracts, with
+  `model_calls` audit records for model, prompt version, token counts, latency, trace ID, and
+  failure status.
 
 ## Core Principle
 
@@ -152,8 +155,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding a model-backed planner implementation with model-call audit
-   records for the typed proposal/evaluator contracts.
+3. Continue Phase 6 by wiring the model-backed planner into the run-scoped evidence route
+   behind explicit configuration.
 
 ## Local Development Target
 
