@@ -33,7 +33,7 @@ Current production web deployment:
 | Phase | Name | Status | Outcome |
 | --- | --- | --- | --- |
 | 0 | Architecture baseline | Complete | Docs, stack decisions, workflow portfolio, scaffold |
-| 1 | Foundation runtime | In progress | Installable web/API skeleton with health checks |
+| 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
 | 2 | Governance and data layer | Not started | Postgres, migrations, policy checks, audit model |
 | 3 | Workflow registry and run lifecycle | Not started | Config-driven workflow catalog and run API |
 | 4 | Visual command center shell | Not started | Portfolio UI, graph canvas, trace/evidence placeholders |
@@ -71,7 +71,7 @@ Acceptance checks already run:
 
 ## Phase 1: Foundation Runtime
 
-Status: In progress.
+Status: Complete.
 
 Completed in current phase:
 
@@ -96,7 +96,7 @@ Tasks:
 5. Done: add a minimal Next.js app shell under `apps/web`.
 6. Done: add basic API client wiring from web to backend.
 7. Done: add local development docs for install/run commands.
-8. Not started: update CI to install dependencies and run lightweight validation.
+8. Done: update CI to install dependencies and run lightweight validation.
 
 Acceptance criteria:
 
@@ -355,5 +355,5 @@ A feature is done only when:
 
 Start Phase 1.
 
-First concrete task: validate the foundation runtime build, then add basic API client wiring
-from the web app to the backend.
+First concrete task: start Phase 2 by adding the SQLAlchemy database module and Alembic
+migration setup.

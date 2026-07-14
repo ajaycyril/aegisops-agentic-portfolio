@@ -121,7 +121,7 @@ export default function Home() {
             <span className="dot" />
             Architecture baseline deployed
           </span>
-          <span>Phase 1 foundation runtime</span>
+          <span>Phase 1 foundation runtime complete</span>
         </div>
       </header>
 
@@ -249,17 +249,19 @@ export default function Home() {
                 <TimerReset size={18} />
                 Current Build State
               </div>
-              <span className="badge">Phase 1 in progress</span>
+                <span className="badge">Phase 1 complete</span>
             </div>
             <div className="panel-body">
               <div className="lens-list">
                 <div className="lens-row">
                   <span className="lens-label">Completed</span>
-                  <span className="lens-value">Architecture, workflow registry, docs, deployable shell</span>
+                  <span className="lens-value">
+                    Architecture, workflow registry, API health, deployable shell
+                  </span>
                 </div>
                 <div className="lens-row">
                   <span className="lens-label">Next</span>
-                  <span className="lens-value">API health, registry API, governance data layer</span>
+                  <span className="lens-value">Governance data layer, migrations, OPA baseline</span>
                 </div>
                 <div className="lens-row">
                   <span className="lens-label">Live data</span>

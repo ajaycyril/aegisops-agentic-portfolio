@@ -92,7 +92,6 @@ latency, memory access, evidence sources, and approval status when applicable.
 
 ## Current Priority
 
-The repository is currently in architecture/scaffold phase.
+The repository has completed the architecture baseline and Phase 1 foundation runtime.
 
-Next major milestone: implement the foundation runtime skeleton without any workflow business
-logic. See `PROJECT_PLAN.md`, Phase 1.
+Next major milestone: implement the governance and data layer. See `PROJECT_PLAN.md`, Phase 2.
