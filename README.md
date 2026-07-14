@@ -108,6 +108,7 @@ Read these documents in order:
 7. [Visual Product Blueprint](./docs/architecture/04-visual-product-blueprint.md)
 8. [Use-Case Portfolio](./docs/use-cases/README.md)
 9. [Workflow Contracts](./docs/workflows/README.md)
+10. [Local Development Setup](./docs/development/local-setup.md)
 
 ## Execution Plan
 

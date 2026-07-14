@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { ApiStatusPanel } from "@/components/api-status-panel";
+
 type IconCard = {
   icon: LucideIcon;
   title: string;
@@ -270,6 +272,8 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          <ApiStatusPanel />
         </section>
       </div>
     </main>

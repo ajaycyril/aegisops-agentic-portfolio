@@ -82,6 +82,8 @@ Completed in current phase:
 - Minimal Next.js visual command-center shell under `apps/web`.
 - API health endpoint tests.
 - Vercel production deployment for the visual shell.
+- Basic API status wiring from the web app to `NEXT_PUBLIC_API_BASE_URL`.
+- Local development setup documentation.
 
 Goal: Make the repo installable and runnable with minimal skeleton services.
 
@@ -92,8 +94,8 @@ Tasks:
 3. Done: add `/health`, `/ready`, and `/version` endpoints.
 4. Done: add structured logging setup.
 5. Done: add a minimal Next.js app shell under `apps/web`.
-6. Not started: add basic API client wiring from web to backend.
-7. Not started: add local development docs for install/run commands.
+6. Done: add basic API client wiring from web to backend.
+7. Done: add local development docs for install/run commands.
 8. Not started: update CI to install dependencies and run lightweight validation.
 
 Acceptance criteria:

@@ -7,8 +7,8 @@ on:
       - main
 
 jobs:
-  scaffold-check:
-    name: Scaffold Check
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,10 +25,31 @@ jobs:
           node-version: "24"
           cache: "pnpm"
 
-      - name: Validate workspace files
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate web workspace
         run: |
-          test -f README.md
-          test -f pnpm-workspace.yaml
-          test -f services/api/pyproject.toml
-          test -f docs/architecture/01-system-architecture.md
-          test -f docs/use-cases/README.md
+          pnpm -r lint
+          pnpm -r typecheck
+          pnpm -r build
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install API dependencies
+        run: |
+          python -m venv services/api/.venv
+          services/api/.venv/bin/python -m pip install --upgrade pip
+          services/api/.venv/bin/python -m pip install -e "services/api[dev]"
+
+      - name: Validate API
+        run: |
+          services/api/.venv/bin/pytest services/api/tests
+          services/api/.venv/bin/ruff check services/api
+          services/api/.venv/bin/mypy services/api/src services/api/tests
+
+      - name: Validate docs
+        run: node scripts/check-docs-placeholders.mjs

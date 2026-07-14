@@ -368,6 +368,12 @@ h1 {
   font-size: 12px;
 }
 
+.badge-muted {
+  color: #c5ccda;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 @media (max-width: 1180px) {
   .layout,
   .hero,
