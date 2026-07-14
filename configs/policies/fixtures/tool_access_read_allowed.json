@@ -1,0 +1,21 @@
+{
+  "decision_point": "tool_access",
+  "package": "aegisops.tool_access",
+  "input": {
+    "workflow_id": "engineering_issue_to_pr",
+    "autonomy_level": "read_only",
+    "connector_ready": true,
+    "tool": {
+      "name": "github.issue.read",
+      "risk_class": "read",
+      "required_scopes": ["issues:read"]
+    },
+    "approval": {
+      "status": "not_required"
+    }
+  },
+  "expected": {
+    "allow": true,
+    "requires_approval": false
+  }
+}

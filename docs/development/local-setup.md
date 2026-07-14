@@ -1,6 +1,6 @@
 # Local Development Setup
 
-This guide covers the Phase 1 foundation runtime.
+This guide covers the Phase 1 foundation runtime and Phase 2 governance/data scaffolding.
 
 ## Prerequisites
 
@@ -59,6 +59,22 @@ Stop it with:
 make infra-down
 ```
 
+## Run Migrations
+
+After `make infra-up`, apply the governance schema:
+
+```bash
+cd services/api
+.venv/bin/alembic upgrade head
+```
+
+To inspect migration SQL without a running database:
+
+```bash
+cd services/api
+.venv/bin/alembic upgrade head --sql
+```
+
 ## Run API
 
 ```bash
@@ -96,6 +112,6 @@ pnpm -r typecheck
 pnpm -r build
 services/api/.venv/bin/pytest services/api/tests
 services/api/.venv/bin/ruff check services/api
-services/api/.venv/bin/mypy services/api/src services/api/tests
+cd services/api && .venv/bin/mypy .
 node scripts/check-docs-placeholders.mjs
 ```

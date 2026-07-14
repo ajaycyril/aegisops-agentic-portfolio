@@ -1,0 +1,16 @@
+{
+  "decision_point": "data_sensitivity",
+  "package": "aegisops.data_sensitivity",
+  "input": {
+    "workflow_id": "finance_invoice_exception",
+    "operation": "external_output",
+    "destination": "external",
+    "data_sensitivity": "restricted",
+    "retention_class": "ephemeral"
+  },
+  "expected": {
+    "allow": false,
+    "requires_approval": true,
+    "reason_codes": ["restricted_external_output"]
+  }
+}

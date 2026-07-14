@@ -18,4 +18,11 @@ run trace.
 
 ## Initial Policy Files
 
-Implementation will add Rego modules after the architecture baseline is approved.
+The baseline Rego modules live under `policies/aegisops/`:
+
+- `tool_access.rego`
+- `approvals.rego`
+- `budget.rego`
+- `data_sensitivity.rego`
+
+Structured policy fixture inputs live under `configs/policies/fixtures/`.

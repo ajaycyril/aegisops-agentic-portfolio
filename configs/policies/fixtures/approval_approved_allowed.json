@@ -1,0 +1,18 @@
+{
+  "decision_point": "human_approval",
+  "package": "aegisops.approvals",
+  "input": {
+    "workflow_id": "incident_response_investigator",
+    "autonomy_level": "approval_required",
+    "risk_class": "write",
+    "requested_action": "incident.status.update",
+    "approval": {
+      "status": "approved",
+      "approver_id": "human-reviewer"
+    }
+  },
+  "expected": {
+    "allow": true,
+    "requires_approval": true
+  }
+}

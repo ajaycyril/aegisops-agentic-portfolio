@@ -19,10 +19,11 @@ The platform must show:
 
 ## Current Status
 
-Phase 0 is complete.
+Phases 0, 1, and the Phase 2 implementation slice are complete.
 
 The repo has architecture docs, dependency manifests, workflow registry configs, local infra
-scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, and a deployed web shell.
+scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
+database migrations, governance tables, OPA policy scaffolding, and an audit writer.
 
 Current production web deployment:
 
@@ -34,7 +35,7 @@ Current production web deployment:
 | --- | --- | --- | --- |
 | 0 | Architecture baseline | Complete | Docs, stack decisions, workflow portfolio, scaffold |
 | 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
-| 2 | Governance and data layer | Not started | Postgres, migrations, policy checks, audit model |
+| 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
 | 3 | Workflow registry and run lifecycle | Not started | Config-driven workflow catalog and run API |
 | 4 | Visual command center shell | Not started | Portfolio UI, graph canvas, trace/evidence placeholders |
 | 5 | Tool and connector substrate | Not started | MCP tool contracts, GitHub connector foundation |
@@ -122,19 +123,36 @@ services/api/.venv/bin/pytest
 
 ## Phase 2: Governance and Data Layer
 
+Status: Implemented. Live Docker/Postgres migration verification is pending because Docker was
+not available in the current local environment.
+
+Completed artifacts:
+
+- SQLAlchemy database module under `services/api/src/aegisops_api/db/`.
+- Alembic setup under `services/api/alembic/`.
+- Initial migration for workflow registry snapshots, workflow runs, audit events, approvals,
+  tool calls, model calls, memory records, and evidence records.
+- pgvector extension migration plus HNSW embedding index for memory records.
+- OPA HTTP client under `services/api/src/aegisops_api/policy/`.
+- Baseline Rego packages under `policies/aegisops/`.
+- Structured JSON policy fixtures under `configs/policies/fixtures/`.
+- Audit event writer under `services/api/src/aegisops_api/audit/`.
+- Tests for schema metadata, Alembic head, OPA client behavior, policy fixtures, and audit
+  writer behavior.
+
 Goal: Add durable system state before agent behavior.
 
 Tasks:
 
-1. Add SQLAlchemy database module.
-2. Add Alembic migration setup.
-3. Create tables for workflow registry snapshots, workflow runs, audit events, approvals,
+1. Done: add SQLAlchemy database module.
+2. Done: add Alembic migration setup.
+3. Done: create tables for workflow registry snapshots, workflow runs, audit events, approvals,
    tool calls, model calls, memory records, and evidence records.
-4. Enable pgvector extension migration.
-5. Add OPA client.
-6. Add baseline Rego packages for tool access, approvals, budget, and data sensitivity.
-7. Add policy test fixtures using structured JSON inputs.
-8. Add audit event writer.
+4. Done: enable pgvector extension migration.
+5. Done: add OPA client.
+6. Done: add baseline Rego packages for tool access, approvals, budget, and data sensitivity.
+7. Done: add policy test fixtures using structured JSON inputs.
+8. Done: add audit event writer.
 
 Acceptance criteria:
 
@@ -150,7 +168,32 @@ Validation commands:
 make infra-up
 services/api/.venv/bin/alembic upgrade head
 services/api/.venv/bin/pytest services/api/tests
+services/api/.venv/bin/ruff check services/api
+cd services/api && .venv/bin/mypy .
 ```
+
+Validated in current environment:
+
+```bash
+services/api/.venv/bin/pytest services/api/tests
+services/api/.venv/bin/ruff check services/api
+cd services/api && .venv/bin/mypy .
+cd services/api && .venv/bin/alembic upgrade head --sql
+```
+
+Not run: `make infra-up` and live `alembic upgrade head`, because Docker is not installed.
+
+## Phase 2 Follow-Up: Live Infra Verification
+
+Goal: verify Phase 2 against local containers before starting durable run APIs.
+
+Tasks:
+
+1. Install/start Docker Desktop.
+2. Run `make infra-up`.
+3. Run `cd services/api && .venv/bin/alembic upgrade head`.
+4. Confirm OPA loads `policies/aegisops/*.rego`.
+5. Run `services/api/.venv/bin/pytest services/api/tests`.
 
 ## Phase 3: Workflow Registry and Run Lifecycle
 

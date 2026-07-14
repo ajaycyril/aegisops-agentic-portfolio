@@ -1,0 +1,20 @@
+{
+  "decision_point": "budget",
+  "package": "aegisops.budget",
+  "input": {
+    "workflow_id": "customer_support_escalation",
+    "estimated_cost_usd": 1.25,
+    "tool_call_count": 8,
+    "elapsed_seconds": 95,
+    "budget": {
+      "max_estimated_usd": 1.0,
+      "max_tool_calls": 25,
+      "max_run_seconds": 300
+    }
+  },
+  "expected": {
+    "allow": false,
+    "requires_approval": true,
+    "reason_codes": ["estimated_cost_exceeded"]
+  }
+}

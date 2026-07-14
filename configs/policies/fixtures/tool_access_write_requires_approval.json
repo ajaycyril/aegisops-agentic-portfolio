@@ -1,0 +1,22 @@
+{
+  "decision_point": "tool_access",
+  "package": "aegisops.tool_access",
+  "input": {
+    "workflow_id": "engineering_issue_to_pr",
+    "autonomy_level": "approval_required",
+    "connector_ready": true,
+    "tool": {
+      "name": "github.pull_request.create",
+      "risk_class": "write",
+      "required_scopes": ["pull_requests:write"]
+    },
+    "approval": {
+      "status": "pending"
+    }
+  },
+  "expected": {
+    "allow": false,
+    "requires_approval": true,
+    "reason_codes": ["approval_required"]
+  }
+}

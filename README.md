@@ -10,7 +10,7 @@ This is not a chatbot demo. It is an agentic workflow platform.
 
 ## Current Phase
 
-Architecture and scaffolding first.
+Foundation runtime and governance scaffolding are in place.
 
 This repository currently defines:
 
@@ -24,8 +24,10 @@ This repository currently defines:
 - Free-tier deployment target with production-grade upgrade path.
 - Dependency manifests for web, API, and shared contracts.
 - Local infrastructure plan for Postgres, pgvector, Redis, and OPA.
-
-Feature implementation comes after the architecture baseline is accepted.
+- Deployed visual command-center shell.
+- SQLAlchemy governance data model and Alembic migration.
+- OPA/Rego policy baseline and structured policy fixtures.
+- Typed OPA client and audit event writer.
 
 ## Core Principle
 
@@ -117,9 +119,9 @@ next incomplete task without relying on chat history.
 
 Current next task:
 
-1. Start Phase 1.
-2. Add a minimal FastAPI app with environment settings and health endpoints.
-3. Keep workflow business logic out until the foundation runtime is complete.
+1. Verify Phase 2 live infrastructure on a machine with Docker.
+2. Run Alembic against local Postgres/pgvector.
+3. Start Phase 3 by loading and validating workflow YAML configs into a typed registry.
 
 ## Local Development Target
 
@@ -144,8 +146,8 @@ The visual command center is deployed on Vercel:
 - Production URL: https://aegisops-agentic-portfolio.vercel.app
 - Vercel project: `aegisops-agentic-portfolio`
 
-The deployed web shell is the Phase 1 visual foundation. Live workflow execution remains
-disabled until real connectors, policy checks, backend deployment, and spend controls are wired.
+The deployed web shell is the visual foundation. Live workflow execution remains disabled until
+real connectors, live policy checks, backend deployment, and spend controls are wired.
 
 ## License
 
