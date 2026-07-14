@@ -2,9 +2,12 @@ from aegisops_api.tools.execution import (
     OpaToolPolicyEvaluator,
     ToolCallAuthorizationRequest,
     ToolCallAuthorizationResponse,
+    ToolCallExecutionRequest,
+    ToolCallExecutionResponse,
     ToolExecutionRejectedError,
     ToolPolicyEvaluator,
     authorize_tool_call,
+    execute_authorized_tool_call,
 )
 from aegisops_api.tools.mcp_server import create_tool_contract_mcp_server
 from aegisops_api.tools.registry import (
@@ -22,6 +25,8 @@ __all__ = [
     "ToolConfig",
     "ToolCallAuthorizationRequest",
     "ToolCallAuthorizationResponse",
+    "ToolCallExecutionRequest",
+    "ToolCallExecutionResponse",
     "ToolExecutionRejectedError",
     "ToolDetail",
     "ToolNotFoundError",
@@ -31,5 +36,6 @@ __all__ = [
     "ToolSummary",
     "authorize_tool_call",
     "create_tool_contract_mcp_server",
+    "execute_authorized_tool_call",
     "get_tool_registry",
 ]

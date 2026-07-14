@@ -41,6 +41,11 @@ This repository currently defines:
   tool definitions exposed through read-only API endpoints.
 - MCP tool contract server skeleton and `POST /tool-calls/authorize` boundary for
   schema-validated, OPA-checked, audit-logged tool calls without live connector execution.
+- `POST /tool-calls/{tool_call_id}/execute` for executing a previously authorized stored tool
+  call, with input-hash revalidation, output schema validation, status transitions, latency,
+  output hash, and audit events.
+- Read-only GitHub App adapter for real issue and file reads through installation-token REST
+  calls. Write adapters remain intentionally unavailable.
 
 ## Core Principle
 
@@ -136,8 +141,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 5 with real connector adapters behind the policy-checked tool authorization
-   boundary.
+3. Continue Phase 5 by wiring the first LangGraph Engineering Issue-to-PR nodes to the
+   read-only GitHub adapter and keeping write actions behind approval.
 
 ## Local Development Target
 

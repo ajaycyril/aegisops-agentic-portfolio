@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator, Generator
 from typing import Annotated
+from uuid import UUID
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException
@@ -16,12 +17,20 @@ from aegisops_api.tools import (
     OpaToolPolicyEvaluator,
     ToolCallAuthorizationRequest,
     ToolCallAuthorizationResponse,
+    ToolCallExecutionRequest,
+    ToolCallExecutionResponse,
     ToolDetail,
     ToolExecutionRejectedError,
     ToolNotFoundError,
     ToolPolicyEvaluator,
     ToolSummary,
     authorize_tool_call,
+    execute_authorized_tool_call,
+)
+from aegisops_api.tools.adapters import (
+    ToolAdapterExecutionError,
+    ToolAdapterRegistry,
+    create_default_tool_adapter_registry,
 )
 from aegisops_api.tools.registry import get_tool_registry
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
@@ -78,6 +87,10 @@ async def get_tool_policy_evaluator(
         yield OpaToolPolicyEvaluator(opa_client)
     finally:
         await opa_client.aclose()
+
+
+def get_tool_adapter_registry() -> ToolAdapterRegistry:
+    return create_default_tool_adapter_registry()
 
 
 @app.get("/health", tags=["system"])
@@ -187,6 +200,39 @@ async def authorize_tool_call_endpoint(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+@app.post(
+    "/tool-calls/{tool_call_id}/execute",
+    response_model=ToolCallExecutionResponse,
+    tags=["tools"],
+)
+async def execute_tool_call_endpoint(
+    tool_call_id: UUID,
+    request: ToolCallExecutionRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+) -> ToolCallExecutionResponse:
+    try:
+        return await execute_authorized_tool_call(
+            tool_call_id=tool_call_id,
+            request=request,
+            tool_registry=get_tool_registry(),
+            session=session,
+            adapter_registry=adapter_registry,
+        )
+    except ToolNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="tool not found") from exc
+    except ToolExecutionRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except ToolAdapterExecutionError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(

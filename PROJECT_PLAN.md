@@ -28,7 +28,8 @@ database migrations, governance tables, OPA policy scaffolding, an audit writer,
 workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
 visual command center. Phase 5 has started with typed tool contracts, read-only tool registry
 endpoints, an MCP contract server skeleton, a connector auth/readiness registry, and a
-policy-checked tool authorization boundary.
+policy-checked tool authorization boundary. The first read-only GitHub App adapter is now in
+place for issue and file reads through a stored authorized tool call.
 
 Current production web deployment:
 
@@ -336,6 +337,13 @@ Completed artifacts:
 - Read-only `GET /connectors` and `GET /connectors/{connector_id}` endpoints.
 - Coverage tests requiring every workflow/tool connector to have an explicit readiness
   contract.
+- Tool adapter package under `services/api/src/aegisops_api/tools/adapters/`.
+- Read-only GitHub App adapter for issue and file reads through GitHub REST.
+- `POST /tool-calls/{tool_call_id}/execute` endpoint for executing a previously authorized
+  `tool_calls` record only after input hash revalidation.
+- Tool execution updates durable status, output hash, latency, completion timestamp, and audit
+  events. Response payload returns the live tool output, while persistence stores hashes and
+  metadata rather than full retrieved content.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -378,10 +386,11 @@ cd services/api && .venv/bin/mypy .
 
 Next Phase 5 slice:
 
-1. Implement real GitHub App auth and read-only GitHub issue/file adapters.
-2. Route adapter execution through `POST /tool-calls/authorize` decisions and durable
-   `tool_calls` records.
-3. Keep write adapters disabled until approval persistence and UI review are wired.
+1. Add Engineering Issue-to-PR LangGraph state and first read-only nodes that call
+   authorization plus `POST /tool-calls/{tool_call_id}/execute`.
+2. Add captured real-run replay schema for GitHub issue/file evidence.
+3. Keep branch and PR write adapters disabled until approval persistence and UI review are
+   wired.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -518,5 +527,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue Phase 5 by implementing the first real read-only GitHub connector adapter behind the
-existing policy-checked tool authorization boundary.
+Continue Phase 5 by wiring the read-only GitHub adapter into the Engineering Issue-to-PR
+LangGraph state and graph nodes.

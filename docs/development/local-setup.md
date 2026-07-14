@@ -123,6 +123,7 @@ Tool registry endpoints:
 - `GET http://localhost:8000/tools`
 - `GET http://localhost:8000/tools/{tool_id}`
 - `POST http://localhost:8000/tool-calls/authorize`
+- `POST http://localhost:8000/tool-calls/{tool_call_id}/execute`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
@@ -148,8 +149,17 @@ is reachable, and the budget/replay policy permits the start.
 
 Tool authorization validates the selected workflow/tool contract, JSON input schema, connector
 readiness, OPA `tool_access`, and approval status before a non-executed `tool_calls` record is
-created. External connector execution is still intentionally disabled until real adapters and
-auth are implemented.
+created. Tool execution is a separate step: it requires that stored authorized record, rechecks
+the input hash, validates output against the tool schema, and then records status, latency,
+output hash, and audit events.
+
+The first live adapter is read-only GitHub App REST access for:
+
+- `github_issue_read`
+- `github_file_read`
+
+`github_pull_request_draft` remains contract-only until the approval UI and write-action
+review path are wired.
 
 ## Run Web
 
