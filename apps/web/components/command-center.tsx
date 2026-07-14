@@ -2,33 +2,40 @@
 
 import {
   Activity,
-  BadgeCheck,
+  AlertTriangle,
   Boxes,
   BrainCircuit,
-  Braces,
-  Building2,
-  ChartNoAxesCombined,
-  ClipboardCheck,
+  CheckCircle2,
+  CircleDot,
   Code2,
   Database,
+  FileCode2,
+  Gauge,
   GitPullRequest,
+  KeyRound,
   Layers3,
   LockKeyhole,
   Network,
+  PlayCircle,
   Server,
   ShieldCheck,
-  Siren,
   Sparkles,
   TimerReset,
-  Truck,
-  Users,
   Workflow,
+  XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useMemo, useState, type ReactNode } from "react";
 import {
-  Area,
-  AreaChart,
+  Background,
+  Controls,
+  MarkerType,
+  ReactFlow,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -39,144 +46,123 @@ import {
 } from "recharts";
 
 import type { ApiStatus } from "@/lib/api";
-
-type IconCard = {
-  icon: LucideIcon;
-  title: string;
-  copy: string;
-  stage: "ready" | "planned" | "gated";
-};
+import type { WorkflowCatalog, WorkflowDetail, WorkflowStatus } from "@/lib/workflows";
 
 type CommandCenterProps = {
   apiStatus: ApiStatus;
+  workflowCatalog: WorkflowCatalog;
 };
 
-const navItems: Array<{ label: string; icon: LucideIcon }> = [
+type NavItem = {
+  label: string;
+  icon: LucideIcon;
+};
+
+type GraphNodeData = Record<string, unknown> & {
+  label: ReactNode;
+  title: string;
+  layer: string;
+  state: string;
+  evidence: string[];
+  policy: string;
+};
+
+type WorkflowNode = Node<GraphNodeData>;
+type WorkflowEdge = Edge;
+
+type GraphInspector = {
+  id: string;
+  title: string;
+  layer: string;
+  state: string;
+  evidence: string[];
+  policy: string;
+};
+
+const navItems: NavItem[] = [
   { label: "Portfolio", icon: Boxes },
-  { label: "Agent Graph", icon: Workflow },
-  { label: "Evidence Board", icon: Database },
-  { label: "Policy Studio", icon: LockKeyhole },
-  { label: "Trace Timeline", icon: Activity },
-  { label: "Code Lens", icon: Braces },
+  { label: "Command", icon: Gauge },
+  { label: "Graph", icon: Workflow },
+  { label: "Evidence", icon: Database },
+  { label: "Policy", icon: LockKeyhole },
+  { label: "Trace", icon: Activity },
+  { label: "Code", icon: Code2 },
 ];
 
-const portfolio: IconCard[] = [
-  {
-    icon: GitPullRequest,
-    title: "Engineering Issue-to-PR",
-    copy: "GitHub issue, repo inspection, test plan, approval-gated PR draft.",
-    stage: "ready",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Security Remediation",
-    copy: "Advisory triage, exploitability analysis, policy-gated patch plan.",
-    stage: "planned",
-  },
-  {
-    icon: Users,
-    title: "Customer Support",
-    copy: "Ticket, account context, retrieval-grounded reply, approval queue.",
-    stage: "planned",
-  },
-  {
-    icon: Truck,
-    title: "Supplier Risk",
-    copy: "Supplier data, approved research, sanctions signal, mitigation brief.",
-    stage: "gated",
-  },
-  {
-    icon: ClipboardCheck,
-    title: "Finance Exception",
-    copy: "Invoice evidence, policy comparison, approval route, audit trail.",
-    stage: "gated",
-  },
-  {
-    icon: Siren,
-    title: "Incident Investigator",
-    copy: "Logs, traces, deploys, CI history, hypothesis graph, RCA draft.",
-    stage: "ready",
-  },
-  {
-    icon: Building2,
-    title: "Sales / RFP",
-    copy: "CRM context, cited research, proposal draft, evaluator pass.",
-    stage: "planned",
-  },
-  {
-    icon: BadgeCheck,
-    title: "Compliance Evidence",
-    copy: "Control mapping, evidence collection, gap analysis, export approval.",
-    stage: "planned",
-  },
-];
+const statusCopy: Record<WorkflowStatus, string> = {
+  planned: "Planned",
+  ready: "Ready",
+  gated: "Gated",
+  disabled: "Disabled",
+};
 
-const workflowLanes = [
-  {
-    label: "Engineering",
-    source: "GitHub",
-    color: "teal",
-    steps: ["Issue", "Repo", "Plan", "Patch", "Tests", "PR"],
-  },
-  {
-    label: "Incident",
-    source: "Deploys + Logs",
-    color: "blue",
-    steps: ["Alert", "Timeline", "Traces", "Hypothesis", "RCA", "Approval"],
-  },
-  {
-    label: "Support",
-    source: "Tickets + KB",
-    color: "amber",
-    steps: ["Ticket", "Account", "Docs", "Draft", "Review", "Reply"],
-  },
-  {
-    label: "Finance",
-    source: "Invoices",
-    color: "rose",
-    steps: ["Invoice", "Vendor", "Policy", "Route", "Audit", "Hold"],
-  },
-];
+const statusIcon: Record<WorkflowStatus, LucideIcon> = {
+  planned: CircleDot,
+  ready: CheckCircle2,
+  gated: AlertTriangle,
+  disabled: XCircle,
+};
 
-const stackLayers = [
-  ["Rules", "Deterministic checks", "0 ms model cost"],
-  ["OPA", "Dynamic policy", "approval and budgets"],
-  ["LangGraph", "Stateful runtime", "checkpoints and interrupts"],
-  ["MCP", "Typed tools", "schemas and scopes"],
-  ["Memory", "Postgres + pgvector", "evidence and retention"],
-  ["Evals", "Quality gates", "grounding and safety"],
-];
-
-const telemetry = [
-  { name: "Rules", value: 44, cost: 0 },
-  { name: "Policy", value: 31, cost: 0 },
-  { name: "Workflow", value: 18, cost: 12 },
-  { name: "Agentic", value: 7, cost: 88 },
-];
-
-const traceSeries = [
-  { step: "Gate", model: 0, tools: 1, policy: 3 },
-  { step: "Plan", model: 3, tools: 2, policy: 2 },
-  { step: "Act", model: 2, tools: 6, policy: 5 },
-  { step: "Review", model: 4, tools: 2, policy: 4 },
-  { step: "Ship", model: 1, tools: 1, policy: 6 },
-];
-
-const evidenceRows = [
-  ["Tool", "typed MCP contract", "blocked until connector ready"],
-  ["Policy", "OPA decision point", "enforced before every action"],
-  ["Memory", "Postgres checkpoint", "retention-class metadata"],
-  ["Trace", "OpenTelemetry span", "model, tool, cost, approval"],
-];
-
-const statusLabel = {
+const apiStatusLabel = {
   not_configured: "API not deployed",
   online: "API online",
   unreachable: "API unreachable",
 } satisfies Record<ApiStatus["label"], string>;
 
-export function CommandCenter({ apiStatus }: CommandCenterProps) {
+const runtimeModes = [
+  {
+    title: "Rule-based",
+    engine: "Typed deterministic gates",
+    cost: "$0 model cost",
+    scope: "Schema validation, status checks, connector readiness",
+  },
+  {
+    title: "Dynamic policy",
+    engine: "OPA/Rego",
+    cost: "$0 model cost",
+    scope: "Run eligibility, budget, tool access, approval routing",
+  },
+  {
+    title: "AI workflow",
+    engine: "Responses API",
+    cost: "metered",
+    scope: "Structured model calls, retrieval summaries, evaluator passes",
+  },
+  {
+    title: "Agentic",
+    engine: "LangGraph + MCP",
+    cost: "bounded",
+    scope: "Stateful planning, typed tools, interrupts, memory, replay",
+  },
+];
+
+export function CommandCenter({ apiStatus, workflowCatalog }: CommandCenterProps) {
   const shouldReduceMotion = useReducedMotion();
+  const workflows = workflowCatalog.workflows;
+  const [activeNav, setActiveNav] = useState(navItems[0].label);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState(workflows[0]?.id ?? "");
+  const [selectedNodeId, setSelectedNodeId] = useState("source");
+
+  const selectedWorkflow = useMemo(
+    () => workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? workflows[0],
+    [selectedWorkflowId, workflows],
+  );
+
+  const graph = useMemo(() => createWorkflowGraph(selectedWorkflow), [selectedWorkflow]);
+  const activeNodeId = graph.inspectors.some((node) => node.id === selectedNodeId)
+    ? selectedNodeId
+    : "source";
+  const selectedNode = graph.inspectors.find((node) => node.id === activeNodeId) ?? graph.inspectors[0];
+  const domainData = useMemo(() => createDomainChart(workflows), [workflows]);
+  const connectorData = useMemo(() => createConnectorChart(workflows), [workflows]);
+  const enabledCount = workflows.filter((workflow) => workflow.enabled).length;
+  const connectorCount = new Set(workflows.flatMap((workflow) => workflow.required_connectors)).size;
+  const approvalCount = workflows.reduce(
+    (total, workflow) => total + workflow.approval_required_for.length,
+    0,
+  );
+  const apiBacked = workflowCatalog.source === "api" && apiStatus.label === "online";
+  const canAttemptReplay = apiBacked && selectedWorkflow.enabled;
 
   return (
     <main className="app-shell">
@@ -187,17 +173,21 @@ export function CommandCenter({ apiStatus }: CommandCenterProps) {
           </div>
           <div>
             <div>AegisOps</div>
-            <div className="topbar-meta">Agentic Workflow Portfolio</div>
+            <div className="topbar-meta">Agentic Workflow Command Center</div>
           </div>
         </div>
         <div className="topbar-meta">
           <span className="status-pill status-live">
             <span className="dot" />
-            Phase 1 complete
+            Phase 4 cockpit
           </span>
           <span className="status-pill status-muted">
             <Server size={14} />
-            {statusLabel[apiStatus.label]}
+            {apiStatusLabel[apiStatus.label]}
+          </span>
+          <span className="status-pill status-muted">
+            <Database size={14} />
+            {workflowCatalog.source === "api" ? "Live registry" : "Repository registry"}
           </span>
         </div>
       </header>
@@ -205,38 +195,29 @@ export function CommandCenter({ apiStatus }: CommandCenterProps) {
       <div className="command-layout">
         <aside className="sidebar">
           <section className="nav-section">
-            <div className="nav-title">Command Center</div>
-            {navItems.map(({ label, icon: Icon }, index) => (
-              <motion.div
-                className={`nav-item ${index === 0 ? "active" : ""}`}
+            <div className="nav-title">Surfaces</div>
+            {navItems.map(({ label, icon: Icon }) => (
+              <button
+                className={`nav-item ${activeNav === label ? "active" : ""}`}
                 key={label}
-                whileHover={shouldReduceMotion ? undefined : { x: 4 }}
+                type="button"
+                onClick={() => setActiveNav(label)}
               >
                 <Icon size={17} />
                 <span>{label}</span>
-              </motion.div>
+              </button>
             ))}
           </section>
 
           <section className="nav-section">
-            <div className="nav-title">Runtime Modes</div>
+            <div className="nav-title">Execution Modes</div>
             <div className="mode-stack">
-              <div className="mode-row">
-                <span>Rule-based</span>
-                <strong>$0</strong>
-              </div>
-              <div className="mode-row">
-                <span>Dynamic policy</span>
-                <strong>$0</strong>
-              </div>
-              <div className="mode-row">
-                <span>AI workflow</span>
-                <strong>metered</strong>
-              </div>
-              <div className="mode-row locked">
-                <span>Agentic live run</span>
-                <strong>admin</strong>
-              </div>
+              {runtimeModes.map((mode) => (
+                <div className="mode-row" key={mode.title}>
+                  <span>{mode.title}</span>
+                  <strong>{mode.cost}</strong>
+                </div>
+              ))}
             </div>
           </section>
         </aside>
@@ -245,236 +226,281 @@ export function CommandCenter({ apiStatus }: CommandCenterProps) {
           <section className="mission-strip">
             <div className="mission-copy">
               <div className="eyebrow">Production-grade agentic AI</div>
-              <h1>Enterprise workflows with every layer visible.</h1>
+              <h1>Every workflow layer visible, gated, and inspectable.</h1>
               <p>
-                A governed execution cockpit for real tools, real policies, memory, approvals,
-                traces, and deployment gates.
+                The command center separates deterministic rules, dynamic policy, AI workflow
+                calls, and agentic tool loops before any live action is allowed.
               </p>
             </div>
             <div className="mission-metrics" aria-label="Architecture metrics">
-              <Metric value="10" label="workflow modules" />
-              <Metric value="4" label="control modes" />
-              <Metric value="0" label="fake data paths" />
-              <Metric value="100%" label="sensitive actions gated" />
+              <Metric value={String(workflows.length)} label="workflow configs" />
+              <Metric value={String(enabledCount)} label="connector-ready" />
+              <Metric value={String(connectorCount)} label="connector classes" />
+              <Metric value={String(approvalCount)} label="approval gates" />
             </div>
           </section>
 
           <section className="ops-grid">
-            <section className="panel command-panel parallel-panel">
-              <PanelHeader icon={Network} title="Parallel Workflow Fabric" badge="config-driven" />
-              <div className="lane-stack">
-                {workflowLanes.map((lane, index) => (
-                  <motion.div
-                    className={`lane lane-${lane.color}`}
-                    key={lane.label}
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
-                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.08, duration: 0.45 }}
-                  >
-                    <div className="lane-head">
-                      <strong>{lane.label}</strong>
-                      <span>{lane.source}</span>
-                    </div>
-                    <div className="lane-rail">
-                      {!shouldReduceMotion && (
-                        <motion.span
-                          className="lane-pulse"
-                          animate={{ x: ["0%", "640%"] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 5.2 + index * 0.5,
-                            ease: "linear",
-                            delay: index * 0.6,
-                          }}
-                        />
-                      )}
-                      {lane.steps.map((step) => (
-                        <span className="lane-step" key={step}>
-                          {step}
-                        </span>
-                      ))}
-                    </div>
-                  </motion.div>
+            <section className="panel portfolio-panel">
+              <PanelHeader icon={Sparkles} title="Enterprise Workflow Portfolio" badge={workflowCatalog.message} />
+              <div className="portfolio">
+                {workflows.map((workflow, index) => (
+                  <WorkflowCard
+                    key={workflow.id}
+                    workflow={workflow}
+                    index={index}
+                    selected={workflow.id === selectedWorkflow.id}
+                    shouldReduceMotion={shouldReduceMotion}
+                    onSelect={() => setSelectedWorkflowId(workflow.id)}
+                  />
                 ))}
               </div>
             </section>
 
-            <section className="panel command-panel stack-panel">
-              <PanelHeader icon={Layers3} title="Stack Depth" badge="peel layers" />
-              <div className="layer-stack">
-                {stackLayers.map(([title, body, meta], index) => (
-                  <motion.div
-                    className="layer-row"
-                    key={title}
-                    initial={shouldReduceMotion ? false : { opacity: 0, x: 24 }}
-                    animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0 }}
-                    transition={{ delay: 0.12 + index * 0.06, duration: 0.35 }}
-                  >
-                    <div className="layer-index">{String(index + 1).padStart(2, "0")}</div>
-                    <div>
-                      <strong>{title}</strong>
-                      <span>{body}</span>
-                    </div>
-                    <em>{meta}</em>
-                  </motion.div>
-                ))}
+            <section className="panel workflow-inspector">
+              <PanelHeader icon={GitPullRequest} title={selectedWorkflow.name} badge={statusCopy[selectedWorkflow.status]} />
+              <div className="workflow-detail">
+                <ReadinessBlock workflow={selectedWorkflow} apiBacked={apiBacked} />
+                <div className="run-control-grid">
+                  <RunButton
+                    icon={PlayCircle}
+                    label="Replay run"
+                    enabled={false}
+                    reason={
+                      canAttemptReplay
+                        ? "Captured real-run source id required"
+                        : selectedWorkflow.disabled_reason ?? "Registry or connector gate is closed"
+                    }
+                  />
+                  <RunButton
+                    icon={ShieldCheck}
+                    label="Live run"
+                    enabled={false}
+                    reason="Disabled until OPA, database, connectors, and approval queue are live"
+                  />
+                </div>
               </div>
             </section>
           </section>
 
+          <section className="panel runtime-panel">
+            <PanelHeader icon={Layers3} title="Execution Segmentation" badge="clear boundaries" />
+            <div className="runtime-grid">
+              {runtimeModes.map((mode, index) => (
+                <motion.article
+                  className="runtime-card"
+                  key={mode.title}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  transition={{ delay: 0.04 * index, duration: 0.3 }}
+                >
+                  <div className="runtime-index">{String(index + 1).padStart(2, "0")}</div>
+                  <div>
+                    <h2>{mode.title}</h2>
+                    <strong>{mode.engine}</strong>
+                    <span>{mode.scope}</span>
+                  </div>
+                  <em>{mode.cost}</em>
+                </motion.article>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel graph-panel">
+            <PanelHeader icon={Network} title="Agent Graph" badge={selectedWorkflow.id} />
+            <div className="graph-shell">
+              <div className="graph-frame">
+                <ReactFlow
+                  nodes={graph.nodes}
+                  edges={graph.edges}
+                  fitView
+                  fitViewOptions={{ padding: 0.24 }}
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  elementsSelectable
+                  panOnScroll
+                  proOptions={{ hideAttribution: true }}
+                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                >
+                  <Background color="rgba(255,255,255,0.16)" gap={22} />
+                  <Controls showInteractive={false} />
+                </ReactFlow>
+              </div>
+              <aside className="node-inspector">
+                <div className="inspector-kicker">{selectedNode.layer}</div>
+                <h2>{selectedNode.title}</h2>
+                <p>{selectedNode.state}</p>
+                <div className="lens-list compact">
+                  <LensRow label="Policy" value={selectedNode.policy} />
+                  <LensRow label="Evidence" value={selectedNode.evidence.join(", ")} />
+                </div>
+              </aside>
+            </div>
+          </section>
+
           <section className="telemetry-grid">
             <section className="panel chart-panel">
-              <PanelHeader icon={ChartNoAxesCombined} title="Cost Routing Model" badge="unit economics" />
+              <PanelHeader icon={Gauge} title="Portfolio Distribution" badge="from configs" />
               <div className="chart-frame">
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={telemetry}>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={domainData}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                     <XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#9aa5b8" />
-                    <YAxis hide />
-                    <Tooltip
-                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                      contentStyle={{
-                        background: "#111722",
-                        border: "1px solid rgba(255,255,255,0.14)",
-                        borderRadius: 8,
-                        color: "#f5f7fb",
-                      }}
-                    />
-                    <Bar dataKey="value" fill="#35c2a7" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="cost" fill="#f4c95d" radius={[6, 6, 0, 0]} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} stroke="#9aa5b8" />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                    <Bar dataKey="workflows" fill="#35c2a7" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </section>
 
             <section className="panel chart-panel">
-              <PanelHeader icon={Activity} title="Trace Composition" badge="observable" />
+              <PanelHeader icon={KeyRound} title="Connector Demand" badge="real integrations" />
               <div className="chart-frame">
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={traceSeries}>
-                    <defs>
-                      <linearGradient id="modelCalls" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="5%" stopColor="#78a6ff" stopOpacity={0.65} />
-                        <stop offset="95%" stopColor="#78a6ff" stopOpacity={0.02} />
-                      </linearGradient>
-                      <linearGradient id="toolCalls" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="5%" stopColor="#35c2a7" stopOpacity={0.65} />
-                        <stop offset="95%" stopColor="#35c2a7" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={connectorData}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                    <XAxis dataKey="step" tickLine={false} axisLine={false} stroke="#9aa5b8" />
-                    <YAxis hide />
-                    <Tooltip
-                      contentStyle={{
-                        background: "#111722",
-                        border: "1px solid rgba(255,255,255,0.14)",
-                        borderRadius: 8,
-                        color: "#f5f7fb",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="model"
-                      stroke="#78a6ff"
-                      fill="url(#modelCalls)"
-                      strokeWidth={2}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="tools"
-                      stroke="#35c2a7"
-                      fill="url(#toolCalls)"
-                      strokeWidth={2}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="policy"
-                      stroke="#f4c95d"
-                      fill="transparent"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#9aa5b8" />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} stroke="#9aa5b8" />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                    <Bar dataKey="workflows" fill="#78a6ff" radius={[6, 6, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </section>
 
             <section className="panel evidence-panel">
-              <PanelHeader icon={Database} title="Evidence Board" badge="no black box" />
+              <PanelHeader icon={Database} title="Evidence Board" badge="empty until real runs" />
               <div className="evidence-table">
-                {evidenceRows.map(([type, contract, state]) => (
-                  <div className="evidence-row" key={type}>
-                    <span>{type}</span>
-                    <strong>{contract}</strong>
-                    <em>{state}</em>
+                {selectedWorkflow.required_connectors.map((connector) => (
+                  <div className="evidence-row" key={connector}>
+                    <span>{connector}</span>
+                    <strong>{selectedWorkflow.missing_connectors.includes(connector) ? "Connector gated" : "Connector ready"}</strong>
+                    <em>{matchingScopes(selectedWorkflow, connector).join(", ") || "Scope mapping pending"}</em>
                   </div>
                 ))}
               </div>
             </section>
           </section>
 
-          <section className="panel portfolio-panel">
-            <PanelHeader icon={Sparkles} title="Enterprise Workflow Portfolio" badge="real connectors only" />
-            <div className="portfolio">
-              {portfolio.map(({ icon: Icon, title, copy, stage }, index) => (
-                <motion.article
-                  className="workflow-card"
-                  key={title}
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 * index, duration: 0.35 }}
-                  whileHover={shouldReduceMotion ? undefined : { y: -4 }}
-                >
-                  <div className="workflow-title">
-                    <Icon size={18} />
-                    <span>{title}</span>
-                  </div>
-                  <div className="workflow-copy">{copy}</div>
-                  <div className={`workflow-stage stage-${stage}`}>
-                    {stage === "ready" ? "foundation ready" : stage === "planned" ? "planned" : "connector gated"}
-                  </div>
-                </motion.article>
-              ))}
-            </div>
-          </section>
-
           <section className="bottom-grid">
             <section className="panel">
-              <PanelHeader icon={TimerReset} title="Build State" badge="Phase 1 complete" />
-              <div className="lens-list compact">
-                <LensRow label="Completed" value="Architecture, workflow registry, API health, deployable UI" />
-                <LensRow label="Next" value="Governance data layer, migrations, OPA baseline" />
-                <LensRow label="Live data" value="Disabled until real connectors are configured" />
-                <LensRow label="Replay" value="Only from captured real runs" />
+              <PanelHeader icon={LockKeyhole} title="Policy Lens" badge="OPA first" />
+              <div className="lens-list">
+                <LensRow label="Run eligibility" value="workflow status, connector readiness, replay source, budget envelope" />
+                <LensRow label="Replay allowed" value={String(selectedWorkflow.data_policy.replay_allowed_from_real_runs)} />
+                <LensRow label="Fake data" value={String(selectedWorkflow.data_policy.fake_data_allowed)} />
+                <LensRow label="Regex extraction" value={String(selectedWorkflow.data_policy.regex_business_extraction_allowed)} />
+                <LensRow label="Approval actions" value={selectedWorkflow.approval_required_for.map(humanize).join(", ")} />
               </div>
             </section>
 
             <section className="panel">
-              <PanelHeader icon={Server} title="Backend Runtime" badge={statusLabel[apiStatus.label]} />
-              <div className="lens-list compact">
-                <LensRow label="API connection" value={apiStatus.message} />
-                <LensRow
-                  label="Production rule"
-                  value="Live workflows stay disabled until backend policy gates are deployed."
-                />
+              <PanelHeader icon={TimerReset} title="Trace Timeline" badge="not executed" />
+              <div className="timeline">
+                {["run_start", "policy_decision", "graph_checkpoint", "tool_call", "approval_request"].map(
+                  (event, index) => (
+                    <div className="timeline-row" key={event}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <strong>{humanize(event)}</strong>
+                      <em>{index < 2 ? "implemented gate" : "waiting for runtime"}</em>
+                    </div>
+                  ),
+                )}
               </div>
             </section>
 
-            <section className="panel">
-              <PanelHeader icon={Code2} title="Engineer Lens" badge="inspection ready" />
-              <div className="code-strip">
-                <span>LangGraph</span>
-                <span>Pydantic</span>
-                <span>MCP</span>
-                <span>OPA</span>
-                <span>Postgres</span>
-                <span>OpenTelemetry</span>
-              </div>
+            <section className="panel code-panel">
+              <PanelHeader icon={FileCode2} title="Code Lens" badge="workflow yaml" />
+              <pre>{formatWorkflowConfig(selectedWorkflow)}</pre>
             </section>
           </section>
         </section>
       </div>
     </main>
+  );
+}
+
+function WorkflowCard({
+  workflow,
+  index,
+  selected,
+  shouldReduceMotion,
+  onSelect,
+}: {
+  workflow: WorkflowDetail;
+  index: number;
+  selected: boolean;
+  shouldReduceMotion: boolean | null;
+  onSelect: () => void;
+}) {
+  const Icon = statusIcon[workflow.status];
+  return (
+    <motion.button
+      className={`workflow-card ${selected ? "selected" : ""}`}
+      type="button"
+      onClick={onSelect}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+      transition={{ delay: 0.03 * index, duration: 0.28 }}
+      whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+    >
+      <div className="workflow-title">
+        <Icon size={18} />
+        <span>{workflow.name}</span>
+      </div>
+      <div className="workflow-copy">
+        {humanize(workflow.domain)} · {workflow.patterns.map(humanize).join(" / ")}
+      </div>
+      <div className={`workflow-stage stage-${workflow.status}`}>{workflow.enabled ? "enabled" : statusCopy[workflow.status]}</div>
+    </motion.button>
+  );
+}
+
+function ReadinessBlock({ workflow, apiBacked }: { workflow: WorkflowDetail; apiBacked: boolean }) {
+  return (
+    <div className="readiness-grid">
+      <ReadinessItem label="Registry" value={apiBacked ? "API backed" : "Repository backed"} state={apiBacked} />
+      <ReadinessItem label="Workflow" value={statusCopy[workflow.status]} state={workflow.status === "ready"} />
+      <ReadinessItem
+        label="Connectors"
+        value={workflow.missing_connectors.length === 0 ? "Configured" : workflow.missing_connectors.join(", ")}
+        state={workflow.missing_connectors.length === 0}
+      />
+      <ReadinessItem label="Autonomy" value={humanize(workflow.default_autonomy)} state={workflow.default_autonomy !== "autonomous"} />
+    </div>
+  );
+}
+
+function ReadinessItem({ label, value, state }: { label: string; value: string; state: boolean }) {
+  return (
+    <div className="readiness-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <em className={state ? "gate-open" : "gate-closed"}>{state ? "open" : "closed"}</em>
+    </div>
+  );
+}
+
+function RunButton({
+  icon: Icon,
+  label,
+  enabled,
+  reason,
+}: {
+  icon: LucideIcon;
+  label: string;
+  enabled: boolean;
+  reason: string;
+}) {
+  return (
+    <button className="run-button" type="button" disabled={!enabled}>
+      <span>
+        <Icon size={17} />
+        {label}
+      </span>
+      <em>{reason}</em>
+    </button>
   );
 }
 
@@ -514,4 +540,209 @@ function LensRow({ label, value }: { label: string; value: string }) {
       <span className="lens-value">{value}</span>
     </div>
   );
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number; name?: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div className="chart-tooltip">
+      <strong>{label}</strong>
+      {payload.map((item) => (
+        <span key={item.name}>
+          {item.name}: {item.value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function createWorkflowGraph(workflow: WorkflowDetail): {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  inspectors: GraphInspector[];
+} {
+  const inspectors: GraphInspector[] = [
+    {
+      id: "source",
+      title: "Real Source Intake",
+      layer: "deterministic",
+      state: `Requires ${workflow.required_connectors.join(", ")} before any run can start.`,
+      evidence: workflow.required_scopes,
+      policy: "Connector readiness is checked before OPA and before persistence.",
+    },
+    {
+      id: "policy",
+      title: "Run Eligibility",
+      layer: "dynamic policy",
+      state: "OPA decides allow, deny, or approval-required for the run-start gate.",
+      evidence: ["aegisops.run_eligibility", "budget envelope", "replay source"],
+      policy: "No model decides whether the run is allowed.",
+    },
+    {
+      id: "graph",
+      title: "LangGraph Runtime",
+      layer: "AI workflow",
+      state: `Configured patterns: ${workflow.patterns.map(humanize).join(", ")}.`,
+      evidence: workflow.visual_surfaces,
+      policy: "Graph execution waits until durable run creation succeeds.",
+    },
+    {
+      id: "tools",
+      title: "Typed Tool Plane",
+      layer: "agentic",
+      state: "MCP contracts will bind every tool call to schemas, scopes, and risk classes.",
+      evidence: workflow.required_connectors,
+      policy: "Each tool call will require tool-access policy before execution.",
+    },
+    {
+      id: "memory",
+      title: "Memory and Evidence",
+      layer: "data plane",
+      state: "Postgres and pgvector store checkpoints, evidence, memory records, and trace links.",
+      evidence: ["workflow_runs", "evidence_records", "memory_records"],
+      policy: "Memory writes require sensitivity and retention checks.",
+    },
+    {
+      id: "approval",
+      title: "Human Approval",
+      layer: "governance",
+      state: `${workflow.approval_required_for.length} workflow actions require approval.`,
+      evidence: workflow.approval_required_for,
+      policy: "Sensitive writes are approval-gated by default.",
+    },
+  ];
+
+  const nodePositions = [
+    ["source", 0, 120],
+    ["policy", 170, 42],
+    ["graph", 340, 120],
+    ["tools", 520, 42],
+    ["memory", 520, 198],
+    ["approval", 700, 120],
+  ] as const;
+
+  return {
+    inspectors,
+    nodes: nodePositions.map(([id, x, y]) => {
+      const inspector = inspectors.find((item) => item.id === id);
+      return {
+        id,
+        type: "default",
+        position: { x, y },
+        data: {
+          label: <GraphNodeLabel active={workflow.enabled} title={inspector?.title ?? id} layer={inspector?.layer ?? ""} />,
+          title: inspector?.title ?? id,
+          layer: inspector?.layer ?? "",
+          state: inspector?.state ?? "",
+          evidence: inspector?.evidence ?? [],
+          policy: inspector?.policy ?? "",
+        },
+        className: `flow-node flow-${id}`,
+      };
+    }),
+    edges: [
+      edge("source", "policy"),
+      edge("policy", "graph"),
+      edge("graph", "tools"),
+      edge("graph", "memory"),
+      edge("tools", "approval"),
+      edge("memory", "approval"),
+    ],
+  };
+}
+
+function GraphNodeLabel({ active, title, layer }: { active: boolean; title: string; layer: string }) {
+  return (
+    <div className="graph-node-label">
+      <span className={active ? "node-dot node-open" : "node-dot"} />
+      <strong>{title}</strong>
+      <em>{layer}</em>
+    </div>
+  );
+}
+
+function edge(source: string, target: string): WorkflowEdge {
+  return {
+    id: `${source}-${target}`,
+    source,
+    target,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: "#7f8da4",
+    },
+    style: {
+      stroke: "#7f8da4",
+      strokeWidth: 1.5,
+    },
+  };
+}
+
+function createDomainChart(workflows: WorkflowDetail[]) {
+  return [...countBy(workflows.map((workflow) => humanize(workflow.domain))).entries()]
+    .map(([name, workflowsCount]) => ({ name, workflows: workflowsCount }))
+    .sort((a, b) => b.workflows - a.workflows)
+    .slice(0, 6);
+}
+
+function createConnectorChart(workflows: WorkflowDetail[]) {
+  return [...countBy(workflows.flatMap((workflow) => workflow.required_connectors)).entries()]
+    .map(([name, workflowsCount]) => ({ name, workflows: workflowsCount }))
+    .sort((a, b) => b.workflows - a.workflows)
+    .slice(0, 6);
+}
+
+function countBy(values: string[]) {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function matchingScopes(workflow: WorkflowDetail, connector: string) {
+  const prefix = connector.split("_")[0] ?? connector;
+  return workflow.required_scopes.filter((scope) => scope.startsWith(prefix));
+}
+
+function formatWorkflowConfig(workflow: WorkflowDetail) {
+  return [
+    `id: ${workflow.id}`,
+    `name: ${workflow.name}`,
+    `domain: ${workflow.domain}`,
+    `status: ${workflow.status}`,
+    "enabled_when:",
+    "  connectors:",
+    ...workflow.required_connectors.map((connector) => `    - ${connector}`),
+    "  required_scopes:",
+    ...workflow.required_scopes.map((scope) => `    - ${scope}`),
+    "patterns:",
+    ...workflow.patterns.map((pattern) => `  - ${pattern}`),
+    "data_policy:",
+    `  fake_data_allowed: ${workflow.data_policy.fake_data_allowed}`,
+    `  replay_allowed_from_real_runs: ${workflow.data_policy.replay_allowed_from_real_runs}`,
+    `  regex_business_extraction_allowed: ${workflow.data_policy.regex_business_extraction_allowed}`,
+    `default_autonomy: ${workflow.default_autonomy}`,
+    "approval_required_for:",
+    ...workflow.approval_required_for.map((action) => `  - ${action}`),
+    "visual_surfaces:",
+    ...workflow.visual_surfaces.map((surface) => `  - ${surface}`),
+  ].join("\n");
+}
+
+function humanize(value: string) {
+  return value
+    .split("_")
+    .map((word) => (word.length > 0 ? `${word[0].toUpperCase()}${word.slice(1)}` : word))
+    .join(" ");
 }

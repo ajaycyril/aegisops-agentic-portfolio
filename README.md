@@ -10,8 +10,8 @@ This is not a chatbot demo. It is an agentic workflow platform.
 
 ## Current Phase
 
-Foundation runtime, governance scaffolding, workflow registry, and policy-gated run-start
-scaffolding are in place.
+Foundation runtime, governance scaffolding, workflow registry, policy-gated run-start
+scaffolding, and the registry-aware visual command center are in place.
 
 This repository currently defines:
 
@@ -32,6 +32,9 @@ This repository currently defines:
 - Typed workflow registry loader and read-only workflow catalog endpoints.
 - Typed `POST /workflow-runs` start gate with connector readiness, replay/live mode, budget
   envelope, OPA run eligibility, durable run records, registry snapshots, and audit events.
+- Registry-aware visual command center with portfolio selection, execution segmentation,
+  React Flow graph, evidence board, policy lens, trace timeline, code lens, and safe disabled
+  run-start controls.
 
 ## Core Principle
 
@@ -125,8 +128,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Start Phase 4 by wiring the web command center to the workflow registry and safe
-   run-start controls.
+3. Start Phase 5 with typed tool contracts, MCP server skeleton, and the tool registry
+   endpoint.
 
 ## Local Development Target
 

@@ -19,13 +19,14 @@ The platform must show:
 
 ## Current Status
 
-Phases 0 and 1 are complete. Phase 2 and Phase 3 are implemented at code/test level, with
+Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level, with
 live Docker/Postgres/OPA verification still pending on a machine with Docker available.
 
 The repo has architecture docs, dependency manifests, workflow registry configs, local infra
 scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
-database migrations, governance tables, OPA policy scaffolding, an audit writer, and typed
-workflow registry/read endpoints plus a policy-gated workflow run-start API.
+database migrations, governance tables, OPA policy scaffolding, an audit writer, typed
+workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
+visual command center.
 
 Current production web deployment:
 
@@ -39,7 +40,7 @@ Current production web deployment:
 | 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
 | 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
 | 3 | Workflow registry and run lifecycle | Implemented, live infra verification pending | Config-driven workflow catalog and run API |
-| 4 | Visual command center shell | Not started | Portfolio UI, graph canvas, trace/evidence placeholders |
+| 4 | Visual command center shell | Implemented | Portfolio UI, graph canvas, trace/evidence placeholders |
 | 5 | Tool and connector substrate | Not started | MCP tool contracts, GitHub connector foundation |
 | 6 | Engineering Issue-to-PR workflow | Not started | First real production workflow |
 | 7 | Incident Investigator workflow | Not started | Real observability/deployment investigation workflow |
@@ -257,26 +258,43 @@ the OPA CLI are not installed in the current environment.
 Current next task:
 
 1. Run live Phase 2/3 infrastructure verification on a machine with Docker.
-2. Start Phase 4 by wiring the web command center to `GET /workflows`,
-   `GET /workflows/{workflow_id}`, and safe disabled/enabled run-start controls.
-3. Build a config-driven graph canvas, policy lens, evidence board, trace timeline, and code
-   lens before implementing the first LangGraph workflow.
+2. Start Phase 5 with typed tool contract Pydantic models, MCP server skeleton, and tool
+   registry endpoint.
 
 ## Phase 4: Visual Command Center Shell
+
+Status: Implemented.
+
+Completed artifacts:
+
+- Registry-aware web catalog loader in `apps/web/lib/api.ts`.
+- Repository workflow catalog mirror in `apps/web/lib/workflows.ts` used only when the live
+  API registry is not configured or reachable.
+- Interactive command center in `apps/web/components/command-center.tsx`.
+- Selectable enterprise workflow portfolio.
+- Safe disabled run-start controls for replay and live mode.
+- React Flow graph canvas with config-driven workflow nodes.
+- Evidence Board empty state derived from required connectors and scopes.
+- Policy Lens derived from workflow data policy, OPA run-start rules, and approval actions.
+- Trace Timeline empty state showing implemented run-start gates and runtime-pending events.
+- Code Lens rendering the selected workflow YAML contract.
+- Favicon and mobile-first responsive styling.
 
 Goal: Build the UI surface before deep workflow implementation.
 
 Tasks:
 
-1. Add app layout and navigation.
-2. Add Portfolio page listing workflow modules from the API.
-3. Add Command Center page for a selected workflow.
-4. Add React Flow graph canvas with static config-driven nodes.
-5. Add Evidence Board empty state.
-6. Add Policy Lens empty state.
-7. Add Trace Timeline empty state.
-8. Add Code Lens read-only panes for YAML config and policy metadata.
-9. Add visual status for connector readiness, replay availability, and live-run eligibility.
+1. Done: add app layout and navigation.
+2. Done: add Portfolio page listing workflow modules from the API with repository mirror
+   fallback when no backend is deployed.
+3. Done: add Command Center page for a selected workflow.
+4. Done: add React Flow graph canvas with static config-driven nodes.
+5. Done: add Evidence Board empty state.
+6. Done: add Policy Lens empty state.
+7. Done: add Trace Timeline empty state.
+8. Done: add Code Lens read-only panes for YAML config and policy metadata.
+9. Done: add visual status for connector readiness, replay availability, and live-run
+   eligibility.
 
 Acceptance criteria:
 
@@ -284,6 +302,18 @@ Acceptance criteria:
 - A CTO can see the platform layers.
 - An engineer can inspect the config and contracts.
 - The UI does not imply fake data is available.
+
+Validated in current environment:
+
+```bash
+pnpm --filter @aegisops/web lint
+pnpm --filter @aegisops/web typecheck
+pnpm --filter @aegisops/web build
+```
+
+Browser smoke checks were run with Playwright against `http://localhost:3000` at 1440 px and
+390 px widths. Both passed with no console warnings, no horizontal overflow, no clipped text,
+and all six React Flow nodes rendered.
 
 ## Phase 5: Tool and Connector Substrate
 

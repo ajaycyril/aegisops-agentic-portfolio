@@ -92,6 +92,8 @@ latency, memory access, evidence sources, and approval status when applicable.
 
 ## Current Priority
 
-The repository has completed the architecture baseline and Phase 1 foundation runtime.
+The repository has completed the architecture baseline, foundation runtime, governance/data
+layer, workflow registry/run-start gate, and visual command center shell.
 
-Next major milestone: implement the governance and data layer. See `PROJECT_PLAN.md`, Phase 2.
+Next major milestone: implement the typed tool and connector substrate. See `PROJECT_PLAN.md`,
+Phase 5.

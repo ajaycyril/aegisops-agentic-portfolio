@@ -2,18 +2,17 @@
 
 The web app is the visual control plane for AegisOps.
 
-It is intentionally scaffolded before implementation so the product surface is clear:
+The current command center includes:
 
 - Executive workflow map.
 - Agent graph explorer.
 - Evidence board.
 - Policy studio.
-- Memory explorer.
-- Tool registry.
 - Trace timeline.
-- Eval dashboard.
 - Cost and risk controls.
 - Code lens for schemas, graph nodes, and policies.
+- Safe disabled run-start controls.
+- Repository workflow catalog mirror when the live API is not configured.
 
 ## Technology
 
