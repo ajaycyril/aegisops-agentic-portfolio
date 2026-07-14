@@ -54,6 +54,9 @@ This repository currently defines:
   evidence metadata, and audit events.
 - Captured-real-run replay fixture schema and loader for the same Engineering evidence route.
   The repo documents fixture placement but does not ship fabricated replay payloads.
+- Optional Engineering Issue-to-PR proposal/evaluator graph nodes with typed patch-plan,
+  test-plan, and evaluation contracts. They require an injected planner and do not enable
+  branch or pull-request writes.
 
 ## Core Principle
 
@@ -149,7 +152,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding PR planning/evaluator nodes on top of collected GitHub evidence.
+3. Continue Phase 6 by adding a model-backed planner implementation with model-call audit
+   records for the typed proposal/evaluator contracts.
 
 ## Local Development Target
 

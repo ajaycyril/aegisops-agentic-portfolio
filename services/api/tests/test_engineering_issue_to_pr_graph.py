@@ -15,7 +15,16 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
     IssueToPrGraphInput,
     create_engineering_issue_to_pr_graph,
 )
-from aegisops_api.workflows.engineering_issue_to_pr.graph import as_issue_to_pr_state
+from aegisops_api.workflows.engineering_issue_to_pr.graph import (
+    IssueToPrEvaluation,
+    IssueToPrProposal,
+    IssueToPrState,
+    PlannedFileChange,
+    as_issue_to_pr_state,
+)
+from aegisops_api.workflows.engineering_issue_to_pr.graph import (
+    TestPlanStep as PlanStep,
+)
 
 
 class FakeIssueToPrToolRuntime:
@@ -88,6 +97,44 @@ class FakeIssueToPrToolRuntime:
         )
 
 
+class FakeIssueToPrPlanner:
+    async def create_patch_plan(self, state: IssueToPrState) -> IssueToPrProposal:
+        return IssueToPrProposal(
+            summary="Plan a minimal guarded patch.",
+            problem_statement=str(state["issue"]["title"]),
+            source_evidence_uris=[item["source_uri"] for item in state["evidence"]],
+            planned_changes=[
+                PlannedFileChange(
+                    path="src/app.py",
+                    change_type="modify",
+                    rationale="Align implementation with the captured issue evidence.",
+                    evidence_uris=["https://github.com/owner/repo/issues/12"],
+                )
+            ],
+            test_plan=[
+                PlanStep(
+                    command="pytest",
+                    purpose="Run the relevant Python regression suite.",
+                    risk_covered="Avoid introducing a behavior regression.",
+                )
+            ],
+            risk_notes=["Write actions remain disabled until human approval is wired."],
+        )
+
+    async def evaluate_patch_plan(
+        self,
+        _state: IssueToPrState,
+        proposal: IssueToPrProposal,
+    ) -> IssueToPrEvaluation:
+        return IssueToPrEvaluation(
+            grounded=bool(proposal.source_evidence_uris),
+            requires_more_context=False,
+            risk_level="medium",
+            findings=["Proposal references collected GitHub evidence."],
+            blocking_issues=[],
+        )
+
+
 @pytest.mark.asyncio
 async def test_engineering_issue_to_pr_graph_reads_issue_and_context_files() -> None:
     runtime = FakeIssueToPrToolRuntime()
@@ -134,6 +181,32 @@ async def test_engineering_issue_to_pr_graph_reads_issue_and_context_files() -> 
         {"tool_id": call["tool_id"], "input_payload": call["input_payload"]}
         for call in runtime.authorized_inputs
     ] == runtime.executed_inputs
+
+
+@pytest.mark.asyncio
+async def test_engineering_graph_adds_plan_and_evaluation_when_planner_present() -> None:
+    runtime = FakeIssueToPrToolRuntime()
+    graph = create_engineering_issue_to_pr_graph(
+        IssueToPrGraphDependencies(
+            tool_runtime=runtime,
+            planner=FakeIssueToPrPlanner(),
+        )
+    )
+    graph_input = IssueToPrGraphInput(
+        run_id=uuid4(),
+        repository="owner/repo",
+        issue_number=12,
+        ref="main",
+        context_paths=["src/app.py"],
+    )
+
+    result = as_issue_to_pr_state(await graph.ainvoke(graph_input.to_initial_state()))
+
+    assert result["proposal"]["approval_required"] is True
+    assert result["proposal"]["write_actions_enabled"] is False
+    assert result["proposal"]["planned_changes"][0]["path"] == "src/app.py"
+    assert result["evaluation"]["grounded"] is True
+    assert result["evaluation"]["risk_level"] == "medium"
 
 
 def test_engineering_issue_to_pr_input_rejects_unsafe_context_paths() -> None:

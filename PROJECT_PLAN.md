@@ -32,7 +32,9 @@ policy-checked tool authorization boundary. The first read-only GitHub App adapt
 for issue and file reads through a stored authorized tool call, and the Engineering Issue-to-PR
 LangGraph module now orchestrates those read-only nodes through a controlled run-scoped
 evidence collection route. Captured-real-run replay schema and loading are wired for the same
-route without committing fabricated replay payloads.
+route without committing fabricated replay payloads. Optional proposal and evaluator graph
+nodes now exist with typed patch-plan, test-plan, and evaluation contracts, but no write
+actions are enabled.
 
 Current production web deployment:
 
@@ -358,6 +360,8 @@ Completed artifacts:
 - Captured-real-run replay fixture schema and loader under
   `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/replay.py`.
 - Replay fixture directory contract under `configs/replays/engineering_issue_to_pr/`.
+- Optional planner/evaluator graph nodes and contracts for patch proposals, test plans,
+  evidence grounding, and risk evaluation.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -400,8 +404,8 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add PR planning and evaluator nodes that consume collected GitHub evidence.
-2. Add a proposal artifact schema for patch plans and test plans.
+1. Add a model-backed planner implementation for the typed proposal/evaluator contracts.
+2. Persist model-call audit records for planner/evaluator calls.
 3. Keep branch and PR write adapters disabled until approval persistence and UI review are
    wired.
 
@@ -426,9 +430,9 @@ Tasks:
 
 1. Done: create `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
 2. Done: add typed state and contracts for issue context collection.
-3. In progress: add graph nodes. Done for issue ingestion and repo context reads; pending plan,
-   patch proposal,
-   test plan, evaluator, approval request, PR draft.
+3. In progress: add graph nodes. Done for issue ingestion, repo context reads, optional
+   planning, patch proposal contract, test plan contract, and evaluator contract. Pending
+   approval request and PR draft.
 4. In progress: add GitHub tools. Done for issue read and file read; branch and PR draft write
    adapters remain disabled.
 5. Add policy rules for branch and PR approval.
@@ -555,5 +559,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding PR planning and evaluator nodes that consume the collected GitHub evidence
-without enabling branch or pull-request writes.
+Continue by adding a model-backed planner implementation for the typed proposal/evaluator
+contracts, including model-call audit records. Do not enable branch or pull-request writes.
