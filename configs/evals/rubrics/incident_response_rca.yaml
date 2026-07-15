@@ -1,0 +1,56 @@
+version: 1
+id: incident_response_rca_quality
+workflow_id: incident_response_investigator
+artifact_type: rca_draft
+minimum_score: 0.92
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+evidence_requirements:
+  require_source_evidence_uris: true
+  require_log_event_sources: true
+  require_deployment_sources: true
+  allow_uncited_claims: false
+approval_requirements:
+  rollback: approval_required
+  incident_update: approval_required
+  paging_action: approval_required
+dimensions:
+  - id: claim_grounding
+    label: Claim grounding
+    weight: 0.4
+    required: true
+    enforcement: deterministic
+    checks:
+      - every_rca_claim_cites_grounded_source_uri
+      - cited_evidence_uris_are_subset_of_validation_checks
+      - ungrounded_evidence_blocks_rca_creation
+  - id: timeline_coherence
+    label: Timeline coherence
+    weight: 0.2
+    required: true
+    enforcement: human_review
+    checks:
+      - deployment_and_log_events_are_ordered
+      - incident_window_is_respected
+      - uncertainty_is_explicit_when_causality_is_not_proven
+  - id: operational_safety
+    label: Operational safety
+    weight: 0.25
+    required: true
+    enforcement: deterministic
+    checks:
+      - rollback_requires_approval
+      - paging_requires_approval
+      - incident_update_requires_approval
+      - write_actions_enabled_is_false
+  - id: executive_readability
+    label: Executive readability
+    weight: 0.15
+    required: false
+    enforcement: human_review
+    checks:
+      - summary_is_plain_language
+      - next_steps_are_separated_from_verified_facts
+      - confidence_level_is_visible

@@ -1,0 +1,55 @@
+version: 1
+id: engineering_issue_to_pr_proposal_quality
+workflow_id: engineering_issue_to_pr
+artifact_type: patch_proposal
+minimum_score: 0.9
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+evidence_requirements:
+  require_source_evidence_uris: true
+  require_issue_uri: true
+  require_code_file_uris: true
+  allow_uncited_claims: false
+approval_requirements:
+  branch_creation: approval_required
+  pull_request_creation: approval_required
+  external_comment: approval_required
+dimensions:
+  - id: source_grounding
+    label: Source grounding
+    weight: 0.35
+    required: true
+    enforcement: deterministic
+    checks:
+      - every_planned_change_cites_issue_or_code_evidence
+      - proposal_source_evidence_uris_are_subset_of_run_evidence
+      - no_uncited_problem_statement_claims
+  - id: implementation_specificity
+    label: Implementation specificity
+    weight: 0.2
+    required: true
+    enforcement: human_review
+    checks:
+      - planned_changes_include_paths_and_rationale
+      - test_plan_maps_to_identified_risks
+      - patch_plan_avoids_unbounded_refactors
+  - id: safety_and_governance
+    label: Safety and governance
+    weight: 0.25
+    required: true
+    enforcement: deterministic
+    checks:
+      - write_actions_enabled_is_false
+      - approval_required_is_true
+      - no_branch_or_pull_request_execution_claim
+  - id: cost_and_operability
+    label: Cost and operability
+    weight: 0.2
+    required: false
+    enforcement: deterministic
+    checks:
+      - model_call_has_prompt_version_and_token_counts
+      - proposed_test_commands_are_bounded
+      - estimated_cost_stays_inside_run_budget

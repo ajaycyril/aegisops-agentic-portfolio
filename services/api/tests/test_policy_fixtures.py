@@ -29,3 +29,21 @@ def test_policy_fixtures_are_structured_json_inputs() -> None:
         assert isinstance(payload["expected"], dict)
         assert isinstance(payload["expected"]["allow"], bool)
         assert isinstance(payload["expected"]["requires_approval"], bool)
+
+
+def test_incident_approval_policy_fixtures_cover_sensitive_actions() -> None:
+    fixture_names = {
+        path.name
+        for path in FIXTURE_DIR.glob("approval_decision_incident_*.json")
+    }
+
+    assert fixture_names == {
+        "approval_decision_incident_paging_reject_allowed.json",
+        "approval_decision_incident_rollback_approve_allowed.json",
+        "approval_decision_incident_update_self_approval_blocked.json",
+    }
+    requested_actions = {
+        load_fixture(path)["input"]["requested_action"]
+        for path in FIXTURE_DIR.glob("approval_decision_incident_*.json")
+    }
+    assert requested_actions == {"rollback", "paging_action", "incident_update"}

@@ -60,7 +60,9 @@ LangGraph evidence-collection graph and run-scoped API route for read-only obser
 deployment event, and GitHub file evidence collection, with policy-authorized tool calls,
 evidence metadata persistence, captured-real-run replay loading, source-grounded evidence
 validation, and typed hash-only RCA draft contracts. Rollback, paging, incident updates, and
-external write actions remain disabled.
+external write actions remain disabled. Rubric-only eval contracts now cover Engineering patch
+proposal quality and Incident RCA grounding, and structured incident approval policy fixtures
+cover rollback, paging, and incident-update decisions.
 
 Current production web deployment:
 
@@ -473,10 +475,9 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Add eval rubrics for generated RCA/proposal outputs and policy fixtures for incident
-   approval actions before public live-run demos.
-3. Continue the Incident Investigator runtime with approval records for rollback, paging, and
+2. Continue the Incident Investigator runtime with approval records for rollback, paging, and
    incident-update proposals without enabling those writes.
+3. Add promptfoo red-team/regression config after deterministic rubric validation is in place.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -548,9 +549,11 @@ Tasks:
    contract creation. Pending model-backed hypothesis generation and approval nodes.
 5. In progress: add source-grounded evidence board. Done for backend validation summaries;
    pending richer UI visualization over persisted evidence records.
-6. Add policy rules for rollback and incident update actions.
+6. In progress: add policy rules for rollback and incident update actions. Done for structured
+   approval decision fixtures covering rollback, paging, and incident update self-approval
+   blocking; pending runtime approval records.
 7. Done: add captured-real-run replay format and loader.
-8. Add eval rubric for RCA quality.
+8. Done: add eval rubric for RCA quality.
 
 Acceptance criteria:
 
@@ -589,7 +592,9 @@ Tasks:
 2. Add replay loader and UI replay mode.
 3. Add promptfoo config for red-team and regression checks.
 4. Add Ragas or custom grounding evals for RAG outputs.
-5. Add trace evals for tool validity, policy compliance, cost, and grounding.
+5. In progress: add trace evals for tool validity, policy compliance, cost, and grounding.
+   Done for rubric contracts covering Engineering proposal quality and Incident RCA grounding;
+   pending executable trace eval runners and UI result display.
 6. Add admin-only live-run gate.
 7. Add per-run budget enforcement.
 8. Add demo reset and seed from captured real traces only.
@@ -649,5 +654,6 @@ A feature is done only when:
 
 ## Current Next Task
 
-Add eval rubrics for RCA/proposal quality and policy fixtures for incident approval actions.
-Do not enable rollback, paging, incident-update, branch, or pull-request write execution.
+Continue the Incident Investigator runtime with approval records for rollback, paging, and
+incident-update proposals. Do not enable rollback, paging, incident-update, branch, or
+pull-request write execution.

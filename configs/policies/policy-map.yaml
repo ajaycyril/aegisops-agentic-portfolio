@@ -20,6 +20,9 @@ decision_points:
       - external_messages
       - refunds
       - pull_request_creation
+      - rollback
+      - paging_action
+      - incident_update
       - approval_decision
       - access_changes
       - budget_exceptions

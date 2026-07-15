@@ -1,0 +1,21 @@
+{
+  "decision_point": "human_approval",
+  "package": "aegisops.approvals",
+  "input": {
+    "workflow_id": "incident_response_investigator",
+    "autonomy_level": "approval_required",
+    "decision_action": "reject",
+    "risk_class": "external_message",
+    "requested_action": "paging_action",
+    "approver_id": "incident-commander",
+    "approval": {
+      "status": "pending",
+      "requested_by": "agent-runtime",
+      "write_actions_enabled": false
+    }
+  },
+  "expected": {
+    "allow": true,
+    "requires_approval": true
+  }
+}

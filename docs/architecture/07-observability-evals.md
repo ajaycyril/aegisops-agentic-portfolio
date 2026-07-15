@@ -47,6 +47,18 @@ gantt
 | Regression eval | Behavior remains stable across changes |
 | Human review eval | Approval paths and final artifacts are acceptable |
 
+## Implemented Eval Contracts
+
+Rubric-only eval contracts live in `configs/evals/rubrics/`.
+
+- `engineering_issue_to_pr_proposal.yaml` evaluates source grounding, implementation
+  specificity, safety/governance, and cost/operability for patch proposals.
+- `incident_response_rca.yaml` evaluates RCA claim grounding, timeline coherence, operational
+  safety, and executive readability.
+
+These files are CI-validated as structured contracts. They do not call a model, do not use fake
+business data, and require approval gates for sensitive actions.
+
 ## CI Expectations
 
 The repository should eventually enforce:

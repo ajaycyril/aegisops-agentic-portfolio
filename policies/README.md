@@ -30,3 +30,5 @@ Structured policy fixture inputs live under `configs/policies/fixtures/`.
 
 Current approval fixtures cover the Engineering branch/PR decision path, including allowed
 approval, allowed rejection, missing approver rejection, and self-approval rejection.
+They also cover Incident Investigator approval decisions for rollback approval, paging
+rejection, and self-approval blocking for incident updates.

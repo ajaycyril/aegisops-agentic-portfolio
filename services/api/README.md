@@ -41,3 +41,5 @@ after the architecture baseline is accepted.
   logs, deployment events, optional GitHub files, and captured-real replay fixtures. The route
   returns source-grounded evidence validation and can create a typed hash-only RCA draft
   contract with `include_rca=true`; production write actions remain disabled.
+- `configs/evals/rubrics`: structured eval contracts for Engineering patch proposals and
+  Incident RCA drafts, validated in tests without model calls or fake data.
