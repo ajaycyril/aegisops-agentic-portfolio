@@ -46,7 +46,7 @@ eligibility tests. Live agent execution will require model credentials in a late
 Run-start safety controls:
 
 ```bash
-CONFIGURED_CONNECTORS=github,observability,deployments
+CONFIGURED_CONNECTORS=github,observability,deployments,support_system,crm,knowledge_base
 MAX_AGENT_RUN_SECONDS=300
 MAX_AGENT_TOOL_CALLS=25
 MAX_AGENT_ESTIMATED_USD=1.00
@@ -63,6 +63,8 @@ Connector readiness has two layers:
 - `OBSERVABILITY_API_BASE_URL` and `DEPLOYMENTS_API_BASE_URL` point to read-only HTTP JSON
   gateway endpoints. Optional bearer tokens can be set with `OBSERVABILITY_API_KEY` and
   `DEPLOYMENTS_API_KEY`.
+- `SUPPORT_SYSTEM_API_BASE_URL`, `CRM_API_BASE_URL`, and `KNOWLEDGE_BASE_API_BASE_URL` point to
+  read-only HTTP JSON gateway endpoints for the support workflow.
 
 `LIVE_WORKFLOW_RUNS_ENABLED=false` keeps live execution disabled by default. Replay mode still
 requires a captured real-run source id.
@@ -128,11 +130,12 @@ Tool registry endpoints:
 - `POST http://localhost:8000/tool-calls/authorize`
 - `POST http://localhost:8000/tool-calls/{tool_call_id}/execute`
 - `POST http://localhost:8000/workflow-runs/{run_id}/engineering-issue-to-pr/evidence`
+- `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/context`
 - `POST http://localhost:8000/workflow-runs/{run_id}/incident-response-investigator/evidence`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
-`github,observability,deployments`.
+`github,observability,deployments,support_system,crm,knowledge_base`.
 
 Example replay run-start request:
 
@@ -158,7 +161,7 @@ created. Tool execution is a separate step: it requires that stored authorized r
 the input hash, validates output against the tool schema, and then records status, latency,
 output hash, and audit events.
 
-The first live adapter is read-only GitHub App REST access for:
+The GitHub live adapter is read-only REST access for:
 
 - `github_issue_read`
 - `github_file_read`
@@ -167,6 +170,12 @@ The incident runtime also has read-only HTTP JSON adapters for:
 
 - `observability_log_search`
 - `deployment_event_search`
+
+The support runtime has read-only HTTP JSON adapters for:
+
+- `support_ticket_read`
+- `crm_customer_profile_read`
+- `knowledge_base_search`
 
 The Engineering Issue-to-PR graph can be invoked through the run-scoped evidence route only
 after a stored workflow run exists. Live mode collects GitHub issue/file evidence through the

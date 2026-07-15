@@ -6,8 +6,11 @@ import pytest
 
 from aegisops_api.tools.adapters.base import ToolAdapterExecutionError
 from aegisops_api.tools.adapters.http_json import (
+    CrmCustomerProfileReadAdapter,
     DeploymentEventSearchAdapter,
+    KnowledgeBaseSearchAdapter,
     ObservabilityLogSearchAdapter,
+    SupportTicketReadAdapter,
 )
 from aegisops_api.tools.adapters.registry import create_default_tool_adapter_registry
 
@@ -214,6 +217,114 @@ async def test_http_json_adapter_rejects_invalid_record_shape() -> None:
     assert exc_info.value.reason_code == "http_json_response_invalid"
 
 
+@pytest.mark.asyncio
+async def test_support_ticket_adapter_accepts_bare_object_response() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/tickets/get"
+        assert request.headers["authorization"] == "Bearer support-token"
+        assert json.loads(request.content) == {
+            "connection_id": "support-prod",
+            "ticket_id": "TCK-1024",
+            "include_messages": True,
+        }
+        return httpx.Response(
+            200,
+            json={
+                "id": "TCK-1024",
+                "subject": "SSO lockout after domain migration",
+                "customer_id": "cus_123",
+                "url": "https://support.example/tickets/TCK-1024",
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="https://support.example",
+    ) as client:
+        adapter = SupportTicketReadAdapter.from_environment(
+            {
+                "SUPPORT_SYSTEM_CONNECTION_ID": "support-prod",
+                "SUPPORT_SYSTEM_API_BASE_URL": "https://support.example",
+                "SUPPORT_TICKET_READ_PATH": "/tickets/get",
+                "SUPPORT_SYSTEM_API_KEY": "support-token",
+            },
+            http_client=client,
+        )
+        result = await adapter.execute(
+            "support_ticket_read",
+            {"ticket_id": "TCK-1024", "include_messages": True},
+        )
+
+    assert result == {
+        "ticket": {
+            "id": "TCK-1024",
+            "ticket_id": "TCK-1024",
+            "subject": "SSO lockout after domain migration",
+            "customer_id": "cus_123",
+            "url": "https://support.example/tickets/TCK-1024",
+            "source_uri": "https://support.example/tickets/TCK-1024",
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_adapter_normalizes_document_ids() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/kb/search"
+        assert json.loads(request.content) == {
+            "connection_id": "kb-prod",
+            "query": "SSO lockout",
+            "limit": 5,
+        }
+        return httpx.Response(
+            200,
+            json={
+                "documents": [
+                    {
+                        "id": "kb_42",
+                        "title": "Troubleshoot enterprise SSO lockouts",
+                        "excerpt": "Verify IdP domain migration and SCIM sync state.",
+                        "url": "https://kb.example/articles/kb_42",
+                    }
+                ]
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="https://kb.example",
+    ) as client:
+        adapter = KnowledgeBaseSearchAdapter.from_environment(
+            {
+                "KNOWLEDGE_BASE_CONNECTION_ID": "kb-prod",
+                "KNOWLEDGE_BASE_API_BASE_URL": "https://kb.example",
+                "KNOWLEDGE_BASE_SEARCH_PATH": "/kb/search",
+            },
+            http_client=client,
+        )
+        result = await adapter.execute(
+            "knowledge_base_search",
+            {"query": "SSO lockout", "limit": 5},
+        )
+
+    assert result == {
+        "documents": [
+            {
+                "id": "kb_42",
+                "document_id": "kb_42",
+                "title": "Troubleshoot enterprise SSO lockouts",
+                "excerpt": "Verify IdP domain migration and SCIM sync state.",
+                "url": "https://kb.example/articles/kb_42",
+                "source_uri": "https://kb.example/articles/kb_42",
+            }
+        ]
+    }
+
+
 def test_default_registry_uses_http_json_adapters_when_env_is_configured(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -223,6 +334,12 @@ def test_default_registry_uses_http_json_adapters_when_env_is_configured(
     monkeypatch.setenv("OBSERVABILITY_API_BASE_URL", "https://observability.example")
     monkeypatch.setenv("DEPLOYMENTS_CONNECTION_ID", "deploy-prod")
     monkeypatch.setenv("DEPLOYMENTS_API_BASE_URL", "https://deployments.example")
+    monkeypatch.setenv("SUPPORT_SYSTEM_CONNECTION_ID", "support-prod")
+    monkeypatch.setenv("SUPPORT_SYSTEM_API_BASE_URL", "https://support.example")
+    monkeypatch.setenv("CRM_CONNECTION_ID", "crm-prod")
+    monkeypatch.setenv("CRM_API_BASE_URL", "https://crm.example")
+    monkeypatch.setenv("KNOWLEDGE_BASE_CONNECTION_ID", "kb-prod")
+    monkeypatch.setenv("KNOWLEDGE_BASE_API_BASE_URL", "https://kb.example")
 
     registry = create_default_tool_adapter_registry()
 
@@ -234,3 +351,9 @@ def test_default_registry_uses_http_json_adapters_when_env_is_configured(
         registry.get_adapter("deployment_event_search"),
         DeploymentEventSearchAdapter,
     )
+    assert isinstance(registry.get_adapter("support_ticket_read"), SupportTicketReadAdapter)
+    assert isinstance(
+        registry.get_adapter("crm_customer_profile_read"),
+        CrmCustomerProfileReadAdapter,
+    )
+    assert isinstance(registry.get_adapter("knowledge_base_search"), KnowledgeBaseSearchAdapter)

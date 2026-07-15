@@ -1,0 +1,45 @@
+id: crm_customer_profile_read
+name: CRM Customer Profile Read
+description: Read customer account context required to triage a support escalation.
+connector: crm
+mcp_server: aegisops.crm
+status: contract_ready
+risk_class: read
+required_scopes:
+  - customers:read
+allowed_workflows:
+  - customer_support_escalation
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - customer_id
+  properties:
+    customer_id:
+      type: string
+      minLength: 1
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - customer
+  properties:
+    customer:
+      type: object
+      additionalProperties: true
+      required:
+        - customer_id
+        - source_uri
+      properties:
+        customer_id:
+          type: string
+        account_id:
+          type: string
+        account_name:
+          type: string
+        plan:
+          type: string
+        lifecycle_stage:
+          type: string
+        source_uri:
+          type: string

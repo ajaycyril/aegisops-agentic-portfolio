@@ -49,5 +49,9 @@ after the architecture baseline is accepted.
   pending approval records for rollback, paging, and incident-update proposals. Its decision
   route approves or rejects those records through policy without executing production write
   actions.
+- `customer_support_escalation`: guarded read-only context collection for a real support
+  ticket, CRM customer profile, and knowledge base citations. It persists hash-only/redacted
+  evidence metadata, returns no raw customer messages, and keeps response drafting plus
+  customer-visible messaging disabled.
 - `configs/evals/rubrics`: structured eval contracts for Engineering patch proposals and
   Incident RCA drafts, validated in tests without model calls or fake data.

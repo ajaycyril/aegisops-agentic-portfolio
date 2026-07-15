@@ -1,7 +1,7 @@
 id: customer_support_escalation
 name: Customer Support Escalation Agent
 domain: customer_support
-status: planned
+status: ready
 enabled_when:
   connectors:
     - support_system

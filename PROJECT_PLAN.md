@@ -67,7 +67,10 @@ creates pending `approvals` rows for those proposed production actions without e
 The Incident approval decision route now approves or rejects those records through OPA, audits
 the reviewer decision, and still returns no-write execution state. Read-only HTTP JSON adapters
 now provide live observability log and deployment event search when connector connection IDs,
-base URLs, and optional bearer tokens are configured.
+base URLs, and optional bearer tokens are configured. Phase 8 has started with read-only
+Customer Support Escalation context collection across support ticket, CRM customer profile, and
+knowledge base search connectors, with hash-only/redacted evidence persistence and
+customer-visible actions disabled.
 
 Current production web deployment:
 
@@ -85,7 +88,7 @@ Current production web deployment:
 | 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub and HTTP JSON read adapters                              |
 | 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
 | 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
-| 8     | Customer Support Escalation workflow | Not started                                  | Real support/KB/CRM workflow path                                                   |
+| 8     | Customer Support Escalation workflow | In progress                                  | Real support/KB/CRM workflow path                                                   |
 | 9     | Evals, replay, and demo hardening    | Not started                                  | Captured real-run replay and quality gates                                          |
 | 10    | Deployment and portfolio polish      | Not started                                  | Public free-tier deployment and executive-grade UI                                  |
 
@@ -384,9 +387,10 @@ Completed artifacts:
   contract.
 - Tool adapter package under `services/api/src/aegisops_api/tools/adapters/`.
 - Read-only GitHub App adapter for issue and file reads through GitHub REST.
-- Read-only HTTP JSON adapters for observability log search and deployment event search, with
-  explicit connection IDs, configurable base URLs/paths, optional bearer tokens, normalized
-  source identifiers, and controlled upstream error handling.
+- Read-only HTTP JSON adapters for observability log search, deployment event search, support
+  ticket read, CRM customer profile read, and knowledge base search, with explicit connection
+  IDs, configurable base URLs/paths, optional bearer tokens, normalized source identifiers, and
+  controlled upstream error handling.
 - `POST /tool-calls/{tool_call_id}/execute` endpoint for executing a previously authorized
   `tool_calls` record only after input hash revalidation.
 - Tool execution updates durable status, output hash, latency, completion timestamp, and audit
@@ -443,6 +447,7 @@ Completed artifacts:
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
 - Observability log search tool contract.
+- Support ticket read, CRM customer profile read, and knowledge base search tool contracts.
 - Validation that write-class tools require approval by default.
 - JSON Schema validation for tool input payloads before policy evaluation.
 - Durable `tool_calls` and audit events for allowed, blocked, and approval-required tool call
@@ -483,7 +488,7 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Start Phase 8 with support connector and knowledge retrieval abstractions.
+2. Continue Phase 8 with support response draft contracts, grounding eval, and approval queue.
 3. Continue Phase 9 with executable trace eval runners and UI eval-result display.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -576,13 +581,20 @@ Acceptance criteria:
 
 Goal: Add real support workflow with knowledge retrieval and human-approved response drafting.
 
+Status note: the first read-only runtime slice is implemented. The workflow is `ready` behind
+real connector readiness and uses `support_ticket_read`, `crm_customer_profile_read`, and
+`knowledge_base_search` tools through HTTP JSON adapters. The run-scoped context route persists
+hash-only/redacted evidence metadata and keeps response drafting, customer-visible messages,
+refunds, and account changes disabled.
+
 Tasks:
 
-1. Add support connector abstraction.
-2. Add CRM/account context abstraction.
-3. Add knowledge base retrieval over real docs.
-4. Add graph nodes for triage, account lookup, KB search, policy check, response draft,
-   evaluator, approval, and handoff.
+1. Done: add support connector abstraction.
+2. Done: add CRM/account context abstraction.
+3. Done: add knowledge base retrieval over real docs.
+4. In progress: add graph nodes for triage, account lookup, KB search, policy check, response
+   draft, evaluator, approval, and handoff. Done for read-only ticket, CRM, KB search, and
+   redacted evidence persistence.
 5. Add memory policy for customer preferences and prior incidents.
 6. Add approval workflow for customer-visible messages.
 
@@ -665,6 +677,7 @@ A feature is done only when:
 
 ## Current Next Task
 
-Start Phase 8 support connector and knowledge retrieval abstractions, or continue Phase 9 with
-executable trace eval runners and UI eval-result display. Do not enable rollback, paging,
-incident-update, branch, or pull-request write execution.
+Continue Phase 8 with support response draft contracts, grounding eval, and approval queue, or
+continue Phase 9 with executable trace eval runners and UI eval-result display. Do not enable
+rollback, paging, incident-update, customer-message, refund, account-change, branch, or
+pull-request write execution.

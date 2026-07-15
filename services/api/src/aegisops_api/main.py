@@ -40,6 +40,12 @@ from aegisops_api.workflows import (
     WorkflowSummary,
     get_workflow_run_trace,
 )
+from aegisops_api.workflows.customer_support_escalation import (
+    SupportEscalationRejectedError,
+    SupportEscalationRequest,
+    SupportEscalationResponse,
+    collect_support_escalation_context,
+)
 from aegisops_api.workflows.engineering_issue_to_pr import (
     ApprovalPolicyEvaluator,
     IssueToPrApprovalDecisionRequest,
@@ -406,6 +412,43 @@ async def collect_engineering_issue_to_pr_evidence(
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
     except ReplayFixtureError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (ToolExecutionRejectedError, ToolAdapterExecutionError) as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="workflow graph execution failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/customer-support-escalation/context",
+    response_model=SupportEscalationResponse,
+    tags=["workflow-runs"],
+)
+async def collect_customer_support_escalation_context(
+    run_id: UUID,
+    request: SupportEscalationRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+    adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+) -> SupportEscalationResponse:
+    try:
+        return await collect_support_escalation_context(
+            run_id=run_id,
+            request=request,
+            session=session,
+            workflow_registry=get_workflow_registry(),
+            tool_registry=get_tool_registry(),
+            policy_evaluator=policy_evaluator,
+            adapter_registry=adapter_registry,
+            available_connectors=get_available_connectors(),
+        )
+    except SupportEscalationRejectedError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},

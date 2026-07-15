@@ -1,0 +1,58 @@
+id: knowledge_base_search
+name: Knowledge Base Search
+description: Search approved support knowledge articles and policy documents with citations.
+connector: knowledge_base
+mcp_server: aegisops.knowledge
+status: contract_ready
+risk_class: read
+required_scopes:
+  - knowledge:read
+allowed_workflows:
+  - customer_support_escalation
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - query
+  properties:
+    query:
+      type: string
+      minLength: 1
+    product:
+      type: string
+    locale:
+      type: string
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 10
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - documents
+  properties:
+    documents:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+        required:
+          - document_id
+          - title
+          - excerpt
+          - source_uri
+        properties:
+          document_id:
+            type: string
+          title:
+            type: string
+          excerpt:
+            type: string
+          source_uri:
+            type: string
+          product:
+            type: string
+          updated_at:
+            type: string
+            format: date-time

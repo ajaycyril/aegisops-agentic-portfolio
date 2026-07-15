@@ -2,14 +2,16 @@ id: support_system
 name: Support System
 provider: enterprise_support
 category: customer_support
-status: planned
+status: contract_ready
 auth_type: connection_profile
 required_env_vars:
   - SUPPORT_SYSTEM_CONNECTION_ID
+  - SUPPORT_SYSTEM_API_BASE_URL
 supported_scopes:
   - drafts:write
   - tickets:read
-tool_ids: []
+tool_ids:
+  - support_ticket_read
 workflow_ids:
   - customer_support_escalation
 data_boundaries:

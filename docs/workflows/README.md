@@ -69,6 +69,15 @@ The command center also contains a multi-agent orchestration contract for
 parallel specialist, evaluator, RCA drafter, and approval nodes so the UI can show why this use
 case justifies multi-agent orchestration while runtime support is built incrementally.
 
+`services/api/src/aegisops_api/workflows/customer_support_escalation/` now contains the first
+Customer Support Escalation runtime slice. The route
+`POST /workflow-runs/{run_id}/customer-support-escalation/context` requires a stored live
+workflow run. It collects a support ticket, CRM customer profile, and knowledge base documents
+through policy-authorized read tools backed by HTTP JSON adapters. Persisted evidence stores
+hashes and redacted metadata instead of raw customer messages or customer profile payloads.
+Response drafting, customer-visible messages, refunds, and account changes remain disabled
+until grounded draft, eval, and approval contracts are added.
+
 ## Workflow Contract
 
 Every workflow must define:

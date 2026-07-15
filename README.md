@@ -46,9 +46,11 @@ This repository currently defines:
   output hash, and audit events.
 - Read-only GitHub App adapter for real issue and file reads through installation-token REST
   calls. Write adapters remain intentionally unavailable.
-- Read-only HTTP JSON adapters for observability log search and deployment event search,
-  configured through explicit connection IDs, base URLs, optional endpoint paths, and optional
-  bearer tokens.
+- Read-only HTTP JSON adapters for observability log search, deployment event search, support
+  ticket read, CRM customer profile read, and knowledge base search, configured through
+  explicit connection IDs, base URLs, optional endpoint paths, and optional bearer tokens.
+- Customer Support Escalation workflow marked ready behind real connector readiness, with
+  typed support ticket read, CRM customer profile read, and knowledge base search tools.
 - Engineering Issue-to-PR LangGraph module with typed input, issue read node, context file read
   node, evidence assembly node, and policy-backed tool runtime integration.
 - Controlled Engineering Issue-to-PR evidence collection route at
@@ -99,6 +101,11 @@ This repository currently defines:
   actions.
 - Run-scoped Incident approval decision route that approves or rejects those records through
   OPA policy, audits the decision, and still returns a no-write execution state.
+- Run-scoped Customer Support Escalation context route at
+  `POST /workflow-runs/{run_id}/customer-support-escalation/context` that reads a real support
+  ticket, CRM customer profile, and cited knowledge documents through policy-authorized tools,
+  persists hash-only/redacted evidence metadata, and keeps response drafting and customer
+  messaging disabled.
 - Rubric-only eval contracts for Engineering patch proposals and Incident RCA drafts, plus
   structured incident approval policy fixtures for rollback, paging, and incident updates.
 
@@ -196,8 +203,7 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 8 by adding the customer support connector and knowledge-retrieval
-   abstractions.
+3. Continue Phase 8 with support response draft contracts, grounding eval, and approval queue.
 4. Continue Phase 9 by adding executable trace eval runners and UI eval-result display.
 
 ## Local Development Target

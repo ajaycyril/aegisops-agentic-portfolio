@@ -10,8 +10,11 @@ from aegisops_api.tools.adapters.base import (
 )
 from aegisops_api.tools.adapters.github import GitHubAppToolAdapter
 from aegisops_api.tools.adapters.http_json import (
+    CrmCustomerProfileReadAdapter,
     DeploymentEventSearchAdapter,
+    KnowledgeBaseSearchAdapter,
     ObservabilityLogSearchAdapter,
+    SupportTicketReadAdapter,
 )
 
 GITHUB_REQUIRED_ENV_VARS = ("GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY")
@@ -22,6 +25,18 @@ OBSERVABILITY_REQUIRED_ENV_VARS = (
 DEPLOYMENTS_REQUIRED_ENV_VARS = (
     "DEPLOYMENTS_CONNECTION_ID",
     "DEPLOYMENTS_API_BASE_URL",
+)
+SUPPORT_SYSTEM_REQUIRED_ENV_VARS = (
+    "SUPPORT_SYSTEM_CONNECTION_ID",
+    "SUPPORT_SYSTEM_API_BASE_URL",
+)
+CRM_REQUIRED_ENV_VARS = (
+    "CRM_CONNECTION_ID",
+    "CRM_API_BASE_URL",
+)
+KNOWLEDGE_BASE_REQUIRED_ENV_VARS = (
+    "KNOWLEDGE_BASE_CONNECTION_ID",
+    "KNOWLEDGE_BASE_API_BASE_URL",
 )
 
 
@@ -78,6 +93,15 @@ def create_default_tool_adapter_registry() -> ToolAdapterRegistry:
     missing_deployments_env_vars = [
         env_var for env_var in DEPLOYMENTS_REQUIRED_ENV_VARS if not environment.get(env_var)
     ]
+    missing_support_env_vars = [
+        env_var for env_var in SUPPORT_SYSTEM_REQUIRED_ENV_VARS if not environment.get(env_var)
+    ]
+    missing_crm_env_vars = [
+        env_var for env_var in CRM_REQUIRED_ENV_VARS if not environment.get(env_var)
+    ]
+    missing_knowledge_base_env_vars = [
+        env_var for env_var in KNOWLEDGE_BASE_REQUIRED_ENV_VARS if not environment.get(env_var)
+    ]
     github_adapter: ToolAdapter
     if missing_github_env_vars:
         github_adapter = MissingConnectorAuthToolAdapter("GitHub", missing_github_env_vars)
@@ -99,11 +123,35 @@ def create_default_tool_adapter_registry() -> ToolAdapterRegistry:
         )
     else:
         deployments_adapter = DeploymentEventSearchAdapter.from_environment(environment)
+    support_adapter: ToolAdapter
+    if missing_support_env_vars:
+        support_adapter = MissingConnectorAuthToolAdapter(
+            "Support System",
+            missing_support_env_vars,
+        )
+    else:
+        support_adapter = SupportTicketReadAdapter.from_environment(environment)
+    crm_adapter: ToolAdapter
+    if missing_crm_env_vars:
+        crm_adapter = MissingConnectorAuthToolAdapter("CRM", missing_crm_env_vars)
+    else:
+        crm_adapter = CrmCustomerProfileReadAdapter.from_environment(environment)
+    knowledge_base_adapter: ToolAdapter
+    if missing_knowledge_base_env_vars:
+        knowledge_base_adapter = MissingConnectorAuthToolAdapter(
+            "Knowledge Base",
+            missing_knowledge_base_env_vars,
+        )
+    else:
+        knowledge_base_adapter = KnowledgeBaseSearchAdapter.from_environment(environment)
     return ToolAdapterRegistry(
         adapters={
             "github_file_read": github_adapter,
             "github_issue_read": github_adapter,
             "observability_log_search": observability_adapter,
             "deployment_event_search": deployments_adapter,
+            "support_ticket_read": support_adapter,
+            "crm_customer_profile_read": crm_adapter,
+            "knowledge_base_search": knowledge_base_adapter,
         }
     )

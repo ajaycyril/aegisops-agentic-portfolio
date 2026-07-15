@@ -8,7 +8,7 @@ import httpx
 from aegisops_api.tools.adapters.base import ToolAdapterExecutionError
 
 
-class HttpJsonSearchAdapter:
+class HttpJsonAdapterBase:
     def __init__(
         self,
         *,
@@ -37,7 +37,7 @@ class HttpJsonSearchAdapter:
             },
         )
 
-    async def execute(self, _tool_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
+    async def _post_tool_input(self, input_payload: dict[str, Any]) -> dict[str, Any]:
         response = await self._client.post(
             self._endpoint_path,
             headers=self._auth_headers(),
@@ -46,29 +46,7 @@ class HttpJsonSearchAdapter:
                 **input_payload,
             },
         )
-        payload = self._parse_response(response)
-        records = payload.get(self._response_key)
-        if not isinstance(records, list):
-            raise ToolAdapterExecutionError(
-                reason_code="http_json_response_invalid",
-                message=f"{self._connector_name} response must include {self._response_key} list.",
-                http_status=502,
-            )
-        normalized_records: list[dict[str, Any]] = []
-        for record in records:
-            if not isinstance(record, dict):
-                raise ToolAdapterExecutionError(
-                    reason_code="http_json_response_invalid",
-                    message=(
-                        f"{self._connector_name} {self._response_key} items must be "
-                        "JSON objects."
-                    ),
-                    http_status=502,
-                )
-            normalized_records.append(
-                normalize_record(cast(dict[str, Any], record), id_alias=self._id_alias)
-            )
-        return {self._response_key: normalized_records}
+        return self._parse_response(response)
 
     def _auth_headers(self) -> dict[str, str]:
         if not self._api_key:
@@ -106,6 +84,56 @@ class HttpJsonSearchAdapter:
         return cast(dict[str, Any], payload)
 
 
+class HttpJsonSearchAdapter(HttpJsonAdapterBase):
+    async def execute(self, _tool_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
+        payload = await self._post_tool_input(input_payload)
+        records = payload.get(self._response_key)
+        if not isinstance(records, list):
+            raise ToolAdapterExecutionError(
+                reason_code="http_json_response_invalid",
+                message=f"{self._connector_name} response must include {self._response_key} list.",
+                http_status=502,
+            )
+        normalized_records: list[dict[str, Any]] = []
+        for record in records:
+            if not isinstance(record, dict):
+                raise ToolAdapterExecutionError(
+                    reason_code="http_json_response_invalid",
+                    message=(
+                        f"{self._connector_name} {self._response_key} items must be "
+                        "JSON objects."
+                    ),
+                    http_status=502,
+                )
+            normalized_records.append(
+                normalize_record(cast(dict[str, Any], record), id_alias=self._id_alias)
+            )
+        return {self._response_key: normalized_records}
+
+
+class HttpJsonObjectAdapter(HttpJsonAdapterBase):
+    async def execute(self, _tool_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
+        payload = await self._post_tool_input(input_payload)
+        record = payload.get(self._response_key)
+        if record is None and self._response_key not in payload:
+            record = payload
+        if not isinstance(record, dict):
+            raise ToolAdapterExecutionError(
+                reason_code="http_json_response_invalid",
+                message=(
+                    f"{self._connector_name} response must include "
+                    f"{self._response_key} object."
+                ),
+                http_status=502,
+            )
+        return {
+            self._response_key: normalize_record(
+                cast(dict[str, Any], record),
+                id_alias=self._id_alias,
+            )
+        }
+
+
 class ObservabilityLogSearchAdapter(HttpJsonSearchAdapter):
     @classmethod
     def from_environment(
@@ -140,6 +168,63 @@ class DeploymentEventSearchAdapter(HttpJsonSearchAdapter):
             response_key="deployments",
             id_alias="deployment_id",
             api_key=environment.get("DEPLOYMENTS_API_KEY"),
+            http_client=http_client,
+        )
+
+
+class SupportTicketReadAdapter(HttpJsonObjectAdapter):
+    @classmethod
+    def from_environment(
+        cls,
+        environment: Mapping[str, str],
+        http_client: httpx.AsyncClient | None = None,
+    ) -> SupportTicketReadAdapter:
+        return cls(
+            connector_name="Support System",
+            connection_id=environment["SUPPORT_SYSTEM_CONNECTION_ID"],
+            base_url=environment["SUPPORT_SYSTEM_API_BASE_URL"],
+            endpoint_path=environment.get("SUPPORT_TICKET_READ_PATH", "/tickets/read"),
+            response_key="ticket",
+            id_alias="ticket_id",
+            api_key=environment.get("SUPPORT_SYSTEM_API_KEY"),
+            http_client=http_client,
+        )
+
+
+class CrmCustomerProfileReadAdapter(HttpJsonObjectAdapter):
+    @classmethod
+    def from_environment(
+        cls,
+        environment: Mapping[str, str],
+        http_client: httpx.AsyncClient | None = None,
+    ) -> CrmCustomerProfileReadAdapter:
+        return cls(
+            connector_name="CRM",
+            connection_id=environment["CRM_CONNECTION_ID"],
+            base_url=environment["CRM_API_BASE_URL"],
+            endpoint_path=environment.get("CRM_CUSTOMER_PROFILE_READ_PATH", "/customers/read"),
+            response_key="customer",
+            id_alias="customer_id",
+            api_key=environment.get("CRM_API_KEY"),
+            http_client=http_client,
+        )
+
+
+class KnowledgeBaseSearchAdapter(HttpJsonSearchAdapter):
+    @classmethod
+    def from_environment(
+        cls,
+        environment: Mapping[str, str],
+        http_client: httpx.AsyncClient | None = None,
+    ) -> KnowledgeBaseSearchAdapter:
+        return cls(
+            connector_name="Knowledge Base",
+            connection_id=environment["KNOWLEDGE_BASE_CONNECTION_ID"],
+            base_url=environment["KNOWLEDGE_BASE_API_BASE_URL"],
+            endpoint_path=environment.get("KNOWLEDGE_BASE_SEARCH_PATH", "/knowledge/search"),
+            response_key="documents",
+            id_alias="document_id",
+            api_key=environment.get("KNOWLEDGE_BASE_API_KEY"),
             http_client=http_client,
         )
 

@@ -2,13 +2,15 @@ id: knowledge_base
 name: Knowledge Base
 provider: enterprise_knowledge
 category: knowledge
-status: planned
+status: contract_ready
 auth_type: connection_profile
 required_env_vars:
   - KNOWLEDGE_BASE_CONNECTION_ID
+  - KNOWLEDGE_BASE_API_BASE_URL
 supported_scopes:
   - knowledge:read
-tool_ids: []
+tool_ids:
+  - knowledge_base_search
 workflow_ids:
   - customer_support_escalation
 data_boundaries:
