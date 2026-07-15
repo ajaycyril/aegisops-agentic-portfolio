@@ -65,7 +65,9 @@ proposal quality and Incident RCA grounding, and structured incident approval po
 cover rollback, paging, and incident-update decisions. The Incident approval-review route now
 creates pending `approvals` rows for those proposed production actions without executing them.
 The Incident approval decision route now approves or rejects those records through OPA, audits
-the reviewer decision, and still returns no-write execution state.
+the reviewer decision, and still returns no-write execution state. Read-only HTTP JSON adapters
+now provide live observability log and deployment event search when connector connection IDs,
+base URLs, and optional bearer tokens are configured.
 
 Current production web deployment:
 
@@ -80,7 +82,7 @@ Current production web deployment:
 | 2     | Governance and data layer            | Implemented, Docker verification pending     | Postgres, migrations, policy checks, audit model                                    |
 | 3     | Workflow registry and run lifecycle  | Implemented, live infra verification pending | Config-driven workflow catalog and run API                                          |
 | 4     | Visual command center shell          | Implemented                                  | Portfolio UI, graph canvas, multi-agent canvas, review, trace/evidence placeholders |
-| 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub connector foundation                                     |
+| 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub and HTTP JSON read adapters                              |
 | 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
 | 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
 | 8     | Customer Support Escalation workflow | Not started                                  | Real support/KB/CRM workflow path                                                   |
@@ -382,6 +384,9 @@ Completed artifacts:
   contract.
 - Tool adapter package under `services/api/src/aegisops_api/tools/adapters/`.
 - Read-only GitHub App adapter for issue and file reads through GitHub REST.
+- Read-only HTTP JSON adapters for observability log search and deployment event search, with
+  explicit connection IDs, configurable base URLs/paths, optional bearer tokens, normalized
+  source identifiers, and controlled upstream error handling.
 - `POST /tool-calls/{tool_call_id}/execute` endpoint for executing a previously authorized
   `tool_calls` record only after input hash revalidation.
 - Tool execution updates durable status, output hash, latency, completion timestamp, and audit
@@ -478,9 +483,8 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Add real observability/deployment adapter implementations for the Incident Investigator
-   evidence route.
-3. Start Phase 8 with support connector and knowledge retrieval abstractions.
+2. Start Phase 8 with support connector and knowledge retrieval abstractions.
+3. Continue Phase 9 with executable trace eval runners and UI eval-result display.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -538,7 +542,9 @@ deployment events, and optional repository files. Source-grounded evidence valid
 typed RCA draft contract are implemented without model generation or external writes. Pending
 approval records and approve/reject decisions for rollback, paging, and incident-update
 proposals are implemented, while production write actions remain future work. Captured-real-run
-replay schema and loading are implemented without committing fabricated replay payloads.
+replay schema and loading are implemented without committing fabricated replay payloads. Live
+observability/deployment reads use the HTTP JSON read adapters when connector env vars are
+configured.
 
 Tasks:
 
@@ -557,6 +563,8 @@ Tasks:
    incident updates, plus OPA-checked approve/reject decision handling with no write execution.
 7. Done: add captured-real-run replay format and loader.
 8. Done: add eval rubric for RCA quality.
+9. Done: add real observability/deployment read adapter implementations for live evidence
+   collection.
 
 Acceptance criteria:
 
@@ -657,6 +665,6 @@ A feature is done only when:
 
 ## Current Next Task
 
-Add real observability/deployment adapter implementations for the Incident Investigator
-evidence route, or start Phase 8 support connector and knowledge retrieval abstractions. Do not
-enable rollback, paging, incident-update, branch, or pull-request write execution.
+Start Phase 8 support connector and knowledge retrieval abstractions, or continue Phase 9 with
+executable trace eval runners and UI eval-result display. Do not enable rollback, paging,
+incident-update, branch, or pull-request write execution.

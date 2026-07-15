@@ -48,13 +48,15 @@ under `configs/workflows` remain the portfolio registry.
 first Production Incident Investigator runtime slice. The route
 `POST /workflow-runs/{run_id}/incident-response-investigator/evidence` requires a stored
 workflow run. Live mode collects read-only observability log, deployment event, and optional
-GitHub file evidence through policy-authorized tool calls. Replay mode requires a captured
-real-run fixture using schema version `incident_response_investigator.replay.v1`. Persisted
-evidence records keep hashes and metadata instead of raw log/code payloads. The route returns
-source-grounded evidence validation for every evidence item. When `include_rca=true`, it can
-create a typed RCA draft contract whose claims may only cite grounded source evidence URIs and
-whose persisted draft artifact stores hashes and metadata only. Rollback, paging, incident
-updates, and external write actions remain disabled. The approval-review route
+GitHub file evidence through policy-authorized tool calls. Observability and deployment reads
+use generic HTTP JSON read adapters when `OBSERVABILITY_*` and `DEPLOYMENTS_*` connector env
+vars are configured. Replay mode requires a captured real-run fixture using schema version
+`incident_response_investigator.replay.v1`. Persisted evidence records keep hashes and metadata
+instead of raw log/code payloads. The route returns source-grounded evidence validation for
+every evidence item. When `include_rca=true`, it can create a typed RCA draft contract whose
+claims may only cite grounded source evidence URIs and whose persisted draft artifact stores
+hashes and metadata only. Rollback, paging, incident updates, and external write actions remain
+disabled. The approval-review route
 `POST /workflow-runs/{run_id}/incident-response-investigator/approval-review` creates pending
 `approvals` rows for rollback, paging, and incident-update proposals from that RCA draft, but
 does not execute those actions. The decision route

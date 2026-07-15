@@ -35,13 +35,19 @@ after the architecture baseline is accepted.
   persistence for proposed branch/PR actions, approve/reject decision persistence through OPA,
   approved-approval-ID PR draft authorization, dry-run PR preview evidence artifacts, and no
   write adapters.
+- Tool adapters: read-only GitHub App REST access plus generic HTTP JSON read adapters for
+  observability log search and deployment event search. The HTTP JSON adapters post typed tool
+  inputs with a configured connection ID, normalize source URI identifiers, and convert
+  upstream failures into controlled tool errors.
 - `GET /workflow-runs/{run_id}/trace`: generic run metadata readout for approvals, tool calls,
   model calls, evidence records, and audit events.
 - `incident_response_investigator`: guarded read-only evidence collection for observability
-  logs, deployment events, optional GitHub files, and captured-real replay fixtures. The route
-  returns source-grounded evidence validation and can create a typed hash-only RCA draft
-  contract with `include_rca=true`. Its approval-review route can create pending approval
-  records for rollback, paging, and incident-update proposals. Its decision route approves or
-  rejects those records through policy without executing production write actions.
+  logs, deployment events, optional GitHub files, and captured-real replay fixtures. Live
+  observability/deployment reads use the HTTP JSON adapters when connector env vars are
+  configured. The route returns source-grounded evidence validation and can create a typed
+  hash-only RCA draft contract with `include_rca=true`. Its approval-review route can create
+  pending approval records for rollback, paging, and incident-update proposals. Its decision
+  route approves or rejects those records through policy without executing production write
+  actions.
 - `configs/evals/rubrics`: structured eval contracts for Engineering patch proposals and
   Incident RCA drafts, validated in tests without model calls or fake data.

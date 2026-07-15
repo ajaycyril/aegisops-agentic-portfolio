@@ -46,6 +46,9 @@ This repository currently defines:
   output hash, and audit events.
 - Read-only GitHub App adapter for real issue and file reads through installation-token REST
   calls. Write adapters remain intentionally unavailable.
+- Read-only HTTP JSON adapters for observability log search and deployment event search,
+  configured through explicit connection IDs, base URLs, optional endpoint paths, and optional
+  bearer tokens.
 - Engineering Issue-to-PR LangGraph module with typed input, issue read node, context file read
   node, evidence assembly node, and policy-backed tool runtime integration.
 - Controlled Engineering Issue-to-PR evidence collection route at
@@ -87,9 +90,10 @@ This repository currently defines:
   reconciliation, and approval-gated production actions without fake incident data.
 - Production Incident Investigator LangGraph runtime slice with read-only log, deployment,
   and code evidence collection through policy-authorized tool calls plus captured-real-run
-  replay loading. It now returns source-grounded evidence validation and can create a typed,
-  hash-only RCA draft contract when `include_rca=true`; rollback, paging, incident updates,
-  and external writes remain disabled.
+  replay loading. Live observability/deployment reads use the generic HTTP JSON adapters when
+  connector env vars are configured. The route returns source-grounded evidence validation and
+  can create a typed, hash-only RCA draft contract when `include_rca=true`; rollback, paging,
+  incident updates, and external writes remain disabled.
 - Run-scoped Incident approval-review route that creates pending `approvals` rows for rollback,
   paging, and incident-update proposals from a grounded RCA draft without executing those
   actions.
@@ -192,10 +196,9 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 7 by adding real observability/deployment adapters for the Incident
-   Investigator evidence route.
-4. Continue Phase 8 by adding the customer support connector and knowledge-retrieval
+3. Continue Phase 8 by adding the customer support connector and knowledge-retrieval
    abstractions.
+4. Continue Phase 9 by adding executable trace eval runners and UI eval-result display.
 
 ## Local Development Target
 

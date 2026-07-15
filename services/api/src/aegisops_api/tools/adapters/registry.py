@@ -9,10 +9,20 @@ from aegisops_api.tools.adapters.base import (
     ToolAdapterNotFoundError,
 )
 from aegisops_api.tools.adapters.github import GitHubAppToolAdapter
+from aegisops_api.tools.adapters.http_json import (
+    DeploymentEventSearchAdapter,
+    ObservabilityLogSearchAdapter,
+)
 
 GITHUB_REQUIRED_ENV_VARS = ("GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY")
-OBSERVABILITY_REQUIRED_ENV_VARS = ("OBSERVABILITY_CONNECTION_ID",)
-DEPLOYMENTS_REQUIRED_ENV_VARS = ("DEPLOYMENTS_CONNECTION_ID",)
+OBSERVABILITY_REQUIRED_ENV_VARS = (
+    "OBSERVABILITY_CONNECTION_ID",
+    "OBSERVABILITY_API_BASE_URL",
+)
+DEPLOYMENTS_REQUIRED_ENV_VARS = (
+    "DEPLOYMENTS_CONNECTION_ID",
+    "DEPLOYMENTS_API_BASE_URL",
+)
 
 
 class MissingConnectorAuthToolAdapter:
@@ -80,7 +90,7 @@ def create_default_tool_adapter_registry() -> ToolAdapterRegistry:
             missing_observability_env_vars,
         )
     else:
-        observability_adapter = ContractOnlyToolAdapter("Observability")
+        observability_adapter = ObservabilityLogSearchAdapter.from_environment(environment)
     deployments_adapter: ToolAdapter
     if missing_deployments_env_vars:
         deployments_adapter = MissingConnectorAuthToolAdapter(
@@ -88,7 +98,7 @@ def create_default_tool_adapter_registry() -> ToolAdapterRegistry:
             missing_deployments_env_vars,
         )
     else:
-        deployments_adapter = ContractOnlyToolAdapter("Deployment Events")
+        deployments_adapter = DeploymentEventSearchAdapter.from_environment(environment)
     return ToolAdapterRegistry(
         adapters={
             "github_file_read": github_adapter,

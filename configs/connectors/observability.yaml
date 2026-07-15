@@ -6,6 +6,7 @@ status: contract_ready
 auth_type: otlp
 required_env_vars:
   - OBSERVABILITY_CONNECTION_ID
+  - OBSERVABILITY_API_BASE_URL
 supported_scopes:
   - analytics:read
   - logs:read

@@ -46,7 +46,7 @@ eligibility tests. Live agent execution will require model credentials in a late
 Run-start safety controls:
 
 ```bash
-CONFIGURED_CONNECTORS=github,observability
+CONFIGURED_CONNECTORS=github,observability,deployments
 MAX_AGENT_RUN_SECONDS=300
 MAX_AGENT_TOOL_CALLS=25
 MAX_AGENT_ESTIMATED_USD=1.00
@@ -60,6 +60,9 @@ Connector readiness has two layers:
 - `configs/connectors/*.yaml` declares auth type, scopes, data boundaries, and required env var
   names for each connector. `GET /connectors` reports missing env var names only and never
   returns secret values.
+- `OBSERVABILITY_API_BASE_URL` and `DEPLOYMENTS_API_BASE_URL` point to read-only HTTP JSON
+  gateway endpoints. Optional bearer tokens can be set with `OBSERVABILITY_API_KEY` and
+  `DEPLOYMENTS_API_KEY`.
 
 `LIVE_WORKFLOW_RUNS_ENABLED=false` keeps live execution disabled by default. Replay mode still
 requires a captured real-run source id.
@@ -125,10 +128,11 @@ Tool registry endpoints:
 - `POST http://localhost:8000/tool-calls/authorize`
 - `POST http://localhost:8000/tool-calls/{tool_call_id}/execute`
 - `POST http://localhost:8000/workflow-runs/{run_id}/engineering-issue-to-pr/evidence`
+- `POST http://localhost:8000/workflow-runs/{run_id}/incident-response-investigator/evidence`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as
-`github,observability`.
+`github,observability,deployments`.
 
 Example replay run-start request:
 
@@ -158,6 +162,11 @@ The first live adapter is read-only GitHub App REST access for:
 
 - `github_issue_read`
 - `github_file_read`
+
+The incident runtime also has read-only HTTP JSON adapters for:
+
+- `observability_log_search`
+- `deployment_event_search`
 
 The Engineering Issue-to-PR graph can be invoked through the run-scoped evidence route only
 after a stored workflow run exists. Live mode collects GitHub issue/file evidence through the

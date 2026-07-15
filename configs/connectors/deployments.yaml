@@ -6,6 +6,7 @@ status: contract_ready
 auth_type: connection_profile
 required_env_vars:
   - DEPLOYMENTS_CONNECTION_ID
+  - DEPLOYMENTS_API_BASE_URL
 supported_scopes:
   - deployments:read
 tool_ids:
