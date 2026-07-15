@@ -1091,7 +1091,8 @@ h1 {
 .review-check,
 .proposal-contract,
 .approval-persistence,
-.approval-review {
+.approval-review,
+.trace-readout {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 8px;
@@ -1210,6 +1211,169 @@ h1 {
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.trace-readout {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 12px;
+  padding: 14px;
+  min-width: 0;
+  border-color: rgba(53, 194, 167, 0.16);
+  background:
+    linear-gradient(135deg, rgba(53, 194, 167, 0.075), rgba(244, 201, 93, 0.04)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.trace-readout.trace-closed {
+  border-color: rgba(244, 201, 93, 0.22);
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.075), rgba(255, 122, 144, 0.04)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.trace-readout-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.trace-readout-header code {
+  display: block;
+  margin-top: 6px;
+  color: #edf5ff;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.trace-readout p {
+  margin: 0;
+  color: #c9d2e1;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.trace-badge {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border: 1px solid rgba(150, 163, 184, 0.2);
+  color: #dce3ef;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.trace-badge-open {
+  border-color: rgba(53, 194, 167, 0.28);
+  color: #aaf3e3;
+}
+
+.trace-badge-closed {
+  border-color: rgba(244, 201, 93, 0.3);
+  color: #ffe4a3;
+}
+
+.trace-outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trace-outcome {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 6px 10px;
+  align-content: start;
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.trace-outcome.outcome-open {
+  border-color: rgba(53, 194, 167, 0.22);
+}
+
+.trace-outcome.outcome-closed {
+  border-color: rgba(244, 201, 93, 0.24);
+}
+
+.trace-outcome strong {
+  color: #f0f4fb;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.trace-outcome em {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.trace-record-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trace-record {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 9, 13, 0.24);
+  border-radius: 8px;
+}
+
+.trace-record span,
+.trace-event span {
+  display: block;
+  color: #dce3ef;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.trace-record strong,
+.trace-event strong {
+  display: block;
+  margin-top: 4px;
+  color: #f0f4fb;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trace-events {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trace-event {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(150, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 8px;
+}
+
+.trace-event.event-open {
+  border-color: rgba(53, 194, 167, 0.2);
+}
+
+.trace-event.event-closed {
+  border-color: rgba(244, 201, 93, 0.24);
 }
 
 .contract-title {
@@ -1426,12 +1590,19 @@ h1 {
 
   .proposal-route,
   .approval-persistence,
-  .approval-review {
+  .approval-review,
+  .trace-readout {
     grid-column: auto;
   }
 
-  .approval-stop-list {
+  .approval-stop-list,
+  .trace-outcome-grid,
+  .trace-events {
     grid-template-columns: 1fr;
+  }
+
+  .trace-record-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .multi-agent-patterns {
@@ -1666,6 +1837,14 @@ h1 {
   .contract-row {
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+
+  .trace-readout-header {
+    flex-direction: column;
+  }
+
+  .trace-record-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lens-value,

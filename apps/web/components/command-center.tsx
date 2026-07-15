@@ -45,7 +45,12 @@ import {
   YAxis,
 } from "recharts";
 
-import type { ApiReadiness, ApiStatus } from "@/lib/api";
+import type {
+  ApiReadiness,
+  ApiStatus,
+  WorkflowRunTrace,
+  WorkflowRunTraceStatus,
+} from "@/lib/api";
 import { MultiAgentOrchestration } from "@/components/multi-agent-orchestration";
 import type {
   WorkflowCatalog,
@@ -56,6 +61,7 @@ import type {
 type CommandCenterProps = {
   apiStatus: ApiStatus;
   workflowCatalog: WorkflowCatalog;
+  workflowRunTrace: WorkflowRunTraceStatus;
 };
 
 type NavItem = {
@@ -110,6 +116,29 @@ type ProposalReviewModel = {
     value: string;
   }>;
   approvalStops: string[];
+  traceReadout: TraceReadoutModel;
+};
+
+type TraceReadoutModel = {
+  badge: string;
+  route: string;
+  state: GateState;
+  runId: string;
+  message: string;
+  outcomes: Array<{
+    label: string;
+    value: string;
+    state: GateState;
+  }>;
+  records: Array<{
+    label: string;
+    value: string;
+  }>;
+  events: Array<{
+    label: string;
+    value: string;
+    state: GateState;
+  }>;
 };
 
 const navItems: NavItem[] = [
@@ -174,6 +203,7 @@ const runtimeModes = [
 export function CommandCenter({
   apiStatus,
   workflowCatalog,
+  workflowRunTrace,
 }: CommandCenterProps) {
   const shouldReduceMotion = useReducedMotion();
   const workflows = workflowCatalog.workflows;
@@ -211,8 +241,14 @@ export function CommandCenter({
     workflowCatalog.source === "api" && apiStatus.label === "online";
   const readiness = apiStatus.label === "online" ? apiStatus.readiness : null;
   const proposalReview = useMemo(
-    () => createProposalReview(selectedWorkflow, apiBacked, readiness),
-    [apiBacked, readiness, selectedWorkflow],
+    () =>
+      createProposalReview(
+        selectedWorkflow,
+        apiBacked,
+        readiness,
+        workflowRunTrace,
+      ),
+    [apiBacked, readiness, selectedWorkflow, workflowRunTrace],
   );
   const enabledCount = workflows.filter((workflow) => workflow.enabled).length;
   const connectorCount = new Set(
@@ -686,6 +722,8 @@ function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
           ))}
         </div>
 
+        <TraceReadout readout={review.traceReadout} />
+
         <div className="approval-review">
           <div className="contract-title">Approval Stops</div>
           <div className="approval-stop-list">
@@ -703,6 +741,51 @@ function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function TraceReadout({ readout }: { readout: TraceReadoutModel }) {
+  return (
+    <div className={`trace-readout trace-${readout.state}`}>
+      <div className="trace-readout-header">
+        <div>
+          <div className="contract-title">Live Trace State</div>
+          <code>{readout.route}</code>
+        </div>
+        <span className={`trace-badge trace-badge-${readout.state}`}>
+          {readout.badge}
+        </span>
+      </div>
+      <p>{readout.message}</p>
+
+      <div className="trace-outcome-grid">
+        {readout.outcomes.map((outcome) => (
+          <div className={`trace-outcome outcome-${outcome.state}`} key={outcome.label}>
+            <span className={`review-state ${outcome.state}`} />
+            <strong>{outcome.label}</strong>
+            <em>{outcome.value}</em>
+          </div>
+        ))}
+      </div>
+
+      <div className="trace-record-strip">
+        {readout.records.map((record) => (
+          <div className="trace-record" key={record.label}>
+            <span>{record.label}</span>
+            <strong>{record.value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="trace-events">
+        {readout.events.map((event) => (
+          <div className={`trace-event event-${event.state}`} key={`${event.label}-${event.value}`}>
+            <span>{event.label}</span>
+            <strong>{event.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1084,7 +1167,10 @@ function createProposalReview(
   workflow: WorkflowDetail,
   apiBacked: boolean,
   readiness: ApiReadiness | null,
+  workflowRunTrace: WorkflowRunTraceStatus,
 ): ProposalReviewModel {
+  const traceReadout = createTraceReadout(workflow, workflowRunTrace);
+
   if (workflow.id !== "engineering_issue_to_pr") {
     return {
       badge: "workflow contract planned",
@@ -1172,6 +1258,7 @@ function createProposalReview(
         },
       ],
       approvalStops: workflow.approval_required_for,
+      traceReadout,
     };
   }
 
@@ -1308,7 +1395,353 @@ function createProposalReview(
       },
     ],
     approvalStops: workflow.approval_required_for,
+    traceReadout,
   };
+}
+
+function createTraceReadout(
+  workflow: WorkflowDetail,
+  workflowRunTrace: WorkflowRunTraceStatus,
+): TraceReadoutModel {
+  const route = "GET /workflow-runs/{run_id}/trace";
+
+  if (workflowRunTrace.label === "not_configured") {
+    return {
+      badge: "run id required",
+      route,
+      state: "neutral",
+      runId: "not configured",
+      message: workflowRunTrace.message,
+      outcomes: [
+        {
+          label: "Approval decision",
+          value: "waiting for a real stored run id",
+          state: "neutral",
+        },
+        {
+          label: "PR authorization",
+          value: "no tool authorization read without a trace",
+          state: "neutral",
+        },
+        {
+          label: "Preview evidence",
+          value: "no dry-run preview read without a trace",
+          state: "neutral",
+        },
+      ],
+      records: emptyTraceRecords(),
+      events: [
+        {
+          label: "Configuration",
+          value: "DEMO_WORKFLOW_RUN_ID or DEMO_TRACE_RUN_ID",
+          state: "neutral",
+        },
+      ],
+    };
+  }
+
+  if (workflowRunTrace.label !== "loaded") {
+    return {
+      badge:
+        workflowRunTrace.label === "not_found" ? "run not found" : "offline",
+      route,
+      state: "closed",
+      runId: workflowRunTrace.configuredRunId,
+      message: workflowRunTrace.message,
+      outcomes: [
+        {
+          label: "Approval decision",
+          value: "trace endpoint did not return records",
+          state: "closed",
+        },
+        {
+          label: "PR authorization",
+          value: "authorization state unavailable",
+          state: "closed",
+        },
+        {
+          label: "Preview evidence",
+          value: "preview evidence unavailable",
+          state: "closed",
+        },
+      ],
+      records: emptyTraceRecords(),
+      events: [
+        {
+          label: "Trace fetch",
+          value: workflowRunTrace.message,
+          state: "closed",
+        },
+      ],
+    };
+  }
+
+  const trace = workflowRunTrace.trace;
+  const records = createTraceRecordSummary(trace);
+
+  if (trace.run.workflow_id !== workflow.id) {
+    return {
+      badge: "different workflow",
+      route,
+      state: "neutral",
+      runId: workflowRunTrace.configuredRunId,
+      message: `Configured run belongs to ${humanize(trace.run.workflow_id)}. Select that workflow or configure a run for ${workflow.name}.`,
+      outcomes: [
+        {
+          label: "Approval decision",
+          value: "loaded for another workflow",
+          state: "neutral",
+        },
+        {
+          label: "PR authorization",
+          value: "loaded for another workflow",
+          state: "neutral",
+        },
+        {
+          label: "Preview evidence",
+          value: "loaded for another workflow",
+          state: "neutral",
+        },
+      ],
+      records,
+      events: createTraceEvents(trace),
+    };
+  }
+
+  const outcomes = [
+    summarizeApprovalOutcome(trace),
+    summarizePrAuthorizationOutcome(trace),
+    summarizePreviewOutcome(trace),
+  ];
+
+  return {
+    badge: "live metadata",
+    route,
+    state: "open",
+    runId: workflowRunTrace.configuredRunId,
+    message: `${humanize(trace.run.workflow_id)} run ${shortId(trace.run.id)} is ${humanize(trace.run.status)} in ${humanize(trace.run.execution_mode)} mode.`,
+    outcomes,
+    records,
+    events: createTraceEvents(trace),
+  };
+}
+
+function summarizeApprovalOutcome(trace: WorkflowRunTrace) {
+  const approved = trace.approvals.filter((approval) => approval.status === "approved");
+  const rejected = trace.approvals.filter((approval) => approval.status === "rejected");
+  const pending = trace.approvals.filter((approval) => approval.status === "pending");
+
+  if (rejected.length > 0) {
+    return {
+      label: "Approval decision",
+      value: `${rejected.length} rejected approval record${pluralize(rejected.length)}`,
+      state: "closed" as const,
+    };
+  }
+
+  if (approved.length > 0) {
+    return {
+      label: "Approval decision",
+      value: `${approved.length} approved approval record${pluralize(approved.length)}`,
+      state: "open" as const,
+    };
+  }
+
+  if (pending.length > 0) {
+    return {
+      label: "Approval decision",
+      value: `${pending.length} pending approval record${pluralize(pending.length)}`,
+      state: "neutral" as const,
+    };
+  }
+
+  return {
+    label: "Approval decision",
+    value: "no approval records in this run",
+    state: "neutral" as const,
+  };
+}
+
+function summarizePrAuthorizationOutcome(trace: WorkflowRunTrace) {
+  const prToolCalls = trace.tool_calls.filter(
+    (toolCall) => toolCall.tool_name === "github_pull_request_draft",
+  );
+  const blocked = prToolCalls.filter(
+    (toolCall) =>
+      toolCall.status.includes("blocked") ||
+      toolCall.execution_state?.includes("blocked") ||
+      Boolean(toolCall.error_message),
+  );
+  const authorized = prToolCalls.filter(
+    (toolCall) => toolCall.execution_state === "authorized_not_executed",
+  );
+
+  if (blocked.length > 0) {
+    return {
+      label: "PR authorization",
+      value: `${blocked.length} blocked before execution`,
+      state: "closed" as const,
+    };
+  }
+
+  if (authorized.length > 0) {
+    return {
+      label: "PR authorization",
+      value: `${authorized.length} authorized, not executed`,
+      state: "open" as const,
+    };
+  }
+
+  if (prToolCalls.length > 0) {
+    return {
+      label: "PR authorization",
+      value: prToolCalls.map((toolCall) => humanize(toolCall.status)).join(", "),
+      state: "neutral" as const,
+    };
+  }
+
+  return {
+    label: "PR authorization",
+    value: "no PR draft authorization calls",
+    state: "neutral" as const,
+  };
+}
+
+function summarizePreviewOutcome(trace: WorkflowRunTrace) {
+  const previewEvidence = trace.evidence_records.filter(
+    (record) =>
+      record.metadata.schema_version === "engineering_issue_to_pr.pr_preview.v1",
+  );
+  const previewAuditEvents = trace.audit_events.filter(
+    (event) => event.event_type === "pr_draft.preview_created",
+  );
+  const previewCount = previewEvidence.length + previewAuditEvents.length;
+
+  if (previewCount > 0) {
+    return {
+      label: "Preview evidence",
+      value: `${previewEvidence.length} hash-only preview evidence record${pluralize(previewEvidence.length)}`,
+      state: "open" as const,
+    };
+  }
+
+  return {
+    label: "Preview evidence",
+    value: "no dry-run preview evidence in this run",
+    state: "neutral" as const,
+  };
+}
+
+function createTraceRecordSummary(trace: WorkflowRunTrace) {
+  return [
+    {
+      label: "Run",
+      value: `${humanize(trace.run.status)} / ${humanize(trace.run.autonomy_level)}`,
+    },
+    { label: "Approvals", value: String(trace.approvals.length) },
+    { label: "Tool calls", value: String(trace.tool_calls.length) },
+    {
+      label: "Model calls",
+      value: `${trace.model_calls.length} / ${formatEstimatedCost(trace)}`,
+    },
+    { label: "Evidence", value: String(trace.evidence_records.length) },
+    { label: "Audit events", value: String(trace.audit_events.length) },
+  ];
+}
+
+function emptyTraceRecords() {
+  return [
+    { label: "Run", value: "not loaded" },
+    { label: "Approvals", value: "0" },
+    { label: "Tool calls", value: "0" },
+    { label: "Model calls", value: "0 / $0.0000" },
+    { label: "Evidence", value: "0" },
+    { label: "Audit events", value: "0" },
+  ];
+}
+
+function createTraceEvents(trace: WorkflowRunTrace) {
+  const approvalEvents = trace.approvals.slice(-2).map((approval) => ({
+    label: humanize(approval.requested_action),
+    value: `${humanize(approval.status)} approval ${shortId(approval.id)}`,
+    state: traceStateFromStatus(approval.status),
+  }));
+  const toolEvents = trace.tool_calls.slice(-2).map((toolCall) => ({
+    label: humanize(toolCall.tool_name),
+    value: humanize(toolCall.execution_state ?? toolCall.status),
+    state: traceStateFromStatus(toolCall.execution_state ?? toolCall.status),
+  }));
+  const evidenceEvents = trace.evidence_records.slice(-2).map((record) => ({
+    label: record.title,
+    value: `${humanize(record.kind)} ${shortHash(record.content_hash)}`,
+    state: "open" as const,
+  }));
+  const auditEvents = trace.audit_events.slice(-2).map((event) => ({
+    label: humanize(event.event_type),
+    value: humanize(event.action),
+    state: traceStateFromStatus(event.event_type),
+  }));
+
+  const events = [
+    ...approvalEvents,
+    ...toolEvents,
+    ...evidenceEvents,
+    ...auditEvents,
+  ].slice(-6);
+
+  if (events.length === 0) {
+    return [
+      {
+        label: "No trace records",
+        value: "stored run has no approval, tool, evidence, or audit metadata yet",
+        state: "neutral" as const,
+      },
+    ];
+  }
+
+  return events;
+}
+
+function traceStateFromStatus(value: string): GateState {
+  if (
+    value.includes("approved") ||
+    value.includes("authorized") ||
+    value.includes("created") ||
+    value.includes("succeeded")
+  ) {
+    return "open";
+  }
+
+  if (
+    value.includes("blocked") ||
+    value.includes("rejected") ||
+    value.includes("failed") ||
+    value.includes("error")
+  ) {
+    return "closed";
+  }
+
+  return "neutral";
+}
+
+function formatEstimatedCost(trace: WorkflowRunTrace) {
+  const total = trace.model_calls.reduce((sum, call) => {
+    const value = Number(call.estimated_cost_usd);
+    return Number.isFinite(value) ? sum + value : sum;
+  }, 0);
+  return `$${total.toFixed(4)}`;
+}
+
+function shortId(value: string) {
+  return value.slice(0, 8);
+}
+
+function shortHash(value: string) {
+  return value ? value.slice(0, 10) : "no hash";
+}
+
+function pluralize(count: number) {
+  return count === 1 ? "" : "s";
 }
 
 function countBy(values: string[]) {

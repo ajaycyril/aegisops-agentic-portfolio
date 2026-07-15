@@ -76,6 +76,9 @@ This repository currently defines:
   input hash, then persists a dry-run evidence artifact with PR metadata and hashes only.
 - Generic workflow-run trace endpoint returning run, approval, tool-call, model-call, evidence,
   and audit metadata for UI readouts.
+- Server-rendered web trace reader keyed by `DEMO_WORKFLOW_RUN_ID`/`DEMO_TRACE_RUN_ID`, with
+  no fake fallback data. It visualizes approval decisions, PR authorization blocks, dry-run
+  preview evidence, record counts, and recent trace metadata from `GET /workflow-runs/{run_id}/trace`.
 - Visual Proposal Review cockpit showing the route contract, planner readiness, typed
   proposal/evaluation output, model-call audit path, approval persistence contract, and approval
   stop-points.
@@ -181,8 +184,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding UI data fetching and state for approved, blocked, and
-   preview-created PR authorization outcomes from the workflow-run trace endpoint.
+3. Continue Phase 7 by adding source-grounded evidence validation and RCA draft contracts for
+   the Incident Investigator.
 4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
 

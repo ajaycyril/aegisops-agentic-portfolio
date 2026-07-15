@@ -9,6 +9,8 @@ The current command center includes:
 - Evidence board.
 - Policy studio.
 - Trace timeline.
+- Live workflow trace readout when `DEMO_WORKFLOW_RUN_ID` or `DEMO_TRACE_RUN_ID` points to a
+  real stored API run.
 - Cost and risk controls.
 - Code lens for schemas, graph nodes, and policies.
 - Safe disabled run-start controls.

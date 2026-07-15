@@ -48,7 +48,10 @@ Engineering PR draft authorization route now accepts approved approval IDs and c
 policy-checked `github_pull_request_draft` tool calls in `authorized_not_executed` or
 `blocked_before_execution` state, without executing GitHub writes. The PR preview route now
 verifies the approved authorization, input hash, and approval record before writing a dry-run
-preview evidence artifact with hashes and metadata only. It also includes a React Flow
+preview evidence artifact with hashes and metadata only. The web command center now fetches a
+configured real run trace by `DEMO_WORKFLOW_RUN_ID`/`DEMO_TRACE_RUN_ID` and renders approval,
+PR authorization, dry-run preview evidence, record-count, and recent trace metadata states
+without fake fallback records. It also includes a React Flow
 multi-agent orchestration cockpit for the
 Production Incident Investigator, showing a supervisor-worker fan-out, specialist evidence
 streams, evaluator reconciliation, and approval-gated production actions as a visual contract
@@ -421,6 +424,10 @@ Completed artifacts:
   `dry_run_preview_created_no_write_execution`. No raw code or GitHub write is persisted.
 - Generic workflow-run trace endpoint at `GET /workflow-runs/{run_id}/trace`, returning run
   status plus approval, tool-call, model-call, evidence, and audit metadata for UI readout.
+- Web command-center trace readout wired to a configured real run id. It renders approved,
+  blocked, and preview-created PR authorization outcomes, record counts, and recent metadata
+  from `GET /workflow-runs/{run_id}/trace`; if no run id is configured, it shows only the
+  configuration contract and no fake trace data.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -463,12 +470,11 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add UI data fetching and state for approved, blocked, and preview-created PR authorization
-   outcomes from `GET /workflow-runs/{run_id}/trace`.
-2. Add a compact run inspector panel that renders persisted audit/evidence metadata when an API
-   backend is configured.
-3. Keep branch and PR write adapters disabled until final review and live connector hardening
+1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
+2. Continue the Incident Investigator runtime with source-grounded evidence validation and RCA
+   draft contracts before any rollback, paging, or incident-update actions.
+3. Add eval rubrics for generated RCA and proposal outputs before public live-run demos.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -484,6 +490,8 @@ Completed artifacts:
   boundaries.
 - Run-scoped API route for live evidence collection after `POST /workflow-runs`.
 - Evidence metadata persistence and audit events for the implemented read-only stage.
+- Web trace readout for approval decisions, blocked/authorized PR draft tool calls, dry-run PR
+  preview evidence, and compact audit/evidence metadata from a configured real run id.
 
 Goal: Implement the first flagship production workflow against a real GitHub repository.
 
@@ -493,13 +501,13 @@ Tasks:
 2. Done: add typed state and contracts for issue context collection.
 3. In progress: add graph nodes. Done for issue ingestion, repo context reads, optional
    planning, patch proposal contract, test plan contract, evaluator contract, approval review
-   persistence, approve/reject decision route, and PR draft authorization route. Pending dry-run
-   PR preview UI state.
+   persistence, approve/reject decision route, PR draft authorization route, and dry-run PR
+   preview UI state.
 4. In progress: add GitHub tools. Done for issue read and file read; branch and PR draft write
    adapters remain disabled.
 5. In progress: add policy rules for branch and PR approval. Done for approval decision
-   fixtures, approved-approval-ID tool authorization, and dry-run preview artifact; pending UI
-   state over persisted outcomes.
+   fixtures, approved-approval-ID tool authorization, dry-run preview artifact, and UI state
+   over persisted outcomes.
 6. Add visual graph mapping for UI.
 7. In progress: add tests for branch decisions and approval paths. Done for pending
    approval-review creation, approve/reject transitions, and approved write-tool authorization;
@@ -637,6 +645,6 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding UI data fetching and state for approved, blocked, and preview-created PR
-authorization outcomes from the workflow-run trace endpoint. Do not enable branch or
-pull-request write execution.
+Continue the Incident Investigator runtime by adding source-grounded evidence validation and
+RCA draft contracts. Do not enable rollback, paging, incident-update, branch, or pull-request
+write execution.
