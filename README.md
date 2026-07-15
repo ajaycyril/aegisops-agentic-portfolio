@@ -68,6 +68,10 @@ This repository currently defines:
 - Visual multi-agent orchestration cockpit for the Production Incident Investigator, using
   React Flow to show supervisor-worker fan-out, specialist evidence gathering, evaluator
   reconciliation, and approval-gated production actions without fake incident data.
+- Production Incident Investigator LangGraph runtime slice with read-only log, deployment,
+  and code evidence collection through policy-authorized tool calls. RCA generation, replay,
+  rollback, paging, and incident updates remain disabled until evidence validation and
+  approval paths are implemented.
 
 ## Core Principle
 
@@ -163,7 +167,9 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding approval-review persistence and UI state before any branch or PR
+3. Continue Phase 7 by adding real observability/deployment adapters or captured-real replay
+   for the Incident Investigator evidence route.
+4. Continue Phase 6 by adding approval-review persistence and UI state before any branch or PR
    write adapter.
 
 ## Local Development Target

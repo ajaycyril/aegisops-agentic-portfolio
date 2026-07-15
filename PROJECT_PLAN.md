@@ -42,7 +42,10 @@ model-call audit path, and approval stop-points without showing fake run output 
 branch/PR writes. It also includes a React Flow multi-agent orchestration cockpit for the
 Production Incident Investigator, showing a supervisor-worker fan-out, specialist evidence
 streams, evaluator reconciliation, and approval-gated production actions as a visual contract
-only.
+only. The Production Incident Investigator now also has a first backend runtime slice: a typed
+LangGraph evidence-collection graph and run-scoped API route for read-only observability log,
+deployment event, and GitHub file evidence collection, with policy-authorized tool calls,
+evidence metadata persistence, and no RCA or write actions enabled.
 
 Current production web deployment:
 
@@ -59,7 +62,7 @@ Current production web deployment:
 | 4     | Visual command center shell          | Implemented                                  | Portfolio UI, graph canvas, multi-agent canvas, review, trace/evidence placeholders |
 | 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub connector foundation                                     |
 | 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
-| 7     | Incident Investigator workflow       | In progress, visual contract only            | Real observability/deployment investigation workflow                                |
+| 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
 | 8     | Customer Support Escalation workflow | Not started                                  | Real support/KB/CRM workflow path                                                   |
 | 9     | Evals, replay, and demo hardening    | Not started                                  | Captured real-run replay and quality gates                                          |
 | 10    | Deployment and portfolio polish      | Not started                                  | Public free-tier deployment and executive-grade UI                                  |
@@ -472,19 +475,25 @@ Acceptance criteria:
 Goal: Add real incident investigation across logs, deployments, and code changes.
 
 Status note: the visual multi-agent orchestration contract is present in the command center.
-The runtime workflow module, connector adapters, and captured-real replay remain future work.
+The first runtime slice is implemented as guarded read-only evidence collection for logs,
+deployment events, and optional repository files. Live connector adapters for observability and
+deployment systems, RCA generation, approval requests, and captured-real replay remain future
+work.
 
 Tasks:
 
 1. Done: add visual multi-agent orchestration contract for supervisor-worker incident
    investigation.
-2. Add workflow module.
-3. Add connector contracts for deployment events and logs/traces.
-4. Add graph nodes for incident intake, timeline construction, parallel investigation,
-   hypothesis generation, evidence validation, RCA draft, and approval.
+2. Done: add workflow module under
+   `services/api/src/aegisops_api/workflows/incident_response_investigator/`.
+3. Done: add connector/tool contracts for deployment events and logs/traces.
+4. In progress: add graph nodes. Done for read-only log investigator, deployment investigator,
+   code investigator, and evidence auditor. Pending hypothesis generation, RCA draft, and
+   approval nodes.
 5. Add source-grounded evidence board.
 6. Add policy rules for rollback and incident update actions.
-7. Add eval rubric for RCA quality.
+7. Add captured-real-run replay format.
+8. Add eval rubric for RCA quality.
 
 Acceptance criteria:
 

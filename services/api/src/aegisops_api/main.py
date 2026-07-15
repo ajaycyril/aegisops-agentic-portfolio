@@ -44,6 +44,12 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
 )
 from aegisops_api.workflows.engineering_issue_to_pr.graph import IssueToPrPlanner
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
+from aegisops_api.workflows.incident_response_investigator import (
+    IncidentInvestigationRejectedError,
+    IncidentInvestigationRequest,
+    IncidentInvestigationResponse,
+    collect_incident_evidence,
+)
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
 from aegisops_api.workflows.runs import (
     OpaRunPolicyEvaluator,
@@ -340,6 +346,43 @@ async def collect_engineering_issue_to_pr_evidence(
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
     except ReplayFixtureError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (ToolExecutionRejectedError, ToolAdapterExecutionError) as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="workflow graph execution failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/incident-response-investigator/evidence",
+    response_model=IncidentInvestigationResponse,
+    tags=["workflow-runs"],
+)
+async def collect_incident_response_evidence(
+    run_id: UUID,
+    request: IncidentInvestigationRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+    adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+) -> IncidentInvestigationResponse:
+    try:
+        return await collect_incident_evidence(
+            run_id=run_id,
+            request=request,
+            session=session,
+            workflow_registry=get_workflow_registry(),
+            tool_registry=get_tool_registry(),
+            policy_evaluator=policy_evaluator,
+            adapter_registry=adapter_registry,
+            available_connectors=get_available_connectors(),
+        )
+    except IncidentInvestigationRejectedError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},

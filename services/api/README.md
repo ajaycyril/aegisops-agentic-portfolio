@@ -27,3 +27,11 @@ The API service hosts the backend control plane and agent runtime.
 
 The initial manifest defines the production dependency surface. Implementation will be added
 after the architecture baseline is accepted.
+
+## Implemented Runtime Slices
+
+- `engineering_issue_to_pr`: guarded GitHub issue/file evidence collection, captured-real
+  replay loading, optional OpenAI proposal/evaluator contracts, and no write adapters.
+- `incident_response_investigator`: guarded read-only evidence collection for observability
+  logs, deployment events, and optional GitHub files. RCA generation and production write
+  actions remain disabled until approval and validation paths exist.

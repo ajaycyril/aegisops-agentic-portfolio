@@ -27,10 +27,18 @@ records `model_calls` and is available from the run route with `include_proposal
 OpenAI credentials and a model are configured. The YAML files under `configs/workflows` remain
 the portfolio registry.
 
-The command center also contains a visual-only multi-agent orchestration contract for
+`services/api/src/aegisops_api/workflows/incident_response_investigator/` now contains the
+first Production Incident Investigator runtime slice. The route
+`POST /workflow-runs/{run_id}/incident-response-investigator/evidence` requires a stored live
+workflow run, then collects read-only observability log, deployment event, and optional GitHub
+file evidence through policy-authorized tool calls. Persisted evidence records keep hashes and
+metadata instead of raw log/code payloads. RCA generation, replay, rollback, paging, and
+incident updates remain disabled until evidence validation and approval paths are implemented.
+
+The command center also contains a multi-agent orchestration contract for
 `incident_response_investigator`. It maps the Production Incident Investigator to supervisor,
 parallel specialist, evaluator, RCA drafter, and approval nodes so the UI can show why this use
-case justifies multi-agent orchestration before the runtime module is implemented.
+case justifies multi-agent orchestration while runtime support is built incrementally.
 
 ## Workflow Contract
 

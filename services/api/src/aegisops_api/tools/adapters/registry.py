@@ -11,6 +11,8 @@ from aegisops_api.tools.adapters.base import (
 from aegisops_api.tools.adapters.github import GitHubAppToolAdapter
 
 GITHUB_REQUIRED_ENV_VARS = ("GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY")
+OBSERVABILITY_REQUIRED_ENV_VARS = ("OBSERVABILITY_CONNECTION_ID",)
+DEPLOYMENTS_REQUIRED_ENV_VARS = ("DEPLOYMENTS_CONNECTION_ID",)
 
 
 class MissingConnectorAuthToolAdapter:
@@ -26,6 +28,21 @@ class MissingConnectorAuthToolAdapter:
                 f"{', '.join(self._missing_env_vars)}."
             ),
             http_status=503,
+        )
+
+
+class ContractOnlyToolAdapter:
+    def __init__(self, connector: str) -> None:
+        self._connector = connector
+
+    async def execute(self, tool_id: str, _input_payload: dict[str, Any]) -> dict[str, Any]:
+        raise ToolAdapterExecutionError(
+            reason_code="connector_adapter_not_configured",
+            message=(
+                f"{self._connector} tool {tool_id} has a production contract, but no live "
+                "adapter implementation is configured in this build."
+            ),
+            http_status=501,
         )
 
 
@@ -45,14 +62,38 @@ def create_default_tool_adapter_registry() -> ToolAdapterRegistry:
     missing_github_env_vars = [
         env_var for env_var in GITHUB_REQUIRED_ENV_VARS if not environment.get(env_var)
     ]
+    missing_observability_env_vars = [
+        env_var for env_var in OBSERVABILITY_REQUIRED_ENV_VARS if not environment.get(env_var)
+    ]
+    missing_deployments_env_vars = [
+        env_var for env_var in DEPLOYMENTS_REQUIRED_ENV_VARS if not environment.get(env_var)
+    ]
     github_adapter: ToolAdapter
     if missing_github_env_vars:
         github_adapter = MissingConnectorAuthToolAdapter("GitHub", missing_github_env_vars)
     else:
         github_adapter = GitHubAppToolAdapter.from_environment(environment)
+    observability_adapter: ToolAdapter
+    if missing_observability_env_vars:
+        observability_adapter = MissingConnectorAuthToolAdapter(
+            "Observability",
+            missing_observability_env_vars,
+        )
+    else:
+        observability_adapter = ContractOnlyToolAdapter("Observability")
+    deployments_adapter: ToolAdapter
+    if missing_deployments_env_vars:
+        deployments_adapter = MissingConnectorAuthToolAdapter(
+            "Deployment Events",
+            missing_deployments_env_vars,
+        )
+    else:
+        deployments_adapter = ContractOnlyToolAdapter("Deployment Events")
     return ToolAdapterRegistry(
         adapters={
             "github_file_read": github_adapter,
             "github_issue_read": github_adapter,
+            "observability_log_search": observability_adapter,
+            "deployment_event_search": deployments_adapter,
         }
     )

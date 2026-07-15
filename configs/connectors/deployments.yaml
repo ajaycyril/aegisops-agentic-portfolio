@@ -2,13 +2,14 @@ id: deployments
 name: Deployment Events
 provider: deployment_event_stream
 category: incident_response
-status: planned
+status: contract_ready
 auth_type: connection_profile
 required_env_vars:
   - DEPLOYMENTS_CONNECTION_ID
 supported_scopes:
   - deployments:read
-tool_ids: []
+tool_ids:
+  - deployment_event_search
 workflow_ids:
   - incident_response_investigator
 data_boundaries:
