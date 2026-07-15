@@ -1294,8 +1294,13 @@ function createProposalReview(
           "POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/authorize",
       },
       {
+        label: "Preview",
+        value:
+          "POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/preview",
+      },
+      {
         label: "Execution",
-        value: "authorized_not_executed or blocked_before_execution",
+        value: "dry_run_preview_created_no_write_execution",
       },
     ],
     approvalStops: workflow.approval_required_for,

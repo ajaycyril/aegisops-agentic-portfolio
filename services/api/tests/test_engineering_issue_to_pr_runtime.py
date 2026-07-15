@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from aegisops_api.db.models import Approval, AuditEvent, EvidenceRecord, WorkflowRun
+from aegisops_api.db.models import Approval, AuditEvent, EvidenceRecord, ToolCall, WorkflowRun
 from aegisops_api.main import (
     app,
     get_approval_policy_evaluator,
@@ -41,12 +41,15 @@ from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
     IssueToPrApprovalDecisionRequest,
     IssueToPrApprovalReviewRequest,
     IssueToPrPrDraftAuthorizationRequest,
+    IssueToPrPrDraftPreviewRequest,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     ProposedIssueToPrWriteAction,
     authorize_issue_to_pr_draft_pr,
     collect_engineering_issue_context,
+    create_issue_to_pr_draft_preview,
     decide_issue_to_pr_approval,
+    hash_mapping,
     parse_github_issue_url,
     request_issue_to_pr_approval_review,
 )
@@ -179,9 +182,11 @@ class RuntimeSession:
         self,
         runs: dict[UUID, WorkflowRun],
         approvals: dict[UUID, Approval] | None = None,
+        tool_calls: dict[UUID, ToolCall] | None = None,
     ) -> None:
         self.runs = runs
         self.approvals = approvals or {}
+        self.tool_calls = tool_calls or {}
         self.added: list[object] = []
         self.flush_count = 0
         self.commit_count = 0
@@ -204,6 +209,8 @@ class RuntimeSession:
             return self.runs.get(cast(UUID, identifier))
         if model is Approval:
             return self.approvals.get(cast(UUID, identifier))
+        if model is ToolCall:
+            return self.tool_calls.get(cast(UUID, identifier))
         return None
 
 
@@ -610,6 +617,66 @@ async def test_authorize_issue_to_pr_draft_pr_blocks_without_approval_id(
 
 
 @pytest.mark.asyncio
+async def test_create_issue_to_pr_draft_preview_persists_hash_only_evidence() -> None:
+    run = create_live_engineering_run()
+    run.status = "waiting_for_approval"
+    approval = create_pending_approval(run, requested_action="pull_request_creation")
+    approval.status = "approved"
+    preview_request = create_pr_draft_preview_request(approval.id)
+    tool_call = create_authorized_pr_tool_call(run, approval, preview_request)
+    session = RuntimeSession(
+        {run.id: run},
+        {approval.id: approval},
+        {tool_call.id: tool_call},
+    )
+
+    response = await create_issue_to_pr_draft_preview(
+        run_id=run.id,
+        request=preview_request,
+        session=cast(Session, session),
+    )
+
+    assert response.execution_state == "dry_run_preview_created_no_write_execution"
+    assert response.write_actions_enabled is False
+    assert response.pr_title == "Fix CI type checker failure"
+    assert session.commit_count == 1
+    evidence_records = [item for item in session.added if isinstance(item, EvidenceRecord)]
+    assert len(evidence_records) == 1
+    evidence = evidence_records[0]
+    assert evidence.kind == "document"
+    assert evidence.source_system == "aegisops"
+    assert evidence.evidence_metadata["pr_body_hash"]
+    assert "Draft PR body assembled" not in json.dumps(evidence.evidence_metadata)
+    assert len([item for item in session.added if isinstance(item, AuditEvent)]) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_issue_to_pr_draft_preview_rejects_input_hash_mismatch() -> None:
+    run = create_live_engineering_run()
+    run.status = "waiting_for_approval"
+    approval = create_pending_approval(run, requested_action="pull_request_creation")
+    approval.status = "approved"
+    preview_request = create_pr_draft_preview_request(approval.id)
+    tool_call = create_authorized_pr_tool_call(run, approval, preview_request)
+    mismatched_request = preview_request.model_copy(update={"title": "Different PR title"})
+    session = RuntimeSession(
+        {run.id: run},
+        {approval.id: approval},
+        {tool_call.id: tool_call},
+    )
+
+    with pytest.raises(IssueToPrRunRejectedError, match="does not match"):
+        await create_issue_to_pr_draft_preview(
+            run_id=run.id,
+            request=mismatched_request,
+            session=cast(Session, session),
+        )
+
+    assert session.commit_count == 0
+    assert not any(isinstance(item, EvidenceRecord) for item in session.added)
+
+
+@pytest.mark.asyncio
 async def test_collect_engineering_issue_context_reports_missing_replay_fixture(
     tmp_path: Path,
 ) -> None:
@@ -741,6 +808,48 @@ def create_pr_draft_authorization_request(
         approval_id=approval_id,
         actor_id="reviewer-456",
         trace_id="trace-pr-draft",
+    )
+
+
+def create_pr_draft_preview_request(approval_id: UUID) -> IssueToPrPrDraftPreviewRequest:
+    return IssueToPrPrDraftPreviewRequest(
+        tool_call_id=uuid4(),
+        approval_id=approval_id,
+        repository="acme/app",
+        title="Fix CI type checker failure",
+        body="Draft PR body assembled from approved evidence and test plan.",
+        head_branch="aegis/fix-type-check",
+        base_branch="main",
+        proposal=create_patch_proposal(),
+        evaluation=create_plan_evaluation(),
+        actor_id="reviewer-456",
+        trace_id="trace-pr-preview",
+    )
+
+
+def create_authorized_pr_tool_call(
+    run: WorkflowRun,
+    approval: Approval,
+    preview_request: IssueToPrPrDraftPreviewRequest,
+) -> ToolCall:
+    return ToolCall(
+        id=preview_request.tool_call_id,
+        run_id=run.id,
+        approval_id=approval.id,
+        tool_name="github_pull_request_draft",
+        tool_version="schema-test",
+        risk_class="write",
+        input_schema_hash="schema-hash",
+        input_hash=hash_mapping(preview_request.to_tool_input()),
+        status="pending",
+        policy_decision_id="tool-policy-approved",
+        trace_id="trace-pr-preview",
+        call_metadata={
+            "workflow_id": "engineering_issue_to_pr",
+            "tool_id": "github_pull_request_draft",
+            "connector": "github",
+            "execution_state": "authorized_not_executed",
+        },
     )
 
 

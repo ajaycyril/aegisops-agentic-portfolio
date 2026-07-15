@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
-from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
+from aegisops_api.db.models import Approval, EvidenceRecord, ToolCall, WorkflowRun, utc_now
 from aegisops_api.policy import OpaClient, PolicyDecision
 from aegisops_api.tools import (
     ToolCallAuthorizationRequest,
@@ -231,6 +231,46 @@ class IssueToPrPrDraftAuthorizationResponse(BaseModel):
     approval_id: UUID | None
     policy_decision: ApprovalPolicyDecisionSummary
     execution_available: Literal[False] = False
+    write_actions_enabled: Literal[False] = False
+
+
+class IssueToPrPrDraftPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tool_call_id: UUID
+    approval_id: UUID
+    repository: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+    head_branch: str = Field(min_length=1)
+    base_branch: str = Field(default="main", min_length=1)
+    proposal: IssueToPrProposal
+    evaluation: IssueToPrEvaluation | None = None
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+    def to_tool_input(self) -> dict[str, Any]:
+        return {
+            "repository": self.repository,
+            "title": self.title,
+            "body": self.body,
+            "head_branch": self.head_branch,
+            "base_branch": self.base_branch,
+        }
+
+
+class IssueToPrPrDraftPreviewResponse(BaseModel):
+    run_id: UUID
+    workflow_id: str
+    tool_call_id: UUID
+    approval_id: UUID
+    evidence_record: EvidenceRecordSummary
+    pr_title: str
+    head_branch: str
+    base_branch: str
+    execution_state: Literal["dry_run_preview_created_no_write_execution"] = (
+        "dry_run_preview_created_no_write_execution"
+    )
     write_actions_enabled: Literal[False] = False
 
 
@@ -707,6 +747,108 @@ async def authorize_issue_to_pr_draft_pr(
     )
 
 
+async def create_issue_to_pr_draft_preview(
+    run_id: UUID,
+    request: IssueToPrPrDraftPreviewRequest,
+    session: Session,
+) -> IssueToPrPrDraftPreviewResponse:
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    approval = session.get(Approval, request.approval_id)
+    if approval is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_not_found",
+            message="Approval record was not found.",
+            http_status=404,
+        )
+    tool_call = session.get(ToolCall, request.tool_call_id)
+    if tool_call is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="tool_call_not_found",
+            message="Tool call record was not found.",
+            http_status=404,
+        )
+    ensure_pr_preview_can_be_created(run, approval, tool_call, request)
+
+    preview_payload = build_pr_preview_payload(request, tool_call)
+    captured_at = utc_now()
+    evidence_record = EvidenceRecord(
+        id=uuid4(),
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        kind="document",
+        source_system="aegisops",
+        source_uri=f"aegisops://workflow-runs/{run.id}/pr-draft-preview/{request.tool_call_id}",
+        title=f"Dry-run PR preview: {request.title}",
+        content_hash=hash_mapping(preview_payload),
+        evidence_metadata={
+            "schema_version": "engineering_issue_to_pr.pr_preview.v1",
+            "tool_call_id": str(request.tool_call_id),
+            "approval_id": str(request.approval_id),
+            "repository": request.repository,
+            "head_branch": request.head_branch,
+            "base_branch": request.base_branch,
+            "pr_title": request.title,
+            "pr_body_hash": hash_mapping({"body": request.body}),
+            "proposal_summary": request.proposal.summary,
+            "planned_change_paths": [change.path for change in request.proposal.planned_changes],
+            "evaluation": (
+                request.evaluation.model_dump(mode="json")
+                if request.evaluation is not None
+                else None
+            ),
+            "write_actions_enabled": False,
+        },
+        captured_at=captured_at,
+    )
+    session.add(evidence_record)
+    write_audit_event(
+        session,
+        AuditEventInput(
+            run_id=run.id,
+            workflow_id=run.workflow_id,
+            event_type="pr_draft.preview_created",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            action="pr_draft.preview",
+            resource_type="evidence_record",
+            resource_id=str(evidence_record.id),
+            policy_decision_id=tool_call.policy_decision_id,
+            trace_id=request.trace_id or tool_call.trace_id,
+            payload={
+                "tool_call_id": str(tool_call.id),
+                "approval_id": str(approval.id),
+                "content_hash": evidence_record.content_hash,
+                "write_actions_enabled": False,
+            },
+        ),
+    )
+    session.commit()
+
+    return IssueToPrPrDraftPreviewResponse(
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        tool_call_id=tool_call.id,
+        approval_id=approval.id,
+        evidence_record=EvidenceRecordSummary(
+            id=evidence_record.id,
+            kind=evidence_record.kind,
+            source_system=evidence_record.source_system,
+            source_uri=evidence_record.source_uri,
+            title=evidence_record.title,
+            content_hash=evidence_record.content_hash,
+        ),
+        pr_title=request.title,
+        head_branch=request.head_branch,
+        base_branch=request.base_branch,
+    )
+
+
 def ensure_run_can_collect_issue_context(run: WorkflowRun) -> None:
     if run.workflow_id != ENGINEERING_WORKFLOW_ID:
         raise IssueToPrRunRejectedError(
@@ -787,6 +929,80 @@ def ensure_run_can_authorize_pr_draft(run: WorkflowRun) -> None:
             reason_code="workflow_run_not_waiting_for_approval",
             message=f"Workflow run status is {run.status}.",
         )
+
+
+def ensure_pr_preview_can_be_created(
+    run: WorkflowRun,
+    approval: Approval,
+    tool_call: ToolCall,
+    request: IssueToPrPrDraftPreviewRequest,
+) -> None:
+    if run.workflow_id != ENGINEERING_WORKFLOW_ID:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports engineering_issue_to_pr runs.",
+        )
+    if approval.run_id != run.id:
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_run_mismatch",
+            message="Approval record does not belong to this workflow run.",
+        )
+    if approval.status != "approved":
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_not_approved",
+            message="Approval record must be approved before creating a PR preview.",
+        )
+    if tool_call.run_id != run.id:
+        raise IssueToPrRunRejectedError(
+            reason_code="tool_call_run_mismatch",
+            message="Tool call record does not belong to this workflow run.",
+        )
+    if tool_call.approval_id != approval.id:
+        raise IssueToPrRunRejectedError(
+            reason_code="tool_call_approval_mismatch",
+            message="Tool call was not authorized with this approval record.",
+        )
+    metadata = tool_call.call_metadata or {}
+    if metadata.get("tool_id") != "github_pull_request_draft":
+        raise IssueToPrRunRejectedError(
+            reason_code="tool_call_not_pr_draft",
+            message="Tool call is not a GitHub pull request draft authorization.",
+        )
+    is_authorized_pending = (
+        tool_call.status == "pending"
+        and metadata.get("execution_state") == "authorized_not_executed"
+    )
+    if not is_authorized_pending:
+        raise IssueToPrRunRejectedError(
+            reason_code="tool_call_not_authorized_for_preview",
+            message="Tool call must be authorized and not executed before preview.",
+        )
+    if hash_mapping(request.to_tool_input()) != tool_call.input_hash:
+        raise IssueToPrRunRejectedError(
+            reason_code="tool_input_hash_mismatch",
+            message="Preview input does not match the authorized PR draft tool input.",
+        )
+
+
+def build_pr_preview_payload(
+    request: IssueToPrPrDraftPreviewRequest,
+    tool_call: ToolCall,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "engineering_issue_to_pr.pr_preview.v1",
+        "tool_call_id": str(tool_call.id),
+        "approval_id": str(request.approval_id),
+        "repository": request.repository,
+        "title": request.title,
+        "body_hash": hash_mapping({"body": request.body}),
+        "head_branch": request.head_branch,
+        "base_branch": request.base_branch,
+        "proposal": request.proposal.model_dump(mode="json"),
+        "evaluation": (
+            request.evaluation.model_dump(mode="json") if request.evaluation is not None else None
+        ),
+        "write_actions_enabled": False,
+    }
 
 
 def build_approval_decision_policy_input(

@@ -46,8 +46,10 @@ decision route now approves or rejects those pending records through OPA, enforc
 review policy, audits the decision, and still returns a no-write execution state. The
 Engineering PR draft authorization route now accepts approved approval IDs and creates
 policy-checked `github_pull_request_draft` tool calls in `authorized_not_executed` or
-`blocked_before_execution` state, without executing GitHub writes. It also includes a React
-Flow multi-agent orchestration cockpit for the
+`blocked_before_execution` state, without executing GitHub writes. The PR preview route now
+verifies the approved authorization, input hash, and approval record before writing a dry-run
+preview evidence artifact with hashes and metadata only. It also includes a React Flow
+multi-agent orchestration cockpit for the
 Production Incident Investigator, showing a supervisor-worker fan-out, specialist evidence
 streams, evaluator reconciliation, and approval-gated production actions as a visual contract
 only. The Production Incident Investigator now also has a first backend runtime slice: a typed
@@ -412,6 +414,11 @@ Completed artifacts:
 - Approved approval ID wiring into the GitHub PR draft tool authorization boundary. Approved
   approvals can create an authorized-but-not-executed write-class `tool_calls` record; missing
   approvals create a blocked record. No PR write adapter is executed.
+- Run-scoped Engineering PR draft preview route at
+  `POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/preview`.
+- Dry-run PR preview evidence artifact with tool-call ID, approval ID, input hash verification,
+  proposal summary, planned-change paths, PR body hash, and
+  `dry_run_preview_created_no_write_execution`. No raw code or GitHub write is persisted.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -454,10 +461,10 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add a dry-run PR preview artifact that renders the approved proposal, PR body, policy
-   decision, and authorized tool-call ID without executing the adapter.
-2. Add UI state for approved vs blocked PR authorization outcomes.
-3. Keep branch and PR write adapters disabled until explicit dry-run preview and final review
+1. Add UI state for approved, blocked, and preview-created PR authorization outcomes.
+2. Add a trace/evidence read endpoint for workflow runs so the command center can render real
+   persisted audit/evidence metadata.
+3. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -484,15 +491,16 @@ Tasks:
 3. In progress: add graph nodes. Done for issue ingestion, repo context reads, optional
    planning, patch proposal contract, test plan contract, evaluator contract, approval review
    persistence, approve/reject decision route, and PR draft authorization route. Pending dry-run
-   PR preview artifact.
+   PR preview UI state.
 4. In progress: add GitHub tools. Done for issue read and file read; branch and PR draft write
    adapters remain disabled.
 5. In progress: add policy rules for branch and PR approval. Done for approval decision
-   fixtures and approved-approval-ID tool authorization; pending dry-run preview policy surface.
+   fixtures, approved-approval-ID tool authorization, and dry-run preview artifact; pending UI
+   state over persisted outcomes.
 6. Add visual graph mapping for UI.
 7. In progress: add tests for branch decisions and approval paths. Done for pending
    approval-review creation, approve/reject transitions, and approved write-tool authorization;
-   pending dry-run preview tests.
+   done for dry-run preview creation and input-hash mismatch.
 8. Add first captured real-run replay format.
 
 Acceptance criteria:
@@ -626,5 +634,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding a dry-run PR preview artifact from the approved proposal and authorized
-tool-call ID. Do not enable branch or pull-request write execution.
+Continue by adding UI state and read endpoints for approved, blocked, and preview-created PR
+authorization outcomes. Do not enable branch or pull-request write execution.

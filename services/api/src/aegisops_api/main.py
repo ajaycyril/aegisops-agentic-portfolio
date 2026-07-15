@@ -42,6 +42,8 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
     IssueToPrApprovalReviewResponse,
     IssueToPrPrDraftAuthorizationRequest,
     IssueToPrPrDraftAuthorizationResponse,
+    IssueToPrPrDraftPreviewRequest,
+    IssueToPrPrDraftPreviewResponse,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     IssueToPrRunResponse,
@@ -50,6 +52,7 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
     OpenAIPlannerConfig,
     authorize_issue_to_pr_draft_pr,
     collect_engineering_issue_context,
+    create_issue_to_pr_draft_preview,
     decide_issue_to_pr_approval,
     request_issue_to_pr_approval_review,
 )
@@ -477,6 +480,30 @@ async def authorize_engineering_issue_to_pr_draft_pr(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/preview",
+    response_model=IssueToPrPrDraftPreviewResponse,
+    status_code=201,
+    tags=["workflow-runs"],
+)
+async def create_engineering_issue_to_pr_draft_preview(
+    run_id: UUID,
+    request: IssueToPrPrDraftPreviewRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> IssueToPrPrDraftPreviewResponse:
+    try:
+        return await create_issue_to_pr_draft_preview(
+            run_id=run_id,
+            request=request,
+            session=session,
+        )
+    except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(
