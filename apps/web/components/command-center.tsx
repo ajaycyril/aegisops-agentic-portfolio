@@ -104,6 +104,11 @@ type ProposalReviewModel = {
     label: string;
     value: string;
   }>;
+  approvalRoute: string;
+  approvalPersistence: Array<{
+    label: string;
+    value: string;
+  }>;
   approvalStops: string[];
 };
 
@@ -669,6 +674,18 @@ function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
           ))}
         </div>
 
+        <div className="approval-persistence">
+          <div className="contract-title">Approval Review Persistence</div>
+          <code>{review.approvalRoute}</code>
+          {review.approvalPersistence.map((item) => (
+            <ContractRow
+              key={item.label}
+              label={item.label}
+              value={item.value}
+            />
+          ))}
+        </div>
+
         <div className="approval-review">
           <div className="contract-title">Approval Stops</div>
           <div className="approval-stop-list">
@@ -1135,6 +1152,21 @@ function createProposalReview(
           value: workflow.approval_required_for.map(humanize).join(", "),
         },
       ],
+      approvalRoute: "workflow-specific approval route pending",
+      approvalPersistence: [
+        {
+          label: "Approval table",
+          value: "approvals",
+        },
+        {
+          label: "Status",
+          value: "pending until reviewer decision is implemented",
+        },
+        {
+          label: "Write behavior",
+          value: "tool execution remains disabled",
+        },
+      ],
       approvalStops: workflow.approval_required_for,
     };
   }
@@ -1192,7 +1224,7 @@ function createProposalReview(
       },
       {
         label: "Write actions",
-        value: "disabled until approval-review persistence is wired",
+        value: "disabled; approval-review route only creates pending records",
         state: "closed",
       },
     ],
@@ -1230,6 +1262,26 @@ function createProposalReview(
       {
         label: "Write guard",
         value: "approval_required=true and write_actions_enabled=false",
+      },
+    ],
+    approvalRoute:
+      "POST /workflow-runs/{run_id}/engineering-issue-to-pr/approval-review",
+    approvalPersistence: [
+      {
+        label: "Storage",
+        value: "approvals rows with pending status and write risk class",
+      },
+      {
+        label: "Payload",
+        value: "proposal, evaluation, action metadata, evidence URIs",
+      },
+      {
+        label: "Audit",
+        value: "approval.requested and workflow_run.waiting_for_approval",
+      },
+      {
+        label: "Execution",
+        value: "approval_requested_no_write_execution",
       },
     ],
     approvalStops: workflow.approval_required_for,

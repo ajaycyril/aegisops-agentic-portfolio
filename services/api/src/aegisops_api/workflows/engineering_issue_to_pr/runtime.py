@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -11,15 +12,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
-from aegisops_api.db.models import EvidenceRecord, WorkflowRun, utc_now
+from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
 from aegisops_api.tools import ToolPolicyEvaluator
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.engineering_issue_to_pr.graph import (
     ENGINEERING_WORKFLOW_ID,
+    IssueToPrEvaluation,
     IssueToPrGraphDependencies,
     IssueToPrGraphInput,
     IssueToPrPlanner,
+    IssueToPrProposal,
     IssueToPrState,
     IssueToPrToolRuntime,
     PolicyBackedIssueToPrToolRuntime,
@@ -30,6 +33,7 @@ from aegisops_api.workflows.engineering_issue_to_pr.replay import load_issue_to_
 from aegisops_api.workflows.registry import WorkflowRegistry
 
 IssueToPrRunStage = Literal["issue_context_collected"]
+IssueToPrApprovalActionType = Literal["branch_creation", "pull_request_creation"]
 
 
 class IssueToPrRunRejectedError(RuntimeError):
@@ -85,6 +89,73 @@ class IssueToPrRunResponse(BaseModel):
     policy_decision_ids: list[str]
     proposal: dict[str, Any] | None = None
     evaluation: dict[str, Any] | None = None
+
+
+class ProposedIssueToPrWriteAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action_type: IssueToPrApprovalActionType
+    repository: str = Field(min_length=1)
+    base_ref: str = Field(default="main", min_length=1)
+    proposed_branch_name: str = Field(min_length=1)
+    title: str | None = Field(default=None, min_length=1)
+    rationale: str = Field(min_length=1)
+    evidence_uris: list[str] = Field(min_length=1, max_length=20)
+    dry_run_only: Literal[True] = True
+    write_actions_enabled: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_pr_title(self) -> ProposedIssueToPrWriteAction:
+        if self.action_type == "pull_request_creation" and self.title is None:
+            raise ValueError("pull_request_creation requires a title")
+        return self
+
+
+class IssueToPrApprovalReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    proposal: IssueToPrProposal
+    evaluation: IssueToPrEvaluation | None = None
+    proposed_actions: list[ProposedIssueToPrWriteAction] = Field(min_length=1, max_length=2)
+    requested_by: str = Field(min_length=1)
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_actions_against_proposal(self) -> IssueToPrApprovalReviewRequest:
+        action_types = [action.action_type for action in self.proposed_actions]
+        if len(action_types) != len(set(action_types)):
+            raise ValueError("proposed_actions must not contain duplicate action types")
+        proposal_evidence = set(self.proposal.source_evidence_uris)
+        for action in self.proposed_actions:
+            missing_evidence = set(action.evidence_uris) - proposal_evidence
+            if missing_evidence:
+                raise ValueError("proposed action evidence must be present in proposal evidence")
+        return self
+
+
+class ApprovalReviewItem(BaseModel):
+    id: UUID
+    status: str
+    requested_action: IssueToPrApprovalActionType
+    risk_class: str
+    requested_by: str
+    requested_at: str
+    expires_at: str
+    write_actions_enabled: Literal[False] = False
+
+
+class IssueToPrApprovalReviewResponse(BaseModel):
+    run_id: UUID
+    workflow_id: str
+    run_status: str
+    approval_state: Literal["pending_human_review"]
+    approvals: list[ApprovalReviewItem]
+    approval_table: Literal["approvals"] = "approvals"
+    execution_state: Literal["approval_requested_no_write_execution"] = (
+        "approval_requested_no_write_execution"
+    )
+    write_actions_enabled: Literal[False] = False
 
 
 async def collect_engineering_issue_context(
@@ -256,6 +327,120 @@ async def collect_engineering_issue_context(
     )
 
 
+async def request_issue_to_pr_approval_review(
+    run_id: UUID,
+    request: IssueToPrApprovalReviewRequest,
+    session: Session,
+) -> IssueToPrApprovalReviewResponse:
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_run_can_request_issue_to_pr_approval(run)
+
+    requested_at = utc_now()
+    expires_at = requested_at + timedelta(hours=24)
+    approvals: list[Approval] = []
+    try:
+        run.status = "waiting_for_approval"
+        for action in request.proposed_actions:
+            approval = Approval(
+                id=uuid4(),
+                run_id=run.id,
+                status="pending",
+                risk_class="write",
+                requested_action=action.action_type,
+                requested_by=request.requested_by,
+                request_payload={
+                    "schema_version": "engineering_issue_to_pr.approval_review.v1",
+                    "proposal": request.proposal.model_dump(mode="json"),
+                    "evaluation": (
+                        request.evaluation.model_dump(mode="json")
+                        if request.evaluation is not None
+                        else None
+                    ),
+                    "proposed_action": action.model_dump(mode="json"),
+                    "approval_contract": {
+                        "approval_table": "approvals",
+                        "tool_call_approval_id_required": True,
+                        "write_actions_enabled": False,
+                        "dry_run_only": True,
+                    },
+                },
+                decision_payload={},
+                requested_at=requested_at,
+                expires_at=expires_at,
+            )
+            session.add(approval)
+            approvals.append(approval)
+            write_audit_event(
+                session,
+                AuditEventInput(
+                    run_id=run.id,
+                    workflow_id=run.workflow_id,
+                    event_type="approval.requested",
+                    actor_type="user" if request.actor_id else "system",
+                    actor_id=request.actor_id,
+                    action="approval.request",
+                    resource_type="approval",
+                    resource_id=str(approval.id),
+                    trace_id=request.trace_id,
+                    payload={
+                        "requested_action": action.action_type,
+                        "risk_class": "write",
+                        "requested_by": request.requested_by,
+                        "write_actions_enabled": False,
+                        "dry_run_only": True,
+                    },
+                ),
+            )
+        write_audit_event(
+            session,
+            AuditEventInput(
+                run_id=run.id,
+                workflow_id=run.workflow_id,
+                event_type="workflow_run.waiting_for_approval",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                action="workflow_run.request_write_approval",
+                resource_type="workflow_run",
+                resource_id=str(run.id),
+                trace_id=request.trace_id,
+                payload={
+                    "approval_count": len(approvals),
+                    "requested_actions": [approval.requested_action for approval in approvals],
+                    "write_actions_enabled": False,
+                },
+            ),
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    return IssueToPrApprovalReviewResponse(
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        run_status=run.status,
+        approval_state="pending_human_review",
+        approvals=[
+            ApprovalReviewItem(
+                id=approval.id,
+                status=approval.status,
+                requested_action=cast(IssueToPrApprovalActionType, approval.requested_action),
+                risk_class=approval.risk_class,
+                requested_by=approval.requested_by,
+                requested_at=approval.requested_at.isoformat(),
+                expires_at=expires_at.isoformat(),
+            )
+            for approval in approvals
+        ],
+    )
+
+
 def ensure_run_can_collect_issue_context(run: WorkflowRun) -> None:
     if run.workflow_id != ENGINEERING_WORKFLOW_ID:
         raise IssueToPrRunRejectedError(
@@ -276,6 +461,26 @@ def ensure_run_can_collect_issue_context(run: WorkflowRun) -> None:
                     http_status=422,
                 )
             return
+        raise IssueToPrRunRejectedError(
+            reason_code="execution_mode_not_supported",
+            message=f"Workflow run execution mode is {run.execution_mode}.",
+        )
+
+
+def ensure_run_can_request_issue_to_pr_approval(run: WorkflowRun) -> None:
+    if run.workflow_id != ENGINEERING_WORKFLOW_ID:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports engineering_issue_to_pr runs.",
+        )
+    if run.status != "running":
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_ready_for_approval",
+            message=(
+                f"Workflow run status is {run.status}; collect evidence before approval review."
+            ),
+        )
+    if run.execution_mode not in {"live", "replay"}:
         raise IssueToPrRunRejectedError(
             reason_code="execution_mode_not_supported",
             message=f"Workflow run execution mode is {run.execution_mode}.",

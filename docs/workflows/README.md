@@ -24,8 +24,12 @@ workflow run. Live mode uses read-only GitHub tools; replay mode requires a capt
 fixture. Optional planner/evaluator nodes can produce typed patch-plan and test-plan artifacts
 when a real planner implementation is injected. The OpenAI Responses API planner adapter
 records `model_calls` and is available from the run route with `include_proposal=true` when
-OpenAI credentials and a model are configured. The YAML files under `configs/workflows` remain
-the portfolio registry.
+OpenAI credentials and a model are configured. The approval-review route
+`POST /workflow-runs/{run_id}/engineering-issue-to-pr/approval-review` persists pending
+`approvals` rows for proposed branch and pull-request actions, validates action evidence URIs
+against the proposal, records audit events, and moves the run to `waiting_for_approval`.
+It does not execute branch or pull-request writes. The YAML files under `configs/workflows`
+remain the portfolio registry.
 
 `services/api/src/aegisops_api/workflows/incident_response_investigator/` now contains the
 first Production Incident Investigator runtime slice. The route

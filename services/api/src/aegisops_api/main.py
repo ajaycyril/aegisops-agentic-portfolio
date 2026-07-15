@@ -35,12 +35,15 @@ from aegisops_api.tools.adapters import (
 from aegisops_api.tools.registry import get_tool_registry
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
 from aegisops_api.workflows.engineering_issue_to_pr import (
+    IssueToPrApprovalReviewRequest,
+    IssueToPrApprovalReviewResponse,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     IssueToPrRunResponse,
     OpenAIIssueToPrPlanner,
     OpenAIPlannerConfig,
     collect_engineering_issue_context,
+    request_issue_to_pr_approval_review,
 )
 from aegisops_api.workflows.engineering_issue_to_pr.graph import IssueToPrPlanner
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
@@ -360,6 +363,30 @@ async def collect_engineering_issue_to_pr_evidence(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="workflow graph execution failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/engineering-issue-to-pr/approval-review",
+    response_model=IssueToPrApprovalReviewResponse,
+    status_code=201,
+    tags=["workflow-runs"],
+)
+async def request_engineering_issue_to_pr_approval_review(
+    run_id: UUID,
+    request: IssueToPrApprovalReviewRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> IssueToPrApprovalReviewResponse:
+    try:
+        return await request_issue_to_pr_approval_review(
+            run_id=run_id,
+            request=request,
+            session=session,
+        )
+    except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(

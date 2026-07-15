@@ -63,8 +63,12 @@ This repository currently defines:
 - `include_proposal=true` support on the Engineering evidence route when `OPENAI_API_KEY` and
   an explicit OpenAI model are configured. Proposal/evaluation output remains non-writing and
   approval-required.
+- Run-scoped Engineering approval-review route that persists pending `approvals` rows for
+  proposed branch and pull-request actions, validates evidence URIs against the proposal, moves
+  the run to `waiting_for_approval`, and records audit events without executing GitHub writes.
 - Visual Proposal Review cockpit showing the route contract, planner readiness, typed
-  proposal/evaluation output, model-call audit path, and approval stop-points.
+  proposal/evaluation output, model-call audit path, approval persistence contract, and approval
+  stop-points.
 - Visual multi-agent orchestration cockpit for the Production Incident Investigator, using
   React Flow to show supervisor-worker fan-out, specialist evidence gathering, evaluator
   reconciliation, and approval-gated production actions without fake incident data.
@@ -167,10 +171,10 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 7 by adding real observability/deployment adapters for the Incident
+3. Continue Phase 6 by adding explicit OPA policy fixtures and decision endpoints for
+   approving or rejecting proposed branch/PR actions.
+4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
-4. Continue Phase 6 by adding approval-review persistence and UI state before any branch or PR
-   write adapter.
 
 ## Local Development Target
 

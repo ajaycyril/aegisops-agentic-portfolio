@@ -5,9 +5,10 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from aegisops_api.db.models import AuditEvent, EvidenceRecord, WorkflowRun
+from aegisops_api.db.models import Approval, AuditEvent, EvidenceRecord, WorkflowRun
 from aegisops_api.main import (
     app,
     get_database_session,
@@ -29,13 +30,20 @@ from aegisops_api.workflows.engineering_issue_to_pr.graph import (
     IssueToPrEvaluation,
     IssueToPrProposal,
     IssueToPrState,
+    PlannedFileChange,
+)
+from aegisops_api.workflows.engineering_issue_to_pr.graph import (
+    TestPlanStep as GraphTestPlanStep,
 )
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
+    IssueToPrApprovalReviewRequest,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
+    ProposedIssueToPrWriteAction,
     collect_engineering_issue_context,
     parse_github_issue_url,
+    request_issue_to_pr_approval_review,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
 
@@ -143,6 +151,7 @@ class RuntimeSession:
         self.added: list[object] = []
         self.flush_count = 0
         self.commit_count = 0
+        self.rollback_count = 0
 
     def add(self, instance: object) -> None:
         self.added.append(instance)
@@ -152,6 +161,9 @@ class RuntimeSession:
 
     def commit(self) -> None:
         self.commit_count += 1
+
+    def rollback(self) -> None:
+        self.rollback_count += 1
 
     def get(self, model: object, identifier: object) -> object | None:
         if model is WorkflowRun:
@@ -291,6 +303,77 @@ async def test_collect_engineering_issue_context_rejects_proposal_without_planne
 
 
 @pytest.mark.asyncio
+async def test_request_issue_to_pr_approval_review_persists_pending_write_approvals() -> None:
+    run = create_live_engineering_run()
+    run.status = "running"
+    session = RuntimeSession({run.id: run})
+
+    response = await request_issue_to_pr_approval_review(
+        run_id=run.id,
+        request=create_approval_review_request(),
+        session=cast(Session, session),
+    )
+
+    assert run.status == "waiting_for_approval"
+    assert response.approval_state == "pending_human_review"
+    assert response.execution_state == "approval_requested_no_write_execution"
+    assert response.write_actions_enabled is False
+    assert [approval.requested_action for approval in response.approvals] == [
+        "branch_creation",
+        "pull_request_creation",
+    ]
+    assert session.commit_count == 1
+    assert session.rollback_count == 0
+    persisted_approvals = [item for item in session.added if isinstance(item, Approval)]
+    assert len(persisted_approvals) == 2
+    assert all(approval.status == "pending" for approval in persisted_approvals)
+    assert all(approval.risk_class == "write" for approval in persisted_approvals)
+    assert all(
+        approval.request_payload["schema_version"] == "engineering_issue_to_pr.approval_review.v1"
+        for approval in persisted_approvals
+    )
+    assert all(
+        approval.request_payload["approval_contract"]["write_actions_enabled"] is False
+        for approval in persisted_approvals
+    )
+    assert len([item for item in session.added if isinstance(item, AuditEvent)]) == 3
+
+
+@pytest.mark.asyncio
+async def test_request_issue_to_pr_approval_review_requires_running_run() -> None:
+    run = create_live_engineering_run()
+    session = RuntimeSession({run.id: run})
+
+    with pytest.raises(IssueToPrRunRejectedError, match="collect evidence before approval"):
+        await request_issue_to_pr_approval_review(
+            run_id=run.id,
+            request=create_approval_review_request(),
+            session=cast(Session, session),
+        )
+
+    assert run.status == "queued"
+    assert session.commit_count == 0
+
+
+def test_approval_review_rejects_action_evidence_outside_proposal() -> None:
+    with pytest.raises(ValidationError, match="proposed action evidence"):
+        IssueToPrApprovalReviewRequest(
+            proposal=create_patch_proposal(),
+            evaluation=create_plan_evaluation(),
+            requested_by="reviewer-123",
+            proposed_actions=[
+                ProposedIssueToPrWriteAction(
+                    action_type="branch_creation",
+                    repository="acme/app",
+                    proposed_branch_name="aegis/fix-type-check",
+                    rationale="Prepare branch for the reviewed patch plan.",
+                    evidence_uris=["https://github.com/acme/app/issues/404"],
+                )
+            ],
+        )
+
+
+@pytest.mark.asyncio
 async def test_collect_engineering_issue_context_reports_missing_replay_fixture(
     tmp_path: Path,
 ) -> None:
@@ -349,6 +432,73 @@ def test_engineering_issue_context_endpoint_returns_404_for_missing_run() -> Non
 
     assert response.status_code == 404
     assert response.json()["detail"]["reason_code"] == "workflow_run_not_found"
+
+
+def create_approval_review_request() -> IssueToPrApprovalReviewRequest:
+    return IssueToPrApprovalReviewRequest(
+        proposal=create_patch_proposal(),
+        evaluation=create_plan_evaluation(),
+        requested_by="reviewer-123",
+        actor_id="reviewer-123",
+        trace_id="trace-approval",
+        proposed_actions=[
+            ProposedIssueToPrWriteAction(
+                action_type="branch_creation",
+                repository="acme/app",
+                proposed_branch_name="aegis/fix-type-check",
+                rationale="Prepare an isolated branch for the reviewed patch plan.",
+                evidence_uris=[
+                    "https://github.com/acme/app/issues/42",
+                    "https://github.com/acme/app/blob/main/src/service.py",
+                ],
+            ),
+            ProposedIssueToPrWriteAction(
+                action_type="pull_request_creation",
+                repository="acme/app",
+                proposed_branch_name="aegis/fix-type-check",
+                title="Fix CI type checker failure",
+                rationale="Create a draft PR only after human approval is recorded.",
+                evidence_uris=["https://github.com/acme/app/issues/42"],
+            ),
+        ],
+    )
+
+
+def create_patch_proposal() -> IssueToPrProposal:
+    return IssueToPrProposal(
+        summary="Fix the CI type checker failure.",
+        problem_statement="The tracked issue reports a static analysis failure in CI.",
+        source_evidence_uris=[
+            "https://github.com/acme/app/issues/42",
+            "https://github.com/acme/app/blob/main/src/service.py",
+        ],
+        planned_changes=[
+            PlannedFileChange(
+                path="src/service.py",
+                change_type="modify",
+                rationale="Align handler typing with the failing check.",
+                evidence_uris=["https://github.com/acme/app/blob/main/src/service.py"],
+            )
+        ],
+        test_plan=[
+            GraphTestPlanStep(
+                command="pnpm -r typecheck",
+                purpose="Verify TypeScript contracts remain valid.",
+                risk_covered="Static analysis regression.",
+            )
+        ],
+        risk_notes=["No branch or pull request is created by the planner."],
+    )
+
+
+def create_plan_evaluation() -> IssueToPrEvaluation:
+    return IssueToPrEvaluation(
+        grounded=True,
+        requires_more_context=False,
+        risk_level="medium",
+        findings=["Proposal cites the issue and repository file evidence."],
+        blocking_issues=[],
+    )
 
 
 def write_replay_fixture(directory: Path, source_run_id: str) -> None:

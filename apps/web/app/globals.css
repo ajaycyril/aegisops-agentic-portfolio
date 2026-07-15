@@ -1090,6 +1090,7 @@ h1 {
 .proposal-route,
 .review-check,
 .proposal-contract,
+.approval-persistence,
 .approval-review {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -1185,12 +1186,30 @@ h1 {
 }
 
 .proposal-contract,
+.approval-persistence,
 .approval-review {
   display: grid;
   align-content: start;
   gap: 0;
   padding: 14px;
   min-width: 0;
+}
+
+.approval-persistence {
+  border-color: rgba(120, 166, 255, 0.18);
+  background: rgba(120, 166, 255, 0.055);
+}
+
+.approval-persistence code {
+  display: block;
+  margin: 2px 0 8px;
+  color: #edf5ff;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .contract-title {
@@ -1406,6 +1425,7 @@ h1 {
   }
 
   .proposal-route,
+  .approval-persistence,
   .approval-review {
     grid-column: auto;
   }
