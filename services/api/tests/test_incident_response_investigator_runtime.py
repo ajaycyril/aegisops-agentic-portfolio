@@ -126,6 +126,18 @@ class FakeIncidentToolRuntime:
         )
 
 
+class UngroundedIncidentToolRuntime(FakeIncidentToolRuntime):
+    async def execute_tool_call(
+        self,
+        tool_call_id: UUID,
+        request: ToolCallExecutionRequest,
+    ) -> ToolCallExecutionResponse:
+        response = await super().execute_tool_call(tool_call_id, request)
+        if response.tool_id == "observability_log_search":
+            response.output_payload["events"][0].pop("source_uri", None)
+        return response
+
+
 class RuntimeSession:
     def __init__(self, runs: dict[UUID, WorkflowRun]) -> None:
         self.runs = runs
@@ -201,6 +213,10 @@ async def test_collect_incident_evidence_runs_graph_and_persists_metadata_only()
     assert response.code_file_count == 1
     assert response.rca_generation_enabled is False
     assert response.write_actions_enabled is False
+    assert response.evidence_validation.grounded is True
+    assert response.evidence_validation.evidence_count == 3
+    assert response.rca_draft_created is False
+    assert response.rca_draft is None
     assert response.policy_decision_ids == [
         "decision-observability_log_search",
         "decision-deployment_event_search",
@@ -218,6 +234,86 @@ async def test_collect_incident_evidence_runs_graph_and_persists_metadata_only()
     }
     assert session.commit_count == 1
     assert len([item for item in session.added if isinstance(item, AuditEvent)]) == 2
+
+
+@pytest.mark.asyncio
+async def test_collect_incident_evidence_creates_grounded_rca_draft_contract() -> None:
+    run = create_live_incident_run()
+    session = RuntimeSession({run.id: run})
+
+    response = await collect_incident_evidence(
+        run_id=run.id,
+        request=IncidentInvestigationRequest(
+            actor_id="user-123",
+            trace_id="trace-1",
+            include_rca=True,
+        ),
+        session=cast(Session, session),
+        workflow_registry=cast(WorkflowRegistry, object()),
+        tool_registry=cast(ToolRegistry, object()),
+        policy_evaluator=FakeToolPolicyEvaluator(),
+        adapter_registry=ToolAdapterRegistry({}),
+        available_connectors={"observability", "deployments", "github"},
+        tool_runtime=FakeIncidentToolRuntime(),
+    )
+
+    assert response.stage == "incident_rca_draft_created"
+    assert response.evidence_validation.grounded is True
+    assert response.rca_draft_created is True
+    assert response.rca_draft is not None
+    assert response.rca_draft.schema_version == "incident_response_investigator.rca_draft.v1"
+    assert response.rca_draft.write_actions_enabled is False
+    assert response.rca_draft.requires_human_review is True
+    assert response.rca_draft.approval_required_for == [
+        "rollback",
+        "incident_update",
+        "paging_action",
+    ]
+    allowed_uris = set(response.rca_draft.source_evidence_uris)
+    assert allowed_uris
+    assert all(
+        set(claim.evidence_uris).issubset(allowed_uris)
+        for claim in response.rca_draft.claims
+    )
+    evidence_records = [item for item in session.added if isinstance(item, EvidenceRecord)]
+    assert len(evidence_records) == 4
+    rca_records = [
+        record
+        for record in evidence_records
+        if record.evidence_metadata.get("schema_version")
+        == "incident_response_investigator.rca_draft.v1"
+    ]
+    assert len(rca_records) == 1
+    assert rca_records[0].source_system == "aegisops"
+    assert rca_records[0].evidence_metadata["write_actions_enabled"] is False
+    audit_events = [item for item in session.added if isinstance(item, AuditEvent)]
+    assert audit_events[-1].event_type == "workflow_graph.rca_draft_created"
+    assert audit_events[-1].payload["rca_draft_created"] is True
+
+
+@pytest.mark.asyncio
+async def test_collect_incident_evidence_rejects_rca_for_ungrounded_evidence() -> None:
+    run = create_live_incident_run()
+    session = RuntimeSession({run.id: run})
+
+    with pytest.raises(IncidentInvestigationRejectedError, match="RCA draft creation requires"):
+        await collect_incident_evidence(
+            run_id=run.id,
+            request=IncidentInvestigationRequest(include_rca=True),
+            session=cast(Session, session),
+            workflow_registry=cast(WorkflowRegistry, object()),
+            tool_registry=cast(ToolRegistry, object()),
+            policy_evaluator=FakeToolPolicyEvaluator(),
+            adapter_registry=ToolAdapterRegistry({}),
+            available_connectors={"observability", "deployments", "github"},
+            tool_runtime=UngroundedIncidentToolRuntime(),
+        )
+
+    assert run.status == "failed"
+    assert session.commit_count == 1
+    assert not any(isinstance(item, EvidenceRecord) for item in session.added)
+    audit_events = [item for item in session.added if isinstance(item, AuditEvent)]
+    assert audit_events[-1].event_type == "workflow_graph.failed"
 
 
 @pytest.mark.asyncio
@@ -278,6 +374,9 @@ async def test_collect_incident_evidence_uses_captured_replay_fixture(tmp_path: 
         "captured-deployment-policy",
         "captured-code-policy",
     ]
+    assert response.evidence_validation.grounded is True
+    assert response.evidence_validation.evidence_count == 3
+    assert response.rca_draft_created is False
     assert len([item for item in session.added if isinstance(item, EvidenceRecord)]) == 3
     assert session.commit_count == 1
 

@@ -58,8 +58,9 @@ streams, evaluator reconciliation, and approval-gated production actions as a vi
 only. The Production Incident Investigator now also has a first backend runtime slice: a typed
 LangGraph evidence-collection graph and run-scoped API route for read-only observability log,
 deployment event, and GitHub file evidence collection, with policy-authorized tool calls,
-evidence metadata persistence, captured-real-run replay loading, and no RCA or write actions
-enabled.
+evidence metadata persistence, captured-real-run replay loading, source-grounded evidence
+validation, and typed hash-only RCA draft contracts. Rollback, paging, incident updates, and
+external write actions remain disabled.
 
 Current production web deployment:
 
@@ -472,9 +473,10 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Continue the Incident Investigator runtime with source-grounded evidence validation and RCA
-   draft contracts before any rollback, paging, or incident-update actions.
-3. Add eval rubrics for generated RCA and proposal outputs before public live-run demos.
+2. Add eval rubrics for generated RCA/proposal outputs and policy fixtures for incident
+   approval actions before public live-run demos.
+3. Continue the Incident Investigator runtime with approval records for rollback, paging, and
+   incident-update proposals without enabling those writes.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -528,10 +530,11 @@ Goal: Add real incident investigation across logs, deployments, and code changes
 
 Status note: the visual multi-agent orchestration contract is present in the command center.
 The first runtime slice is implemented as guarded read-only evidence collection for logs,
-deployment events, and optional repository files. Live connector adapters for observability and
-deployment systems, RCA generation, approval requests, and production write actions remain
-future work. Captured-real-run replay schema and loading are implemented without committing
-fabricated replay payloads.
+deployment events, and optional repository files. Source-grounded evidence validation and a
+typed RCA draft contract are implemented without model generation or external writes. Live
+connector adapters for observability/deployment systems, approval requests, and production
+write actions remain future work. Captured-real-run replay schema and loading are implemented
+without committing fabricated replay payloads.
 
 Tasks:
 
@@ -541,9 +544,10 @@ Tasks:
    `services/api/src/aegisops_api/workflows/incident_response_investigator/`.
 3. Done: add connector/tool contracts for deployment events and logs/traces.
 4. In progress: add graph nodes. Done for read-only log investigator, deployment investigator,
-   code investigator, and evidence auditor. Pending hypothesis generation, RCA draft, and
-   approval nodes.
-5. Add source-grounded evidence board.
+   code investigator, evidence auditor, source-grounded evidence validation, and RCA draft
+   contract creation. Pending model-backed hypothesis generation and approval nodes.
+5. In progress: add source-grounded evidence board. Done for backend validation summaries;
+   pending richer UI visualization over persisted evidence records.
 6. Add policy rules for rollback and incident update actions.
 7. Done: add captured-real-run replay format and loader.
 8. Add eval rubric for RCA quality.
@@ -645,6 +649,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue the Incident Investigator runtime by adding source-grounded evidence validation and
-RCA draft contracts. Do not enable rollback, paging, incident-update, branch, or pull-request
-write execution.
+Add eval rubrics for RCA/proposal quality and policy fixtures for incident approval actions.
+Do not enable rollback, paging, incident-update, branch, or pull-request write execution.

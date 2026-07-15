@@ -50,9 +50,11 @@ first Production Incident Investigator runtime slice. The route
 workflow run. Live mode collects read-only observability log, deployment event, and optional
 GitHub file evidence through policy-authorized tool calls. Replay mode requires a captured
 real-run fixture using schema version `incident_response_investigator.replay.v1`. Persisted
-evidence records keep hashes and metadata instead of raw log/code payloads. RCA generation,
-rollback, paging, and incident updates remain disabled until evidence validation and approval
-paths are implemented.
+evidence records keep hashes and metadata instead of raw log/code payloads. The route returns
+source-grounded evidence validation for every evidence item. When `include_rca=true`, it can
+create a typed RCA draft contract whose claims may only cite grounded source evidence URIs and
+whose persisted draft artifact stores hashes and metadata only. Rollback, paging, incident
+updates, and external write actions remain disabled.
 
 The command center also contains a multi-agent orchestration contract for
 `incident_response_investigator`. It maps the Production Incident Investigator to supervisor,

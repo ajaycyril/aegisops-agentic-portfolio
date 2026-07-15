@@ -87,8 +87,9 @@ This repository currently defines:
   reconciliation, and approval-gated production actions without fake incident data.
 - Production Incident Investigator LangGraph runtime slice with read-only log, deployment,
   and code evidence collection through policy-authorized tool calls plus captured-real-run
-  replay loading. RCA generation, rollback, paging, and incident updates remain disabled until
-  evidence validation and approval paths are implemented.
+  replay loading. It now returns source-grounded evidence validation and can create a typed,
+  hash-only RCA draft contract when `include_rca=true`; rollback, paging, incident updates,
+  and external writes remain disabled.
 
 ## Core Principle
 
@@ -184,8 +185,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 7 by adding source-grounded evidence validation and RCA draft contracts for
-   the Incident Investigator.
+3. Continue Phase 7 by adding RCA quality eval rubrics and approval policy fixtures for the
+   Incident Investigator.
 4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
 
