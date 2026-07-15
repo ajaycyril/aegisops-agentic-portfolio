@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from hashlib import sha256
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -30,6 +30,8 @@ from aegisops_api.workflows.customer_support_escalation.graph import (
 from aegisops_api.workflows.registry import AutonomyLevel, WorkflowRegistry
 
 SupportRunStage = Literal["support_context_collected", "support_response_draft_created"]
+SupportApprovalDecisionAction = Literal["approve", "reject"]
+SupportApprovalDecisionStatus = Literal["approved", "rejected"]
 
 
 class SupportEscalationRejectedError(RuntimeError):
@@ -137,6 +139,42 @@ class SupportApprovalReviewResponse(BaseModel):
     approvals: list[SupportApprovalReviewItem]
     customer_message_enabled: Literal[False] = False
     external_actions_enabled: Literal[False] = False
+
+
+class SupportApprovalDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: SupportApprovalDecisionAction
+    approver_id: str = Field(min_length=1)
+    decision_reason: str = Field(min_length=1)
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+
+class SupportApprovalPolicyDecisionSummary(BaseModel):
+    allowed: bool
+    requires_approval: bool
+    decision_id: str | None
+    reason_codes: list[str]
+
+
+class SupportApprovalDecisionResponse(BaseModel):
+    approval_id: UUID
+    run_id: UUID
+    workflow_id: str
+    run_status: str
+    requested_action: Literal["customer_message"]
+    approval_status: SupportApprovalDecisionStatus
+    approver_id: str
+    decided_at: str
+    policy_decision: SupportApprovalPolicyDecisionSummary
+    customer_message_enabled: Literal[False] = False
+    external_actions_enabled: Literal[False] = False
+
+
+class SupportApprovalPolicyEvaluator(Protocol):
+    async def evaluate(self, input_payload: dict[str, Any]) -> Any:
+        pass
 
 
 async def collect_support_escalation_context(
@@ -373,6 +411,131 @@ async def request_support_approval_review(
     )
 
 
+async def decide_support_approval(
+    run_id: UUID,
+    approval_id: UUID,
+    request: SupportApprovalDecisionRequest,
+    session: Session,
+    policy_evaluator: SupportApprovalPolicyEvaluator,
+) -> SupportApprovalDecisionResponse:
+    approval = session.get(Approval, approval_id)
+    if approval is None:
+        raise SupportEscalationRejectedError(
+            reason_code="approval_not_found",
+            message="Approval record was not found.",
+            http_status=404,
+        )
+    if approval.run_id != run_id:
+        raise SupportEscalationRejectedError(
+            reason_code="approval_run_mismatch",
+            message="Approval record does not belong to this workflow run.",
+        )
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise SupportEscalationRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_support_approval_can_be_decided(run, approval)
+
+    policy_input = build_support_approval_decision_policy_input(
+        run=run,
+        approval=approval,
+        request=request,
+    )
+    decision = await policy_evaluator.evaluate(policy_input)
+    if not decision.allowed:
+        write_audit_event(
+            session,
+            AuditEventInput(
+                run_id=run.id,
+                workflow_id=run.workflow_id,
+                event_type="approval.decision_blocked",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                action=f"approval.{request.decision}",
+                resource_type="approval",
+                resource_id=str(approval.id),
+                policy_decision_id=decision.decision_id,
+                trace_id=request.trace_id,
+                payload={
+                    "requested_action": approval.requested_action,
+                    "policy_reason_codes": decision.reason_codes,
+                    "customer_message_enabled": False,
+                    "external_actions_enabled": False,
+                },
+            ),
+        )
+        session.commit()
+        raise SupportEscalationRejectedError(
+            reason_code="approval_decision_policy_denied",
+            message="OPA policy denied the support approval decision.",
+            http_status=403,
+        )
+
+    decided_at = utc_now()
+    approval.status = "approved" if request.decision == "approve" else "rejected"
+    approval.approver_id = request.approver_id
+    approval.policy_decision_id = decision.decision_id
+    approval.decided_at = decided_at
+    approval.decision_payload = {
+        "schema_version": "customer_support_escalation.approval_decision.v1",
+        "decision": request.decision,
+        "decision_reason": request.decision_reason,
+        "approver_id": request.approver_id,
+        "policy": {
+            "decision_id": decision.decision_id,
+            "package_path": decision.package_path,
+            "reason_codes": decision.reason_codes,
+            "result": decision.result,
+        },
+        "customer_message_enabled": False,
+        "external_actions_enabled": False,
+    }
+    write_audit_event(
+        session,
+        AuditEventInput(
+            run_id=run.id,
+            workflow_id=run.workflow_id,
+            event_type=f"approval.{approval.status}",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            action=f"approval.{request.decision}",
+            resource_type="approval",
+            resource_id=str(approval.id),
+            policy_decision_id=decision.decision_id,
+            trace_id=request.trace_id,
+            payload={
+                "requested_action": approval.requested_action,
+                "risk_class": approval.risk_class,
+                "decision": request.decision,
+                "run_status": run.status,
+                "customer_message_enabled": False,
+                "external_actions_enabled": False,
+            },
+        ),
+    )
+    session.commit()
+
+    return SupportApprovalDecisionResponse(
+        approval_id=approval.id,
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        run_status=run.status,
+        requested_action="customer_message",
+        approval_status=cast(SupportApprovalDecisionStatus, approval.status),
+        approver_id=request.approver_id,
+        decided_at=decided_at.isoformat(),
+        policy_decision=SupportApprovalPolicyDecisionSummary(
+            allowed=decision.allowed,
+            requires_approval=decision.requires_approval,
+            decision_id=decision.decision_id,
+            reason_codes=decision.reason_codes,
+        ),
+    )
+
+
 def ensure_run_can_collect_support_context(run: WorkflowRun) -> None:
     if run.workflow_id != CUSTOMER_SUPPORT_WORKFLOW_ID:
         raise SupportEscalationRejectedError(
@@ -401,6 +564,31 @@ def ensure_run_can_request_support_approval(run: WorkflowRun) -> None:
         raise SupportEscalationRejectedError(
             reason_code="workflow_run_status_invalid",
             message=f"Workflow run status {run.status} cannot request support approval.",
+        )
+
+
+def ensure_support_approval_can_be_decided(run: WorkflowRun, approval: Approval) -> None:
+    if run.workflow_id != CUSTOMER_SUPPORT_WORKFLOW_ID:
+        raise SupportEscalationRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports customer_support_escalation runs.",
+        )
+    if approval.status != "pending":
+        raise SupportEscalationRejectedError(
+            reason_code="approval_not_pending",
+            message="Only pending support approval records can be decided.",
+        )
+    if approval.requested_action != "customer_message":
+        raise SupportEscalationRejectedError(
+            reason_code="approval_action_not_supported",
+            message="This runtime path only supports customer_message approvals.",
+        )
+    if approval.request_payload.get("schema_version") != (
+        "customer_support_escalation.approval_review.v1"
+    ):
+        raise SupportEscalationRejectedError(
+            reason_code="approval_payload_invalid",
+            message="Approval payload is not a Support approval-review record.",
         )
 
 
@@ -553,3 +741,34 @@ def cast_autonomy_level(value: str) -> AutonomyLevel:
             message=f"Workflow run autonomy level {value} is not supported.",
         )
     return cast(AutonomyLevel, value)
+
+
+def build_support_approval_decision_policy_input(
+    run: WorkflowRun,
+    approval: Approval,
+    request: SupportApprovalDecisionRequest,
+) -> dict[str, Any]:
+    return {
+        "workflow_id": run.workflow_id,
+        "autonomy_level": run.autonomy_level,
+        "decision_action": request.decision,
+        "risk_class": approval.risk_class,
+        "requested_action": approval.requested_action,
+        "approver_id": request.approver_id,
+        "approval": {
+            "id": str(approval.id),
+            "status": approval.status,
+            "requested_by": approval.requested_by,
+            "write_actions_enabled": extract_support_write_actions_enabled(
+                approval.request_payload
+            ),
+            "request_payload": approval.request_payload,
+        },
+    }
+
+
+def extract_support_write_actions_enabled(request_payload: dict[str, Any]) -> bool:
+    approval_contract = request_payload.get("approval_contract", {})
+    if not isinstance(approval_contract, dict):
+        return True
+    return bool(approval_contract.get("external_actions_enabled", True))

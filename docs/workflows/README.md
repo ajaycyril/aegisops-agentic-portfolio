@@ -78,8 +78,11 @@ hashes and redacted metadata instead of raw customer messages or customer profil
 With `include_draft=true`, it creates an internal cited response draft whose citations must
 come from retrieved knowledge base source URIs. The approval-review route
 `POST /workflow-runs/{run_id}/customer-support-escalation/approval-review` stores a pending
-external-message approval record for that draft. Customer-visible messages, refunds, and account
-changes remain disabled until approval decisions, policy fixtures, and send adapters are added.
+external-message approval record for that draft. The decision route
+`POST /workflow-runs/{run_id}/customer-support-escalation/approvals/{approval_id}/decision`
+records OPA-checked approve/reject decisions while keeping send execution disabled.
+Customer-visible messages, refunds, and account changes remain disabled until send-disabled
+authorization and final connector hardening are added.
 
 ## Workflow Contract
 

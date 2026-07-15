@@ -53,6 +53,7 @@ after the architecture baseline is accepted.
   ticket, CRM customer profile, and knowledge base citations. It persists hash-only/redacted
   evidence metadata, returns no raw customer messages, can create an internal cited response
   draft with `include_draft=true`, and can queue that draft for human approval without sending
-  any customer-visible message.
+  any customer-visible message. Its approval decision route records OPA-checked approve/reject
+  outcomes without enabling send execution.
 - `configs/evals/rubrics`: structured eval contracts for Engineering patch proposals and
   Incident RCA drafts, validated in tests without model calls or fake data.

@@ -132,6 +132,7 @@ Tool registry endpoints:
 - `POST http://localhost:8000/workflow-runs/{run_id}/engineering-issue-to-pr/evidence`
 - `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/context`
 - `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/approval-review`
+- `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/approvals/{approval_id}/decision`
 - `POST http://localhost:8000/workflow-runs/{run_id}/incident-response-investigator/evidence`
 
 By default, workflows are visible but disabled because no real connectors are configured. For

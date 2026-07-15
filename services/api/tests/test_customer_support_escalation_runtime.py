@@ -1,9 +1,11 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
 
 from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun
+from aegisops_api.policy import PolicyDecision
 from aegisops_api.tools import (
     ToolCallAuthorizationRequest,
     ToolCallAuthorizationResponse,
@@ -14,12 +16,14 @@ from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.execution import ToolPolicyDecisionSummary
 from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.customer_support_escalation import (
+    SupportApprovalDecisionRequest,
     SupportApprovalReviewRequest,
     SupportDraftCitation,
     SupportEscalationRejectedError,
     SupportEscalationRequest,
     SupportResponseDraft,
     collect_support_escalation_context,
+    decide_support_approval,
     request_support_approval_review,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
@@ -101,9 +105,31 @@ class FakeSupportToolRuntime:
         )
 
 
+class FakeApprovalPolicyEvaluator:
+    def __init__(self, decision: PolicyDecision | None = None) -> None:
+        self.decision = decision or PolicyDecision(
+            package_path="aegisops.approvals",
+            allowed=True,
+            requires_approval=True,
+            decision_id="support-approval-decision",
+            reason_codes=[],
+            result={"allow": True, "requires_approval": True, "reason_codes": []},
+        )
+        self.inputs: list[dict[str, Any]] = []
+
+    async def evaluate(self, input_payload: dict[str, Any]) -> PolicyDecision:
+        self.inputs.append(input_payload)
+        return self.decision
+
+
 class RuntimeSession:
-    def __init__(self, runs: dict[UUID, WorkflowRun]) -> None:
+    def __init__(
+        self,
+        runs: dict[UUID, WorkflowRun],
+        approvals: dict[UUID, Approval] | None = None,
+    ) -> None:
         self.runs = runs
+        self.approvals = approvals or {}
         self.added: list[object] = []
         self.flush_count = 0
         self.commit_count = 0
@@ -123,6 +149,8 @@ class RuntimeSession:
     def get(self, model: object, identifier: object) -> object | None:
         if model is WorkflowRun:
             return self.runs.get(cast(UUID, identifier))
+        if model is Approval:
+            return self.approvals.get(cast(UUID, identifier))
         return None
 
 
@@ -137,6 +165,28 @@ def create_support_run(input_payload: dict[str, Any] | None = None) -> WorkflowR
         input_payload=input_payload if input_payload is not None else {"ticket_id": "TCK-1024"},
         budget={"max_tool_calls": 25, "max_run_seconds": 300, "max_estimated_usd": 1.0},
         policy_context={},
+    )
+
+
+def create_support_approval(run: WorkflowRun) -> Approval:
+    requested_at = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
+    return Approval(
+        id=uuid4(),
+        run_id=run.id,
+        status="pending",
+        risk_class="external_message",
+        requested_action="customer_message",
+        requested_by="support-agent",
+        request_payload={
+            "schema_version": "customer_support_escalation.approval_review.v1",
+            "approval_contract": {
+                "customer_message_enabled": False,
+                "external_actions_enabled": False,
+            },
+        },
+        decision_payload={},
+        requested_at=requested_at,
+        expires_at=requested_at + timedelta(hours=24),
     )
 
 
@@ -221,6 +271,37 @@ async def test_request_support_approval_review_creates_pending_customer_message(
     assert approvals[0].risk_class == "external_message"
     assert approvals[0].request_payload["response_draft"]["ticket_id"] == "TCK-1024"
     assert run.status == "waiting_for_approval"
+
+
+@pytest.mark.asyncio
+async def test_decide_support_approval_records_decision_without_send_execution() -> None:
+    run = create_support_run()
+    run.status = "waiting_for_approval"
+    approval = create_support_approval(run)
+    evaluator = FakeApprovalPolicyEvaluator()
+    session = RuntimeSession({run.id: run}, {approval.id: approval})
+
+    response = await decide_support_approval(
+        run_id=run.id,
+        approval_id=approval.id,
+        request=SupportApprovalDecisionRequest(
+            decision="approve",
+            approver_id="support-lead",
+            decision_reason="Citations are grounded and tone is acceptable.",
+            actor_id="support-lead",
+        ),
+        session=cast(Any, session),
+        policy_evaluator=evaluator,
+    )
+
+    assert response.approval_status == "approved"
+    assert response.customer_message_enabled is False
+    assert response.external_actions_enabled is False
+    assert approval.status == "approved"
+    assert approval.approver_id == "support-lead"
+    assert approval.decision_payload["customer_message_enabled"] is False
+    assert evaluator.inputs[0]["requested_action"] == "customer_message"
+    assert evaluator.inputs[0]["approval"]["write_actions_enabled"] is False
 
 
 @pytest.mark.asyncio

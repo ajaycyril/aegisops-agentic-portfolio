@@ -71,7 +71,8 @@ base URLs, and optional bearer tokens are configured. Phase 8 has started with r
 Customer Support Escalation context collection across support ticket, CRM customer profile, and
 knowledge base search connectors, with hash-only/redacted evidence persistence, an internal
 cited response draft contract, a pending approval-review queue for customer messages, and
-customer-visible send actions disabled.
+OPA-checked customer-message approval decisions while customer-visible send actions remain
+disabled.
 
 Current production web deployment:
 
@@ -489,7 +490,7 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Continue Phase 8 with support approval decisions, grounding eval, and memory policy.
+2. Continue Phase 8 with support grounding eval, memory policy, and send-disabled authorization.
 3. Continue Phase 9 with executable trace eval runners and UI eval-result display.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -587,7 +588,8 @@ connector readiness and uses `support_ticket_read`, `crm_customer_profile_read`,
 `knowledge_base_search` tools through HTTP JSON adapters. The run-scoped context route persists
 hash-only/redacted evidence metadata and can create an internal cited response draft with
 `include_draft=true`. The approval-review route stores a pending external-message approval for
-that draft. Customer-visible messages, refunds, and account changes remain disabled.
+that draft, and the approval decision route records OPA-checked approve/reject decisions.
+Customer-visible messages, refunds, and account changes remain disabled.
 
 Tasks:
 
@@ -599,7 +601,7 @@ Tasks:
    redacted evidence persistence, plus cited internal response draft creation.
 5. Add memory policy for customer preferences and prior incidents.
 6. In progress: add approval workflow for customer-visible messages. Done for pending approval
-   review queue; pending approval decision policy fixtures and send-disabled authorization.
+   review queue and OPA-checked approval decisions; pending send-disabled authorization.
 
 Acceptance criteria:
 
@@ -680,7 +682,7 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue Phase 8 with support approval decisions, grounding eval, and memory policy, or continue
-Phase 9 with executable trace eval runners and UI eval-result display. Do not enable rollback,
-paging, incident-update, customer-message, refund, account-change, branch, or pull-request write
-execution.
+Continue Phase 8 with support grounding eval, memory policy, and send-disabled authorization,
+or continue Phase 9 with executable trace eval runners and UI eval-result display. Do not enable
+rollback, paging, incident-update, customer-message, refund, account-change, branch, or
+pull-request write execution.

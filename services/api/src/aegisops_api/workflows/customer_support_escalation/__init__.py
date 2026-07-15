@@ -10,6 +10,10 @@ from aegisops_api.workflows.customer_support_escalation.graph import (
     create_customer_support_escalation_graph,
 )
 from aegisops_api.workflows.customer_support_escalation.runtime import (
+    SupportApprovalDecisionRequest,
+    SupportApprovalDecisionResponse,
+    SupportApprovalPolicyDecisionSummary,
+    SupportApprovalPolicyEvaluator,
     SupportApprovalReviewItem,
     SupportApprovalReviewRequest,
     SupportApprovalReviewResponse,
@@ -20,6 +24,7 @@ from aegisops_api.workflows.customer_support_escalation.runtime import (
     SupportEvidenceRecordSummary,
     SupportResponseDraft,
     collect_support_escalation_context,
+    decide_support_approval,
     request_support_approval_review,
 )
 
@@ -36,6 +41,10 @@ __all__ = [
     "SupportEscalationToolRuntime",
     "SupportEvidenceRecordSummary",
     "SupportApprovalReviewItem",
+    "SupportApprovalDecisionRequest",
+    "SupportApprovalDecisionResponse",
+    "SupportApprovalPolicyDecisionSummary",
+    "SupportApprovalPolicyEvaluator",
     "SupportApprovalReviewRequest",
     "SupportApprovalReviewResponse",
     "SupportDraftCitation",
@@ -43,5 +52,6 @@ __all__ = [
     "as_support_escalation_state",
     "collect_support_escalation_context",
     "create_customer_support_escalation_graph",
+    "decide_support_approval",
     "request_support_approval_review",
 ]

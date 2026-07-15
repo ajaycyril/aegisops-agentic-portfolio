@@ -47,3 +47,19 @@ def test_incident_approval_policy_fixtures_cover_sensitive_actions() -> None:
         for path in FIXTURE_DIR.glob("approval_decision_incident_*.json")
     }
     assert requested_actions == {"rollback", "paging_action", "incident_update"}
+
+
+def test_support_approval_policy_fixtures_cover_customer_message() -> None:
+    fixture_names = {
+        path.name for path in FIXTURE_DIR.glob("approval_decision_support_*.json")
+    }
+
+    assert fixture_names == {
+        "approval_decision_support_message_approve_allowed.json",
+        "approval_decision_support_message_self_approval_blocked.json",
+    }
+    requested_actions = {
+        load_fixture(path)["input"]["requested_action"]
+        for path in FIXTURE_DIR.glob("approval_decision_support_*.json")
+    }
+    assert requested_actions == {"customer_message"}

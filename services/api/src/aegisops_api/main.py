@@ -41,12 +41,15 @@ from aegisops_api.workflows import (
     get_workflow_run_trace,
 )
 from aegisops_api.workflows.customer_support_escalation import (
+    SupportApprovalDecisionRequest,
+    SupportApprovalDecisionResponse,
     SupportApprovalReviewRequest,
     SupportApprovalReviewResponse,
     SupportEscalationRejectedError,
     SupportEscalationRequest,
     SupportEscalationResponse,
     collect_support_escalation_context,
+    decide_support_approval,
     request_support_approval_review,
 )
 from aegisops_api.workflows.engineering_issue_to_pr import (
@@ -487,6 +490,38 @@ async def request_customer_support_approval_review(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/customer-support-escalation/approvals/{approval_id}/decision",
+    response_model=SupportApprovalDecisionResponse,
+    tags=["workflow-runs"],
+)
+async def decide_customer_support_approval(
+    run_id: UUID,
+    approval_id: UUID,
+    request: SupportApprovalDecisionRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[
+        ApprovalPolicyEvaluator,
+        Depends(get_approval_policy_evaluator),
+    ],
+) -> SupportApprovalDecisionResponse:
+    try:
+        return await decide_support_approval(
+            run_id=run_id,
+            approval_id=approval_id,
+            request=request,
+            session=session,
+            policy_evaluator=policy_evaluator,
+        )
+    except SupportEscalationRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
 
 
 @app.post(
