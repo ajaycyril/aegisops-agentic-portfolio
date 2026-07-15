@@ -1,12 +1,23 @@
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from aegisops_api.config import Settings
-from aegisops_api.db.models import AuditEvent, WorkflowRegistrySnapshot, WorkflowRun
+from aegisops_api.db.models import (
+    Approval,
+    AuditEvent,
+    EvidenceRecord,
+    ModelCall,
+    ToolCall,
+    WorkflowRegistrySnapshot,
+    WorkflowRun,
+    utc_now,
+)
 from aegisops_api.main import app, get_database_session, get_run_policy_evaluator
 from aegisops_api.policy import PolicyDecision
 from aegisops_api.workflows.registry import WorkflowRegistry
@@ -15,6 +26,7 @@ from aegisops_api.workflows.runs import (
     RunPolicyEvaluator,
     WorkflowRunStartRejectedError,
     WorkflowRunStartRequest,
+    get_workflow_run_trace,
     start_workflow_run,
 )
 
@@ -53,6 +65,35 @@ class RecordingSession:
         self.rollback_count += 1
 
 
+class ListResult:
+    def __init__(self, values: list[object]) -> None:
+        self._values = values
+
+    def scalars(self) -> list[object]:
+        return self._values
+
+
+class TraceSession:
+    def __init__(
+        self,
+        run: WorkflowRun | None,
+        query_results: list[list[object]] | None = None,
+    ) -> None:
+        self.run = run
+        self.query_results = query_results or []
+        self.execute_count = 0
+
+    def get(self, model: object, _identifier: object) -> object | None:
+        if model is WorkflowRun:
+            return self.run
+        return None
+
+    def execute(self, _statement: object) -> ListResult:
+        result = self.query_results[self.execute_count]
+        self.execute_count += 1
+        return ListResult(result)
+
+
 class FakeRunPolicyEvaluator:
     def __init__(self, decision: PolicyDecision) -> None:
         self.decision = decision
@@ -88,6 +129,116 @@ def create_ready_registry(tmp_path: Path) -> WorkflowRegistry:
         encoding="utf-8",
     )
     return WorkflowRegistry.from_directory(tmp_path)
+
+
+def test_get_workflow_run_trace_returns_metadata_records() -> None:
+    now = utc_now()
+    run = WorkflowRun(
+        id=uuid4(),
+        workflow_id="engineering_issue_to_pr",
+        registry_snapshot_id=uuid4(),
+        status="waiting_for_approval",
+        execution_mode="live",
+        autonomy_level="approval_required",
+        input_payload={},
+        budget={},
+        policy_context={},
+        started_at=now,
+        updated_at=now,
+    )
+    approval = Approval(
+        id=uuid4(),
+        run_id=run.id,
+        status="approved",
+        risk_class="write",
+        requested_action="pull_request_creation",
+        requested_by="agent-runtime",
+        approver_id="reviewer-123",
+        requested_at=now,
+        decided_at=now,
+    )
+    tool_call = ToolCall(
+        id=uuid4(),
+        run_id=run.id,
+        approval_id=approval.id,
+        tool_name="github_pull_request_draft",
+        tool_version="schema-test",
+        risk_class="write",
+        input_schema_hash="schema",
+        input_hash="input",
+        status="pending",
+        policy_decision_id="tool-policy",
+        trace_id="trace-1",
+        started_at=now,
+        call_metadata={"execution_state": "authorized_not_executed"},
+    )
+    model_call = ModelCall(
+        id=uuid4(),
+        run_id=run.id,
+        provider="openai",
+        model="gpt-test",
+        purpose="patch_plan",
+        prompt_version="test.v1",
+        input_token_count=0,
+        output_token_count=0,
+        estimated_cost_usd=Decimal("0"),
+        status="succeeded",
+        started_at=now,
+    )
+    evidence = EvidenceRecord(
+        id=uuid4(),
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        kind="document",
+        source_system="aegisops",
+        title="Dry-run PR preview",
+        content_hash="content-hash",
+        evidence_metadata={"schema_version": "engineering_issue_to_pr.pr_preview.v1"},
+        captured_at=now,
+        created_at=now,
+    )
+    audit_event = AuditEvent(
+        id=uuid4(),
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        event_type="pr_draft.preview_created",
+        actor_type="user",
+        action="pr_draft.preview",
+        data_sensitivity="internal",
+        payload={"write_actions_enabled": False},
+        created_at=now,
+    )
+    session = TraceSession(
+        run,
+        [[approval], [tool_call], [model_call], [evidence], [audit_event]],
+    )
+
+    response = get_workflow_run_trace(run.id, cast(Session, session))
+
+    assert response.run.id == run.id
+    assert response.run.status == "waiting_for_approval"
+    assert response.approvals[0].status == "approved"
+    assert response.tool_calls[0].execution_state == "authorized_not_executed"
+    assert response.model_calls[0].estimated_cost_usd == "0"
+    assert response.evidence_records[0].metadata["schema_version"].endswith("pr_preview.v1")
+    assert response.audit_events[0].event_type == "pr_draft.preview_created"
+
+
+def test_workflow_run_trace_endpoint_returns_404_for_missing_run() -> None:
+    missing_run_id = uuid4()
+
+    def override_session() -> Any:
+        yield cast(Session, TraceSession(None))
+
+    app.dependency_overrides[get_database_session] = override_session
+    try:
+        client = TestClient(app)
+        response = client.get(f"/workflow-runs/{missing_run_id}/trace")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["reason_code"] == "workflow_run_not_found"
 
 
 @pytest.mark.asyncio

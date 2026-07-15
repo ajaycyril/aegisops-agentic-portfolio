@@ -419,6 +419,8 @@ Completed artifacts:
 - Dry-run PR preview evidence artifact with tool-call ID, approval ID, input hash verification,
   proposal summary, planned-change paths, PR body hash, and
   `dry_run_preview_created_no_write_execution`. No raw code or GitHub write is persisted.
+- Generic workflow-run trace endpoint at `GET /workflow-runs/{run_id}/trace`, returning run
+  status plus approval, tool-call, model-call, evidence, and audit metadata for UI readout.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -461,9 +463,10 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add UI state for approved, blocked, and preview-created PR authorization outcomes.
-2. Add a trace/evidence read endpoint for workflow runs so the command center can render real
-   persisted audit/evidence metadata.
+1. Add UI data fetching and state for approved, blocked, and preview-created PR authorization
+   outcomes from `GET /workflow-runs/{run_id}/trace`.
+2. Add a compact run inspector panel that renders persisted audit/evidence metadata when an API
+   backend is configured.
 3. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
 
@@ -634,5 +637,6 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding UI state and read endpoints for approved, blocked, and preview-created PR
-authorization outcomes. Do not enable branch or pull-request write execution.
+Continue by adding UI data fetching and state for approved, blocked, and preview-created PR
+authorization outcomes from the workflow-run trace endpoint. Do not enable branch or
+pull-request write execution.

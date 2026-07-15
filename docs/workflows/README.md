@@ -37,8 +37,10 @@ approval IDs and creates policy-checked write-class tool-call records in
 `authorized_not_executed` or `blocked_before_execution` state. The PR draft preview route
 `POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/preview` verifies the approval,
 tool-call state, and input hash before writing a dry-run `evidence_records` artifact with PR
-metadata and hashes only. None of these routes executes branch or pull-request writes. The YAML
-files under `configs/workflows` remain the portfolio registry.
+metadata and hashes only. `GET /workflow-runs/{run_id}/trace` exposes the persisted run,
+approval, tool-call, model-call, evidence, and audit metadata needed for UI readouts. None of
+these routes executes branch or pull-request writes. The YAML files under `configs/workflows`
+remain the portfolio registry.
 
 `services/api/src/aegisops_api/workflows/incident_response_investigator/` now contains the
 first Production Incident Investigator runtime slice. The route

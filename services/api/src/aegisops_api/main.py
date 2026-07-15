@@ -33,7 +33,13 @@ from aegisops_api.tools.adapters import (
     create_default_tool_adapter_registry,
 )
 from aegisops_api.tools.registry import get_tool_registry
-from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
+from aegisops_api.workflows import (
+    WorkflowDetail,
+    WorkflowNotFoundError,
+    WorkflowRunTraceResponse,
+    WorkflowSummary,
+    get_workflow_run_trace,
+)
 from aegisops_api.workflows.engineering_issue_to_pr import (
     ApprovalPolicyEvaluator,
     IssueToPrApprovalDecisionRequest,
@@ -335,6 +341,24 @@ async def create_workflow_run(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+@app.get(
+    "/workflow-runs/{run_id}/trace",
+    response_model=WorkflowRunTraceResponse,
+    tags=["workflow-runs"],
+)
+async def get_workflow_run_trace_endpoint(
+    run_id: UUID,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> WorkflowRunTraceResponse:
+    try:
+        return get_workflow_run_trace(run_id=run_id, session=session)
+    except WorkflowRunStartRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(

@@ -74,6 +74,8 @@ This repository currently defines:
   records, or blocked records when approval is missing. It still does not execute GitHub writes.
 - Run-scoped Engineering PR draft preview route that verifies the approved authorization and
   input hash, then persists a dry-run evidence artifact with PR metadata and hashes only.
+- Generic workflow-run trace endpoint returning run, approval, tool-call, model-call, evidence,
+  and audit metadata for UI readouts.
 - Visual Proposal Review cockpit showing the route contract, planner readiness, typed
   proposal/evaluation output, model-call audit path, approval persistence contract, and approval
   stop-points.
@@ -179,8 +181,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding UI state and read endpoints for approved, blocked, and
-   preview-created PR authorization outcomes without enabling write execution.
+3. Continue Phase 6 by adding UI data fetching and state for approved, blocked, and
+   preview-created PR authorization outcomes from the workflow-run trace endpoint.
 4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
 

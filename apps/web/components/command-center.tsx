@@ -1299,6 +1299,10 @@ function createProposalReview(
           "POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/preview",
       },
       {
+        label: "Trace readout",
+        value: "GET /workflow-runs/{run_id}/trace",
+      },
+      {
         label: "Execution",
         value: "dry_run_preview_created_no_write_execution",
       },

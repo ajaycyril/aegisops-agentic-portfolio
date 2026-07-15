@@ -7,19 +7,32 @@ from aegisops_api.workflows.registry import (
     get_workflow_registry,
 )
 from aegisops_api.workflows.runs import (
+    ApprovalTraceRecord,
+    AuditTraceRecord,
     BudgetEnvelope,
+    EvidenceTraceRecord,
+    ModelCallTraceRecord,
     OpaRunPolicyEvaluator,
     RunPolicyEvaluator,
+    ToolCallTraceRecord,
     WorkflowRunStartRejectedError,
     WorkflowRunStartRequest,
     WorkflowRunStartResponse,
+    WorkflowRunTraceRecord,
+    WorkflowRunTraceResponse,
+    get_workflow_run_trace,
     start_workflow_run,
 )
 
 __all__ = [
+    "ApprovalTraceRecord",
+    "AuditTraceRecord",
     "BudgetEnvelope",
+    "EvidenceTraceRecord",
+    "ModelCallTraceRecord",
     "OpaRunPolicyEvaluator",
     "RunPolicyEvaluator",
+    "ToolCallTraceRecord",
     "WorkflowConfig",
     "WorkflowDetail",
     "WorkflowNotFoundError",
@@ -27,7 +40,10 @@ __all__ = [
     "WorkflowRunStartRejectedError",
     "WorkflowRunStartRequest",
     "WorkflowRunStartResponse",
+    "WorkflowRunTraceRecord",
+    "WorkflowRunTraceResponse",
     "WorkflowSummary",
     "get_workflow_registry",
+    "get_workflow_run_trace",
     "start_workflow_run",
 ]

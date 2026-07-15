@@ -35,6 +35,8 @@ after the architecture baseline is accepted.
   persistence for proposed branch/PR actions, approve/reject decision persistence through OPA,
   approved-approval-ID PR draft authorization, dry-run PR preview evidence artifacts, and no
   write adapters.
+- `GET /workflow-runs/{run_id}/trace`: generic run metadata readout for approvals, tool calls,
+  model calls, evidence records, and audit events.
 - `incident_response_investigator`: guarded read-only evidence collection for observability
   logs, deployment events, optional GitHub files, and captured-real replay fixtures. RCA
   generation and production write actions remain disabled until approval and validation paths
