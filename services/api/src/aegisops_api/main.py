@@ -50,6 +50,9 @@ from aegisops_api.workflows.incident_response_investigator import (
     IncidentInvestigationResponse,
     collect_incident_evidence,
 )
+from aegisops_api.workflows.incident_response_investigator import (
+    ReplayFixtureError as IncidentReplayFixtureError,
+)
 from aegisops_api.workflows.registry import get_available_connectors, get_workflow_registry
 from aegisops_api.workflows.runs import (
     OpaRunPolicyEvaluator,
@@ -383,6 +386,11 @@ async def collect_incident_response_evidence(
             available_connectors=get_available_connectors(),
         )
     except IncidentInvestigationRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except IncidentReplayFixtureError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},

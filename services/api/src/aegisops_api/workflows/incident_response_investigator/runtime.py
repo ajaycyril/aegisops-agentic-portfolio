@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from hashlib import sha256
+from pathlib import Path
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
@@ -26,6 +27,10 @@ from aegisops_api.workflows.incident_response_investigator.graph import (
     collect_policy_decision_ids,
     collect_tool_call_ids,
     create_incident_investigation_graph,
+    evidence_auditor_node,
+)
+from aegisops_api.workflows.incident_response_investigator.replay import (
+    load_incident_replay_fixture,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
 
@@ -100,6 +105,7 @@ async def collect_incident_evidence(
     adapter_registry: ToolAdapterRegistry,
     available_connectors: set[str],
     tool_runtime: IncidentInvestigationToolRuntime | None = None,
+    replay_fixture_dir: Path | None = None,
 ) -> IncidentInvestigationResponse:
     run = session.get(WorkflowRun, run_id)
     if run is None:
@@ -110,9 +116,34 @@ async def collect_incident_evidence(
         )
     ensure_run_can_collect_incident_evidence(run)
 
-    graph_input = build_graph_input_from_run(run, request)
+    graph_state: IncidentInvestigationState | None = None
+    graph_input: IncidentInvestigationInput | None = None
     try:
         run.status = "running"
+        if run.execution_mode == "replay":
+            ensure_replay_request_does_not_override_fixture(request)
+            graph_state = load_replay_graph_state(run, request, replay_fixture_dir)
+            start_payload = {
+                "stage": "incident_evidence_collection",
+                "execution_mode": "replay",
+                "replay_source_run_id": get_replay_source_run_id(run),
+                "incident_id": graph_state["incident_id"],
+                "service": graph_state["service"],
+                "suspect_path_count": len(graph_state.get("suspect_paths", [])),
+                "rca_generation_enabled": False,
+                "write_actions_enabled": False,
+            }
+        else:
+            graph_input = build_graph_input_from_run(run, request)
+            start_payload = {
+                "stage": "incident_evidence_collection",
+                "execution_mode": "live",
+                "incident_id": graph_input.incident_id,
+                "service": graph_input.service,
+                "suspect_path_count": len(graph_input.suspect_paths),
+                "rca_generation_enabled": False,
+                "write_actions_enabled": False,
+            }
         write_audit_event(
             session,
             AuditEventInput(
@@ -125,32 +156,32 @@ async def collect_incident_evidence(
                 resource_type="workflow_run",
                 resource_id=str(run.id),
                 trace_id=request.trace_id,
-                payload={
-                    "stage": "incident_evidence_collection",
-                    "execution_mode": "live",
-                    "incident_id": graph_input.incident_id,
-                    "service": graph_input.service,
-                    "suspect_path_count": len(graph_input.suspect_paths),
-                    "rca_generation_enabled": False,
-                    "write_actions_enabled": False,
-                },
+                payload=start_payload,
             ),
         )
         session.flush()
-        runtime = tool_runtime or PolicyBackedIncidentToolRuntime(
-            workflow_registry=workflow_registry,
-            tool_registry=tool_registry,
-            session=session,
-            policy_evaluator=policy_evaluator,
-            adapter_registry=adapter_registry,
-            available_connectors=available_connectors,
-        )
-        graph = create_incident_investigation_graph(
-            IncidentInvestigationGraphDependencies(tool_runtime=runtime)
-        )
-        graph_state = as_incident_investigation_state(
-            await graph.ainvoke(graph_input.to_initial_state())
-        )
+        if graph_state is None:
+            if graph_input is None:
+                raise IncidentInvestigationRejectedError(
+                    reason_code="workflow_graph_not_initialized",
+                    message="Workflow graph was not initialized.",
+                )
+            runtime = tool_runtime or PolicyBackedIncidentToolRuntime(
+                workflow_registry=workflow_registry,
+                tool_registry=tool_registry,
+                session=session,
+                policy_evaluator=policy_evaluator,
+                adapter_registry=adapter_registry,
+                available_connectors=available_connectors,
+            )
+            graph = create_incident_investigation_graph(
+                IncidentInvestigationGraphDependencies(tool_runtime=runtime)
+            )
+            graph_state = as_incident_investigation_state(
+                await graph.ainvoke(graph_input.to_initial_state())
+            )
+        elif not graph_state.get("evidence"):
+            graph_state.update(evidence_auditor_node(graph_state))
         evidence_records = persist_incident_evidence(session, run, graph_state)
         policy_decision_ids = collect_policy_decision_ids(graph_state)
         write_audit_event(
@@ -238,10 +269,17 @@ def ensure_run_can_collect_incident_evidence(run: WorkflowRun) -> None:
             message=f"Workflow run status is {run.status}.",
         )
     if run.execution_mode != "live":
+        if run.execution_mode == "replay":
+            if get_replay_source_run_id(run) is None:
+                raise IncidentInvestigationRejectedError(
+                    reason_code="replay_source_required",
+                    message="Replay mode requires replay_source_run_id from a captured real run.",
+                    http_status=422,
+                )
+            return
         raise IncidentInvestigationRejectedError(
             reason_code="execution_mode_not_supported",
-            message="Incident investigation replay requires captured-real replay support first.",
-            http_status=422,
+            message=f"Workflow run execution mode is {run.execution_mode}.",
         )
 
 
@@ -277,6 +315,55 @@ def build_graph_input_from_run(
         actor_id=request.actor_id or string_or_none(payload.get("actor_id")),
         trace_id=request.trace_id or string_or_none(payload.get("trace_id")),
     )
+
+
+def load_replay_graph_state(
+    run: WorkflowRun,
+    request: IncidentInvestigationRequest,
+    replay_fixture_dir: Path | None,
+) -> IncidentInvestigationState:
+    source_run_id = get_replay_source_run_id(run)
+    if source_run_id is None:
+        raise IncidentInvestigationRejectedError(
+            reason_code="replay_source_required",
+            message="Replay mode requires replay_source_run_id from a captured real run.",
+            http_status=422,
+        )
+    fixture = load_incident_replay_fixture(source_run_id, replay_fixture_dir)
+    return fixture.to_graph_state(
+        run_id=run.id,
+        autonomy_level=cast(Any, run.autonomy_level),
+        actor_id=request.actor_id,
+        trace_id=request.trace_id,
+    )
+
+
+def get_replay_source_run_id(run: WorkflowRun) -> str | None:
+    payload = run.input_payload or {}
+    return string_or_none(payload.get("replay_source_run_id"))
+
+
+def ensure_replay_request_does_not_override_fixture(
+    request: IncidentInvestigationRequest,
+) -> None:
+    if any(
+        value is not None
+        for value in (
+            request.incident_id,
+            request.service,
+            request.time_window,
+            request.severity,
+            request.environment,
+            request.repository,
+            request.ref,
+            request.suspect_paths,
+        )
+    ):
+        raise IncidentInvestigationRejectedError(
+            reason_code="replay_input_override_not_allowed",
+            message="Replay evidence collection must use the captured replay fixture inputs.",
+            http_status=422,
+        )
 
 
 def persist_incident_evidence(

@@ -9,6 +9,10 @@ from aegisops_api.workflows.incident_response_investigator.graph import (
     as_incident_investigation_state,
     create_incident_investigation_graph,
 )
+from aegisops_api.workflows.incident_response_investigator.replay import (
+    IncidentReplayFixture,
+    ReplayFixtureError,
+)
 from aegisops_api.workflows.incident_response_investigator.runtime import (
     IncidentEvidenceRecordSummary,
     IncidentInvestigationRejectedError,
@@ -27,8 +31,10 @@ __all__ = [
     "IncidentInvestigationResponse",
     "IncidentInvestigationState",
     "IncidentInvestigationToolRuntime",
+    "IncidentReplayFixture",
     "IncidentTimeWindow",
     "PolicyBackedIncidentToolRuntime",
+    "ReplayFixtureError",
     "as_incident_investigation_state",
     "collect_incident_evidence",
     "create_incident_investigation_graph",

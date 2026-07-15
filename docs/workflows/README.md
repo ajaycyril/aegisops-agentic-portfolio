@@ -29,11 +29,13 @@ the portfolio registry.
 
 `services/api/src/aegisops_api/workflows/incident_response_investigator/` now contains the
 first Production Incident Investigator runtime slice. The route
-`POST /workflow-runs/{run_id}/incident-response-investigator/evidence` requires a stored live
-workflow run, then collects read-only observability log, deployment event, and optional GitHub
-file evidence through policy-authorized tool calls. Persisted evidence records keep hashes and
-metadata instead of raw log/code payloads. RCA generation, replay, rollback, paging, and
-incident updates remain disabled until evidence validation and approval paths are implemented.
+`POST /workflow-runs/{run_id}/incident-response-investigator/evidence` requires a stored
+workflow run. Live mode collects read-only observability log, deployment event, and optional
+GitHub file evidence through policy-authorized tool calls. Replay mode requires a captured
+real-run fixture using schema version `incident_response_investigator.replay.v1`. Persisted
+evidence records keep hashes and metadata instead of raw log/code payloads. RCA generation,
+rollback, paging, and incident updates remain disabled until evidence validation and approval
+paths are implemented.
 
 The command center also contains a multi-agent orchestration contract for
 `incident_response_investigator`. It maps the Production Incident Investigator to supervisor,

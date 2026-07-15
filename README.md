@@ -69,9 +69,9 @@ This repository currently defines:
   React Flow to show supervisor-worker fan-out, specialist evidence gathering, evaluator
   reconciliation, and approval-gated production actions without fake incident data.
 - Production Incident Investigator LangGraph runtime slice with read-only log, deployment,
-  and code evidence collection through policy-authorized tool calls. RCA generation, replay,
-  rollback, paging, and incident updates remain disabled until evidence validation and
-  approval paths are implemented.
+  and code evidence collection through policy-authorized tool calls plus captured-real-run
+  replay loading. RCA generation, rollback, paging, and incident updates remain disabled until
+  evidence validation and approval paths are implemented.
 
 ## Core Principle
 
@@ -167,8 +167,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 7 by adding real observability/deployment adapters or captured-real replay
-   for the Incident Investigator evidence route.
+3. Continue Phase 7 by adding real observability/deployment adapters for the Incident
+   Investigator evidence route.
 4. Continue Phase 6 by adding approval-review persistence and UI state before any branch or PR
    write adapter.
 

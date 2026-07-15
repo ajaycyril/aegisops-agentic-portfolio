@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
@@ -26,6 +28,7 @@ from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.incident_response_investigator import (
     IncidentInvestigationRejectedError,
     IncidentInvestigationRequest,
+    ReplayFixtureError,
     collect_incident_evidence,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
@@ -235,16 +238,83 @@ async def test_collect_incident_evidence_rejects_missing_input() -> None:
             tool_runtime=FakeIncidentToolRuntime(),
         )
 
-    assert session.commit_count == 0
+    assert run.status == "failed"
+    assert session.commit_count == 1
 
 
 @pytest.mark.asyncio
-async def test_collect_incident_evidence_rejects_replay_until_captured_replay_exists() -> None:
+async def test_collect_incident_evidence_uses_captured_replay_fixture(tmp_path: Path) -> None:
     run = create_live_incident_run()
     run.execution_mode = "replay"
+    run.input_payload = {"replay_source_run_id": "captured-incident-run-001"}
+    session = RuntimeSession({run.id: run})
+    write_replay_fixture(tmp_path, "captured-incident-run-001")
+
+    response = await collect_incident_evidence(
+        run_id=run.id,
+        request=IncidentInvestigationRequest(actor_id="user-123"),
+        session=cast(Session, session),
+        workflow_registry=cast(WorkflowRegistry, object()),
+        tool_registry=cast(ToolRegistry, object()),
+        policy_evaluator=FakeToolPolicyEvaluator(),
+        adapter_registry=ToolAdapterRegistry({}),
+        available_connectors={"observability", "deployments", "github"},
+        replay_fixture_dir=tmp_path,
+    )
+
+    assert run.status == "running"
+    assert response.stage == "incident_evidence_collected"
+    assert response.incident_id == "inc-captured-001"
+    assert response.log_event_count == 1
+    assert response.deployment_event_count == 1
+    assert response.code_file_count == 1
+    assert response.tool_call_ids == [
+        "captured-log-call",
+        "captured-deployment-call",
+        "captured-code-call",
+    ]
+    assert response.policy_decision_ids == [
+        "captured-log-policy",
+        "captured-deployment-policy",
+        "captured-code-policy",
+    ]
+    assert len([item for item in session.added if isinstance(item, EvidenceRecord)]) == 3
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_incident_evidence_rejects_replay_input_override(tmp_path: Path) -> None:
+    run = create_live_incident_run()
+    run.execution_mode = "replay"
+    run.input_payload = {"replay_source_run_id": "captured-incident-run-001"}
+    session = RuntimeSession({run.id: run})
+    write_replay_fixture(tmp_path, "captured-incident-run-001")
+
+    with pytest.raises(IncidentInvestigationRejectedError, match="captured replay fixture"):
+        await collect_incident_evidence(
+            run_id=run.id,
+            request=IncidentInvestigationRequest(service="different-service"),
+            session=cast(Session, session),
+            workflow_registry=cast(WorkflowRegistry, object()),
+            tool_registry=cast(ToolRegistry, object()),
+            policy_evaluator=FakeToolPolicyEvaluator(),
+            adapter_registry=ToolAdapterRegistry({}),
+            available_connectors={"observability", "deployments", "github"},
+            replay_fixture_dir=tmp_path,
+        )
+
+    assert run.status == "failed"
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_incident_evidence_reports_missing_replay_fixture(tmp_path: Path) -> None:
+    run = create_live_incident_run()
+    run.execution_mode = "replay"
+    run.input_payload = {"replay_source_run_id": "missing-incident-run"}
     session = RuntimeSession({run.id: run})
 
-    with pytest.raises(IncidentInvestigationRejectedError, match="captured-real replay"):
+    with pytest.raises(ReplayFixtureError, match="Replay fixture was not found"):
         await collect_incident_evidence(
             run_id=run.id,
             request=IncidentInvestigationRequest(),
@@ -254,10 +324,11 @@ async def test_collect_incident_evidence_rejects_replay_until_captured_replay_ex
             policy_evaluator=FakeToolPolicyEvaluator(),
             adapter_registry=ToolAdapterRegistry({}),
             available_connectors={"observability", "deployments", "github"},
-            tool_runtime=FakeIncidentToolRuntime(),
+            replay_fixture_dir=tmp_path,
         )
 
-    assert session.commit_count == 0
+    assert run.status == "failed"
+    assert session.commit_count == 1
 
 
 def test_incident_evidence_endpoint_returns_404_for_missing_run() -> None:
@@ -286,3 +357,67 @@ def test_incident_evidence_endpoint_returns_404_for_missing_run() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"]["reason_code"] == "workflow_run_not_found"
+
+
+def write_replay_fixture(directory: Path, source_run_id: str) -> None:
+    (directory / f"{source_run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "incident_response_investigator.replay.v1",
+                "workflow_id": "incident_response_investigator",
+                "provenance": "captured_real_run",
+                "source_run_id": source_run_id,
+                "captured_at": "2026-07-15T07:30:00+00:00",
+                "incident_id": "inc-captured-001",
+                "service": "checkout-api",
+                "time_window": {
+                    "start": "2026-07-15T06:45:00+00:00",
+                    "end": "2026-07-15T07:15:00+00:00",
+                },
+                "severity": "error",
+                "environment": "production",
+                "repository": "acme/checkout",
+                "ref": "main",
+                "suspect_paths": ["services/checkout/config.py"],
+                "log_events": [
+                    {
+                        "event_id": "captured-log-1",
+                        "timestamp": "2026-07-15T07:00:00+00:00",
+                        "severity": "error",
+                        "service": "checkout-api",
+                        "message": "captured real log text",
+                        "source_uri": "https://observability.example/events/captured-log-1",
+                    }
+                ],
+                "deployment_events": [
+                    {
+                        "deployment_id": "captured-dep-1",
+                        "environment": "production",
+                        "deployed_at": "2026-07-15T06:50:00+00:00",
+                        "commit_sha": "abc123",
+                        "status": "succeeded",
+                        "source_uri": "https://deployments.example/events/captured-dep-1",
+                    }
+                ],
+                "code_files": [
+                    {
+                        "path": "services/checkout/config.py",
+                        "ref": "main",
+                        "content": "timeout_ms = 250\n",
+                        "sha": "file-sha-1",
+                    }
+                ],
+                "log_tool_call_ids": ["captured-log-call"],
+                "deployment_tool_call_ids": ["captured-deployment-call"],
+                "code_tool_call_ids": ["captured-code-call"],
+                "log_policy_decision_ids": ["captured-log-policy"],
+                "deployment_policy_decision_ids": ["captured-deployment-policy"],
+                "code_policy_decision_ids": ["captured-code-policy"],
+                "data_policy": {
+                    "fake_data_allowed": False,
+                    "replay_allowed_from_real_runs": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )

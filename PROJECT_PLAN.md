@@ -45,7 +45,8 @@ streams, evaluator reconciliation, and approval-gated production actions as a vi
 only. The Production Incident Investigator now also has a first backend runtime slice: a typed
 LangGraph evidence-collection graph and run-scoped API route for read-only observability log,
 deployment event, and GitHub file evidence collection, with policy-authorized tool calls,
-evidence metadata persistence, and no RCA or write actions enabled.
+evidence metadata persistence, captured-real-run replay loading, and no RCA or write actions
+enabled.
 
 Current production web deployment:
 
@@ -477,8 +478,9 @@ Goal: Add real incident investigation across logs, deployments, and code changes
 Status note: the visual multi-agent orchestration contract is present in the command center.
 The first runtime slice is implemented as guarded read-only evidence collection for logs,
 deployment events, and optional repository files. Live connector adapters for observability and
-deployment systems, RCA generation, approval requests, and captured-real replay remain future
-work.
+deployment systems, RCA generation, approval requests, and production write actions remain
+future work. Captured-real-run replay schema and loading are implemented without committing
+fabricated replay payloads.
 
 Tasks:
 
@@ -492,7 +494,7 @@ Tasks:
    approval nodes.
 5. Add source-grounded evidence board.
 6. Add policy rules for rollback and incident update actions.
-7. Add captured-real-run replay format.
+7. Done: add captured-real-run replay format and loader.
 8. Add eval rubric for RCA quality.
 
 Acceptance criteria:
