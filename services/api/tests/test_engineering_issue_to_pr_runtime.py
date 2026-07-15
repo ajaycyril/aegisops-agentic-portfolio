@@ -40,9 +40,11 @@ from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureE
 from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
     IssueToPrApprovalDecisionRequest,
     IssueToPrApprovalReviewRequest,
+    IssueToPrPrDraftAuthorizationRequest,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     ProposedIssueToPrWriteAction,
+    authorize_issue_to_pr_draft_pr,
     collect_engineering_issue_context,
     decide_issue_to_pr_approval,
     parse_github_issue_url,
@@ -50,10 +52,12 @@ from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
 
+TOOL_CONFIG_DIR = Path(__file__).resolve().parents[3] / "configs" / "tools"
+
 
 class FakeToolPolicyEvaluator:
-    async def evaluate(self, _input_payload: dict[str, Any]) -> PolicyDecision:
-        return PolicyDecision(
+    def __init__(self, decision: PolicyDecision | None = None) -> None:
+        self.decision = decision or PolicyDecision(
             package_path="aegisops.tool_access",
             allowed=True,
             requires_approval=False,
@@ -61,6 +65,11 @@ class FakeToolPolicyEvaluator:
             reason_codes=[],
             result={"allow": True},
         )
+        self.inputs: list[dict[str, Any]] = []
+
+    async def evaluate(self, input_payload: dict[str, Any]) -> PolicyDecision:
+        self.inputs.append(input_payload)
+        return self.decision
 
 
 class FakeApprovalPolicyEvaluator:
@@ -215,6 +224,33 @@ def create_live_engineering_run(input_payload: dict[str, Any] | None = None) -> 
         budget={"max_tool_calls": 25, "max_run_seconds": 300, "max_estimated_usd": 1.0},
         policy_context={},
     )
+
+
+def create_ready_engineering_registry(tmp_path: Path) -> WorkflowRegistry:
+    config_path = tmp_path / "engineering_issue_to_pr.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "id: engineering_issue_to_pr",
+                "name: Ready Engineering Agent",
+                "domain: engineering",
+                "status: ready",
+                "enabled_when:",
+                "  connectors: [github]",
+                "  required_scopes: [issues:read, contents:read, pull_requests:write]",
+                "patterns: [plan_execute]",
+                "data_policy:",
+                "  fake_data_allowed: false",
+                "  replay_allowed_from_real_runs: true",
+                "  regex_business_extraction_allowed: false",
+                "default_autonomy: approval_required",
+                "approval_required_for: [branch_creation, pull_request_creation]",
+                "visual_surfaces: [executive_summary]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return WorkflowRegistry.from_directory(tmp_path)
 
 
 @pytest.mark.asyncio
@@ -501,6 +537,79 @@ async def test_decide_issue_to_pr_approval_records_policy_denial() -> None:
 
 
 @pytest.mark.asyncio
+async def test_authorize_issue_to_pr_draft_pr_uses_approved_approval_id(
+    tmp_path: Path,
+) -> None:
+    run = create_live_engineering_run()
+    run.status = "waiting_for_approval"
+    run.autonomy_level = "approval_required"
+    approval = create_pending_approval(run, requested_action="pull_request_creation")
+    approval.status = "approved"
+    session = RuntimeSession({run.id: run}, {approval.id: approval})
+    evaluator = FakeToolPolicyEvaluator()
+
+    response = await authorize_issue_to_pr_draft_pr(
+        run_id=run.id,
+        request=create_pr_draft_authorization_request(approval.id),
+        session=cast(Session, session),
+        workflow_registry=create_ready_engineering_registry(tmp_path),
+        tool_registry=ToolRegistry.from_directory(TOOL_CONFIG_DIR),
+        policy_evaluator=evaluator,
+        available_connectors={"github"},
+    )
+
+    assert response.status == "pending"
+    assert response.execution_state == "authorized_not_executed"
+    assert response.approval_id == approval.id
+    assert response.execution_available is False
+    assert response.write_actions_enabled is False
+    assert evaluator.inputs[0]["approval"]["status"] == "approved"
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_authorize_issue_to_pr_draft_pr_blocks_without_approval_id(
+    tmp_path: Path,
+) -> None:
+    run = create_live_engineering_run()
+    run.status = "waiting_for_approval"
+    run.autonomy_level = "approval_required"
+    session = RuntimeSession({run.id: run})
+    evaluator = FakeToolPolicyEvaluator(
+        PolicyDecision(
+            package_path="aegisops.tool_access",
+            allowed=False,
+            requires_approval=True,
+            decision_id="tool-decision-approval-required",
+            reason_codes=["approval_required"],
+            result={
+                "allow": False,
+                "requires_approval": True,
+                "reason_codes": ["approval_required"],
+            },
+        )
+    )
+
+    response = await authorize_issue_to_pr_draft_pr(
+        run_id=run.id,
+        request=create_pr_draft_authorization_request(),
+        session=cast(Session, session),
+        workflow_registry=create_ready_engineering_registry(tmp_path),
+        tool_registry=ToolRegistry.from_directory(TOOL_CONFIG_DIR),
+        policy_evaluator=evaluator,
+        available_connectors={"github"},
+    )
+
+    assert response.status == "blocked"
+    assert response.execution_state == "blocked_before_execution"
+    assert response.policy_decision.requires_approval is True
+    assert response.policy_decision.reason_codes == ["approval_required"]
+    assert response.approval_id is None
+    assert response.execution_available is False
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
 async def test_collect_engineering_issue_context_reports_missing_replay_fixture(
     tmp_path: Path,
 ) -> None:
@@ -617,6 +726,21 @@ def create_approval_review_request() -> IssueToPrApprovalReviewRequest:
                 evidence_uris=["https://github.com/acme/app/issues/42"],
             ),
         ],
+    )
+
+
+def create_pr_draft_authorization_request(
+    approval_id: UUID | None = None,
+) -> IssueToPrPrDraftAuthorizationRequest:
+    return IssueToPrPrDraftAuthorizationRequest(
+        repository="acme/app",
+        title="Fix CI type checker failure",
+        body="Draft PR body assembled from approved evidence and test plan.",
+        head_branch="aegis/fix-type-check",
+        base_branch="main",
+        approval_id=approval_id,
+        actor_id="reviewer-456",
+        trace_id="trace-pr-draft",
     )
 
 

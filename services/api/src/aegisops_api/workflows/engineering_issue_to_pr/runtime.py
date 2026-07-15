@@ -14,7 +14,11 @@ from sqlalchemy.orm import Session
 from aegisops_api.audit import AuditEventInput, write_audit_event
 from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
 from aegisops_api.policy import OpaClient, PolicyDecision
-from aegisops_api.tools import ToolPolicyEvaluator
+from aegisops_api.tools import (
+    ToolCallAuthorizationRequest,
+    ToolPolicyEvaluator,
+    authorize_tool_call,
+)
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.engineering_issue_to_pr.graph import (
@@ -191,6 +195,42 @@ class IssueToPrApprovalDecisionResponse(BaseModel):
     execution_state: Literal["approval_decision_recorded_no_write_execution"] = (
         "approval_decision_recorded_no_write_execution"
     )
+    write_actions_enabled: Literal[False] = False
+
+
+class IssueToPrPrDraftAuthorizationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    repository: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+    head_branch: str = Field(min_length=1)
+    base_branch: str = Field(default="main", min_length=1)
+    approval_id: UUID | None = None
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+    def to_tool_input(self) -> dict[str, Any]:
+        return {
+            "repository": self.repository,
+            "title": self.title,
+            "body": self.body,
+            "head_branch": self.head_branch,
+            "base_branch": self.base_branch,
+        }
+
+
+class IssueToPrPrDraftAuthorizationResponse(BaseModel):
+    run_id: UUID
+    workflow_id: str
+    tool_call_id: UUID
+    tool_id: Literal["github_pull_request_draft"]
+    status: str
+    execution_state: str
+    risk_class: str
+    approval_id: UUID | None
+    policy_decision: ApprovalPolicyDecisionSummary
+    execution_available: Literal[False] = False
     write_actions_enabled: Literal[False] = False
 
 
@@ -614,6 +654,59 @@ async def decide_issue_to_pr_approval(
     )
 
 
+async def authorize_issue_to_pr_draft_pr(
+    run_id: UUID,
+    request: IssueToPrPrDraftAuthorizationRequest,
+    session: Session,
+    workflow_registry: WorkflowRegistry,
+    tool_registry: ToolRegistry,
+    policy_evaluator: ToolPolicyEvaluator,
+    available_connectors: set[str],
+) -> IssueToPrPrDraftAuthorizationResponse:
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_run_can_authorize_pr_draft(run)
+
+    authorization = await authorize_tool_call(
+        request=ToolCallAuthorizationRequest(
+            run_id=run.id,
+            workflow_id=ENGINEERING_WORKFLOW_ID,
+            tool_id="github_pull_request_draft",
+            autonomy_level=cast(Any, run.autonomy_level),
+            input_payload=request.to_tool_input(),
+            approval_id=request.approval_id,
+            actor_id=request.actor_id,
+            trace_id=request.trace_id,
+        ),
+        workflow_registry=workflow_registry,
+        tool_registry=tool_registry,
+        session=session,
+        policy_evaluator=policy_evaluator,
+        available_connectors=available_connectors,
+    )
+    return IssueToPrPrDraftAuthorizationResponse(
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        tool_call_id=authorization.id,
+        tool_id="github_pull_request_draft",
+        status=authorization.status,
+        execution_state=authorization.execution_state,
+        risk_class=authorization.risk_class,
+        approval_id=request.approval_id,
+        policy_decision=ApprovalPolicyDecisionSummary(
+            allowed=authorization.policy_decision.allowed,
+            requires_approval=authorization.policy_decision.requires_approval,
+            decision_id=authorization.policy_decision.decision_id,
+            reason_codes=authorization.policy_decision.reason_codes,
+        ),
+    )
+
+
 def ensure_run_can_collect_issue_context(run: WorkflowRun) -> None:
     if run.workflow_id != ENGINEERING_WORKFLOW_ID:
         raise IssueToPrRunRejectedError(
@@ -675,6 +768,19 @@ def ensure_approval_can_be_decided(run: WorkflowRun, approval: Approval) -> None
         raise IssueToPrRunRejectedError(
             reason_code="approval_not_pending",
             message=f"Approval status is {approval.status}.",
+        )
+    if run.status != "waiting_for_approval":
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_waiting_for_approval",
+            message=f"Workflow run status is {run.status}.",
+        )
+
+
+def ensure_run_can_authorize_pr_draft(run: WorkflowRun) -> None:
+    if run.workflow_id != ENGINEERING_WORKFLOW_ID:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports engineering_issue_to_pr runs.",
         )
     if run.status != "waiting_for_approval":
         raise IssueToPrRunRejectedError(

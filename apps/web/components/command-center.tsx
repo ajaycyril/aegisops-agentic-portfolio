@@ -1289,8 +1289,13 @@ function createProposalReview(
           "POST /workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision",
       },
       {
+        label: "PR gate",
+        value:
+          "POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/authorize",
+      },
+      {
         label: "Execution",
-        value: "approval_decision_recorded_no_write_execution",
+        value: "authorized_not_executed or blocked_before_execution",
       },
     ],
     approvalStops: workflow.approval_required_for,

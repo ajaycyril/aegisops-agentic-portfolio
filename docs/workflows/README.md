@@ -31,8 +31,12 @@ against the proposal, records audit events, and moves the run to `waiting_for_ap
 The decision route
 `POST /workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision`
 approves or rejects pending approval records through OPA, stores decision metadata, and audits
-the reviewer decision. Neither route executes branch or pull-request writes. The YAML files
-under `configs/workflows` remain the portfolio registry.
+the reviewer decision. The PR draft authorization route
+`POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/authorize` accepts approved
+approval IDs and creates policy-checked write-class tool-call records in
+`authorized_not_executed` or `blocked_before_execution` state. None of these routes executes
+branch or pull-request writes. The YAML files under `configs/workflows` remain the portfolio
+registry.
 
 `services/api/src/aegisops_api/workflows/incident_response_investigator/` now contains the
 first Production Incident Investigator runtime slice. The route

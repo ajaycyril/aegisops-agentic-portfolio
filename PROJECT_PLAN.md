@@ -43,8 +43,11 @@ showing fake run output or enabling branch/PR writes. A run-scoped Engineering a
 route creates pending `approvals` rows for proposed branch/PR actions, records audit events,
 and moves runs to `waiting_for_approval` without executing GitHub writes. A second run-scoped
 decision route now approves or rejects those pending records through OPA, enforces a four-eyes
-review policy, audits the decision, and still returns a no-write execution state. It also
-includes a React Flow multi-agent orchestration cockpit for the
+review policy, audits the decision, and still returns a no-write execution state. The
+Engineering PR draft authorization route now accepts approved approval IDs and creates
+policy-checked `github_pull_request_draft` tool calls in `authorized_not_executed` or
+`blocked_before_execution` state, without executing GitHub writes. It also includes a React
+Flow multi-agent orchestration cockpit for the
 Production Incident Investigator, showing a supervisor-worker fan-out, specialist evidence
 streams, evaluator reconciliation, and approval-gated production actions as a visual contract
 only. The Production Incident Investigator now also has a first backend runtime slice: a typed
@@ -404,6 +407,11 @@ Completed artifacts:
 - Approval decision persistence for approve/reject transitions, including policy decision
   metadata, approver ID, decision payload, audit events, four-eyes enforcement input, and
   `approval_decision_recorded_no_write_execution`.
+- Run-scoped Engineering PR draft authorization route at
+  `POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/authorize`.
+- Approved approval ID wiring into the GitHub PR draft tool authorization boundary. Approved
+  approvals can create an authorized-but-not-executed write-class `tool_calls` record; missing
+  approvals create a blocked record. No PR write adapter is executed.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -446,11 +454,11 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Wire approved approval IDs into the blocked GitHub PR draft authorization path.
-2. Add tests proving write-class authorization remains blocked without an approved approval ID
-   and policy-checked approval context.
-3. Keep branch and PR write adapters disabled until explicit dry-run write planning and UI
-   review are complete.
+1. Add a dry-run PR preview artifact that renders the approved proposal, PR body, policy
+   decision, and authorized tool-call ID without executing the adapter.
+2. Add UI state for approved vs blocked PR authorization outcomes.
+3. Keep branch and PR write adapters disabled until explicit dry-run preview and final review
+   are complete.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -475,15 +483,16 @@ Tasks:
 2. Done: add typed state and contracts for issue context collection.
 3. In progress: add graph nodes. Done for issue ingestion, repo context reads, optional
    planning, patch proposal contract, test plan contract, evaluator contract, approval review
-   persistence, and approve/reject decision route. Pending PR draft.
+   persistence, approve/reject decision route, and PR draft authorization route. Pending dry-run
+   PR preview artifact.
 4. In progress: add GitHub tools. Done for issue read and file read; branch and PR draft write
    adapters remain disabled.
 5. In progress: add policy rules for branch and PR approval. Done for approval decision
-   fixtures; pending tool authorization wiring with approved approval IDs.
+   fixtures and approved-approval-ID tool authorization; pending dry-run preview policy surface.
 6. Add visual graph mapping for UI.
 7. In progress: add tests for branch decisions and approval paths. Done for pending
-   approval-review creation and approve/reject transitions; pending approved write-tool
-   authorization tests.
+   approval-review creation, approve/reject transitions, and approved write-tool authorization;
+   pending dry-run preview tests.
 8. Add first captured real-run replay format.
 
 Acceptance criteria:
@@ -617,5 +626,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by wiring approved approval IDs into the policy-checked GitHub PR draft authorization
-path. Do not enable branch or pull-request write execution.
+Continue by adding a dry-run PR preview artifact from the approved proposal and authorized
+tool-call ID. Do not enable branch or pull-request write execution.

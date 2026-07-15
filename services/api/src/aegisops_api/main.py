@@ -40,12 +40,15 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
     IssueToPrApprovalDecisionResponse,
     IssueToPrApprovalReviewRequest,
     IssueToPrApprovalReviewResponse,
+    IssueToPrPrDraftAuthorizationRequest,
+    IssueToPrPrDraftAuthorizationResponse,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     IssueToPrRunResponse,
     OpaApprovalPolicyEvaluator,
     OpenAIIssueToPrPlanner,
     OpenAIPlannerConfig,
+    authorize_issue_to_pr_draft_pr,
     collect_engineering_issue_context,
     decide_issue_to_pr_approval,
     request_issue_to_pr_approval_review,
@@ -431,6 +434,43 @@ async def decide_engineering_issue_to_pr_approval(
             policy_evaluator=policy_evaluator,
         )
     except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/authorize",
+    response_model=IssueToPrPrDraftAuthorizationResponse,
+    tags=["workflow-runs"],
+)
+async def authorize_engineering_issue_to_pr_draft_pr(
+    run_id: UUID,
+    request: IssueToPrPrDraftAuthorizationRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+) -> IssueToPrPrDraftAuthorizationResponse:
+    try:
+        return await authorize_issue_to_pr_draft_pr(
+            run_id=run_id,
+            request=request,
+            session=session,
+            workflow_registry=get_workflow_registry(),
+            tool_registry=get_tool_registry(),
+            policy_evaluator=policy_evaluator,
+            available_connectors=get_available_connectors(),
+        )
+    except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (WorkflowNotFoundError, ToolNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="workflow or tool not found") from exc
+    except ToolExecutionRejectedError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
