@@ -201,6 +201,7 @@ p {
 
 .nav-section {
   margin-bottom: 28px;
+  min-width: 0;
 }
 
 .nav-title {
@@ -234,6 +235,8 @@ p {
 .mode-stack {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mode-row {
@@ -262,6 +265,7 @@ p {
   z-index: 1;
   padding: 24px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .cockpit {
@@ -275,6 +279,7 @@ p {
   grid-template-columns: minmax(0, 1.12fr) minmax(360px, 0.88fr);
   gap: 18px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .mission-copy,
@@ -290,6 +295,7 @@ p {
 .mission-copy {
   border-radius: 8px;
   padding: 24px;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -305,6 +311,7 @@ h1 {
   font-size: clamp(34px, 5vw, 62px);
   line-height: 1;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .mission-copy p {
@@ -1430,6 +1437,165 @@ h1 {
   font-weight: 800;
 }
 
+.support-runtime {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  min-width: 0;
+}
+
+.support-runtime-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(53, 194, 167, 0.18);
+  background:
+    linear-gradient(90deg, rgba(53, 194, 167, 0.075), rgba(120, 166, 255, 0.045)),
+    rgba(255, 255, 255, 0.035);
+  border-radius: 8px;
+}
+
+.support-runtime-brief code {
+  display: block;
+  margin-top: 7px;
+  color: #edf5ff;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.support-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.support-stage {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px 10px;
+  align-content: start;
+  min-height: 158px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.support-stage-open {
+  border-color: rgba(53, 194, 167, 0.22);
+}
+
+.support-stage-neutral {
+  border-color: rgba(120, 166, 255, 0.2);
+}
+
+.support-stage-closed {
+  border-color: rgba(255, 122, 144, 0.24);
+  background: rgba(255, 122, 144, 0.045);
+}
+
+.support-stage-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(53, 194, 167, 0.24);
+  background: rgba(53, 194, 167, 0.08);
+  color: var(--teal);
+  border-radius: 8px;
+}
+
+.support-stage-neutral .support-stage-icon {
+  border-color: rgba(120, 166, 255, 0.24);
+  background: rgba(120, 166, 255, 0.08);
+  color: var(--blue);
+}
+
+.support-stage-closed .support-stage-icon {
+  border-color: rgba(255, 122, 144, 0.28);
+  background: rgba(255, 122, 144, 0.08);
+  color: var(--rose);
+}
+
+.support-stage strong,
+.support-stage span,
+.support-stage em,
+.support-stage small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.support-stage strong {
+  color: #f0f4fb;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.support-stage span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.support-stage em,
+.support-stage small {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.support-stage em {
+  color: #dce8ff;
+}
+
+.support-stage small {
+  color: var(--muted);
+}
+
+.support-contract-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.support-contract-card {
+  display: grid;
+  gap: 7px;
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid rgba(120, 166, 255, 0.16);
+  background: rgba(120, 166, 255, 0.045);
+  border-radius: 8px;
+}
+
+.support-contract-card.blocked {
+  border-color: rgba(255, 122, 144, 0.22);
+  background: rgba(255, 122, 144, 0.045);
+}
+
+.support-contract-card span {
+  color: #dce3ef;
+  font-size: 12px;
+}
+
+.support-contract-card strong {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .chart-panel,
 .evidence-panel {
   min-height: 336px;
@@ -1596,8 +1762,14 @@ h1 {
   }
 
   .approval-stop-list,
+  .support-contract-grid,
+  .support-stage-grid,
   .trace-outcome-grid,
   .trace-events {
+    grid-template-columns: 1fr;
+  }
+
+  .support-runtime-brief {
     grid-template-columns: 1fr;
   }
 
@@ -1631,11 +1803,16 @@ h1 {
 @media (max-width: 980px) {
   .command-layout {
     grid-template-columns: 1fr;
+    max-width: 100vw;
+    overflow: hidden;
   }
 
   .sidebar {
     position: static;
     min-height: auto;
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
     padding: 16px;
     border-right: 0;
     border-bottom: 1px solid var(--border-soft);
@@ -1669,6 +1846,7 @@ h1 {
   .mode-stack {
     grid-template-columns: repeat(4, minmax(148px, 1fr));
     overflow-x: auto;
+    max-width: 100%;
     padding-bottom: 4px;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
@@ -1686,6 +1864,7 @@ h1 {
 
 @media (max-width: 760px) {
   .topbar {
+    position: static;
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
@@ -1712,10 +1891,19 @@ h1 {
   }
 
   .mission-copy {
+    width: calc(100vw - 28px);
+    max-width: calc(100vw - 28px);
     padding: 18px;
   }
 
+  .panel,
+  .metric {
+    width: calc(100vw - 28px);
+    max-width: calc(100vw - 28px);
+  }
+
   .mission-copy p {
+    max-width: 320px;
     font-size: 15px;
   }
 
@@ -1802,11 +1990,23 @@ h1 {
   .workflow-detail,
   .runtime-grid,
   .proposal-review,
+  .support-runtime,
   .evidence-table,
   .lens-list,
   .timeline,
   .code-panel pre {
     padding: 14px;
+  }
+
+  .workflow-card {
+    width: calc(100vw - 56px);
+    max-width: calc(100vw - 56px);
+  }
+
+  .workflow-title,
+  .workflow-copy {
+    max-width: calc(100vw - 88px);
+    word-break: break-word;
   }
 
   .readiness-item {
@@ -1855,8 +2055,9 @@ h1 {
   }
 
   h1 {
-    font-size: 36px;
-    line-height: 1.03;
+    max-width: 320px;
+    font-size: 32px;
+    line-height: 1.06;
   }
 }
 

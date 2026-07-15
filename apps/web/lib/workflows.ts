@@ -91,7 +91,7 @@ const workflowSeeds: WorkflowSeed[] = [
     id: "customer_support_escalation",
     name: "Customer Support Escalation Agent",
     domain: "customer_support",
-    status: "planned",
+    status: "ready",
     required_connectors: ["support_system", "knowledge_base", "crm"],
     required_scopes: ["tickets:read", "customers:read", "knowledge:read", "drafts:write"],
     default_autonomy: "draft_only",

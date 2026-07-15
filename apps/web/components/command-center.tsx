@@ -10,17 +10,21 @@ import {
   Code2,
   Database,
   FileCode2,
+  FileText,
   Gauge,
   GitPullRequest,
   KeyRound,
   Layers3,
   LockKeyhole,
+  MessageSquare,
   Network,
   PlayCircle,
+  Send,
   Server,
   ShieldCheck,
   Sparkles,
   TimerReset,
+  UserRound,
   Workflow,
   XCircle,
 } from "lucide-react";
@@ -139,6 +143,16 @@ type TraceReadoutModel = {
     value: string;
     state: GateState;
   }>;
+};
+
+type SupportRuntimeStage = {
+  title: string;
+  icon: LucideIcon;
+  layer: string;
+  tool: string;
+  artifact: string;
+  policy: string;
+  state: GateState;
 };
 
 const navItems: NavItem[] = [
@@ -438,6 +452,15 @@ export function CommandCenter({
             onSelectWorkflow={setSelectedWorkflowId}
           />
 
+          <SupportEscalationPanel
+            workflow={workflows.find(
+              (workflow) => workflow.id === "customer_support_escalation",
+            )}
+            selected={selectedWorkflow.id === "customer_support_escalation"}
+            shouldReduceMotion={shouldReduceMotion}
+            onSelectWorkflow={setSelectedWorkflowId}
+          />
+
           <section className="panel graph-panel">
             <PanelHeader
               icon={Network}
@@ -658,6 +681,167 @@ export function CommandCenter({
         </section>
       </div>
     </main>
+  );
+}
+
+function SupportEscalationPanel({
+  workflow,
+  selected,
+  shouldReduceMotion,
+  onSelectWorkflow,
+}: {
+  workflow: WorkflowDetail | undefined;
+  selected: boolean;
+  shouldReduceMotion: boolean | null;
+  onSelectWorkflow: (workflowId: string) => void;
+}) {
+  const stages: SupportRuntimeStage[] = [
+    {
+      title: "Ticket Read",
+      icon: MessageSquare,
+      layer: "read tool",
+      tool: "support_ticket_read",
+      artifact: "support ticket hash",
+      policy: "tickets:read only",
+      state: "open",
+    },
+    {
+      title: "Customer Context",
+      icon: UserRound,
+      layer: "read tool",
+      tool: "crm_customer_profile_read",
+      artifact: "redacted CRM metadata",
+      policy: "customers:read only",
+      state: "open",
+    },
+    {
+      title: "Knowledge Search",
+      icon: FileText,
+      layer: "RAG retrieval",
+      tool: "knowledge_base_search",
+      artifact: "cited KB documents",
+      policy: "knowledge:read only",
+      state: "open",
+    },
+    {
+      title: "Draft Contract",
+      icon: BrainCircuit,
+      layer: "structured output",
+      tool: "include_draft=true",
+      artifact: "response_draft.v1",
+      policy: "citations required",
+      state: "neutral",
+    },
+    {
+      title: "Approval Decision",
+      icon: ShieldCheck,
+      layer: "OPA + human",
+      tool: "approval decision route",
+      artifact: "approved or rejected row",
+      policy: "no self approval",
+      state: "neutral",
+    },
+    {
+      title: "Send Gate",
+      icon: Send,
+      layer: "blocked write",
+      tool: "send adapter unavailable",
+      artifact: "no customer message",
+      policy: "external action disabled",
+      state: "closed",
+    },
+  ];
+  const missingConnectors = workflow?.missing_connectors ?? [
+    "support_system",
+    "crm",
+    "knowledge_base",
+  ];
+
+  return (
+    <section className="panel support-panel">
+      <PanelHeader
+        icon={MessageSquare}
+        title="Support Escalation Runtime"
+        badge={workflow ? statusCopy[workflow.status] : "Not in registry"}
+      />
+      <div className="support-runtime">
+        <div className="support-runtime-brief">
+          <div>
+            <div className="contract-title">Route Stack</div>
+            <code>
+              POST /workflow-runs/{"{run_id}"}/customer-support-escalation/context
+            </code>
+            <code>
+              POST /workflow-runs/{"{run_id}"}
+              /customer-support-escalation/approval-review
+            </code>
+            <code>
+              POST /workflow-runs/{"{run_id}"}
+              /customer-support-escalation/approvals/{"{approval_id}"}/decision
+            </code>
+          </div>
+          <button
+            className="focus-workflow-button"
+            type="button"
+            disabled={!workflow || selected}
+            onClick={() => workflow && onSelectWorkflow(workflow.id)}
+          >
+            {selected ? "Support selected" : "Focus support workflow"}
+          </button>
+        </div>
+
+        <div className="support-stage-grid">
+          {stages.map((stage, index) => {
+            const Icon = stage.icon;
+            return (
+              <motion.div
+                className={`support-stage support-stage-${stage.state}`}
+                key={stage.title}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+                animate={
+                  shouldReduceMotion ? undefined : { opacity: 1, y: 0 }
+                }
+                transition={{ delay: index * 0.03, duration: 0.24 }}
+              >
+                <div className="support-stage-icon">
+                  <Icon size={18} />
+                </div>
+                <div>
+                  <strong>{stage.title}</strong>
+                  <span>{stage.layer}</span>
+                </div>
+                <em>{stage.tool}</em>
+                <small>{stage.artifact}</small>
+                <small>{stage.policy}</small>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <div className="support-contract-grid">
+          <div className="support-contract-card">
+            <span>Connector Gate</span>
+            <strong>
+              {missingConnectors.length === 0
+                ? "support, CRM, and KB configured"
+                : missingConnectors.join(", ")}
+            </strong>
+          </div>
+          <div className="support-contract-card">
+            <span>Evidence Storage</span>
+            <strong>hash-only records with redacted support and CRM metadata</strong>
+          </div>
+          <div className="support-contract-card">
+            <span>Draft Grounding</span>
+            <strong>response citations must come from KB source URIs</strong>
+          </div>
+          <div className="support-contract-card blocked">
+            <span>External Action</span>
+            <strong>customer message, refund, and account change remain disabled</strong>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
