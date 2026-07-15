@@ -65,6 +65,9 @@ This repository currently defines:
   approval-required.
 - Visual Proposal Review cockpit showing the route contract, planner readiness, typed
   proposal/evaluation output, model-call audit path, and approval stop-points.
+- Visual multi-agent orchestration cockpit for the Production Incident Investigator, using
+  React Flow to show supervisor-worker fan-out, specialist evidence gathering, evaluator
+  reconciliation, and approval-gated production actions without fake incident data.
 
 ## Core Principle
 
@@ -81,18 +84,18 @@ only for captured real runs and must be labeled as replay.
 
 ## Portfolio Workflows
 
-| Domain | Workflow | Production Value |
-| --- | --- | --- |
-| Engineering | GitHub Issue-to-PR Agent | Turns real issues into reviewed PR drafts |
-| Security | Vulnerability Remediation Agent | Triage CVEs and generate safe remediation plans |
-| Customer Support | Escalation Resolution Agent | Resolve real support escalations with context and approval |
-| Supply Chain | Supplier Risk Agent | Investigate supplier risk from real systems and sources |
-| Finance Ops | Invoice Exception Agent | Triage invoices, policies, approvals, and audit evidence |
-| Incident Response | Production Incident Investigator | Correlate logs, traces, deploys, and CI to produce RCA |
-| Sales / RFP | Account Research and Proposal Agent | Build source-grounded RFP and account briefs |
-| Compliance | Audit Evidence Agent | Collect evidence from systems and map to controls |
-| Data / BI | Executive Analyst Agent | Query real operational data and explain drivers |
-| HR / IT Ops | Onboarding and Access Agent | Coordinate access, docs, tasks, and approvals |
+| Domain            | Workflow                            | Production Value                                               |
+| ----------------- | ----------------------------------- | -------------------------------------------------------------- |
+| Engineering       | GitHub Issue-to-PR Agent            | Turns real issues into reviewed PR drafts                      |
+| Security          | Vulnerability Remediation Agent     | Triage CVEs and generate safe remediation plans                |
+| Customer Support  | Escalation Resolution Agent         | Resolve real support escalations with context and approval     |
+| Supply Chain      | Supplier Risk Agent                 | Investigate supplier risk from real systems and sources        |
+| Finance Ops       | Invoice Exception Agent             | Triage invoices, policies, approvals, and audit evidence       |
+| Incident Response | Production Incident Investigator    | Multi-agent log, trace, deploy, and code investigation for RCA |
+| Sales / RFP       | Account Research and Proposal Agent | Build source-grounded RFP and account briefs                   |
+| Compliance        | Audit Evidence Agent                | Collect evidence from systems and map to controls              |
+| Data / BI         | Executive Analyst Agent             | Query real operational data and explain drivers                |
+| HR / IT Ops       | Onboarding and Access Agent         | Coordinate access, docs, tasks, and approvals                  |
 
 ## Repository Layout
 
@@ -121,20 +124,20 @@ only for captured real runs and must be labeled as replay.
 
 ## Stack Summary
 
-| Layer | Choice |
-| --- | --- |
-| Frontend | Next.js, React, shadcn/ui, Tailwind, React Flow |
-| Backend | FastAPI, Pydantic, SQLAlchemy |
-| Agent orchestration | LangGraph |
-| OpenAI-native specialists | OpenAI Agents SDK |
-| Model API | OpenAI Responses API |
-| Tool protocol | MCP |
-| Policy engine | OPA/Rego |
-| Data layer | Postgres, pgvector |
-| Cache/rate limits | Redis or Upstash Redis |
-| Observability | OpenTelemetry, LangSmith, Langfuse |
-| Evals | pytest, promptfoo, Ragas, trace evaluators |
-| Deployment | Vercel web, Render/Fly/Railway API, Neon/Supabase Postgres |
+| Layer                     | Choice                                                     |
+| ------------------------- | ---------------------------------------------------------- |
+| Frontend                  | Next.js, React, shadcn/ui, Tailwind, React Flow            |
+| Backend                   | FastAPI, Pydantic, SQLAlchemy                              |
+| Agent orchestration       | LangGraph                                                  |
+| OpenAI-native specialists | OpenAI Agents SDK                                          |
+| Model API                 | OpenAI Responses API                                       |
+| Tool protocol             | MCP                                                        |
+| Policy engine             | OPA/Rego                                                   |
+| Data layer                | Postgres, pgvector                                         |
+| Cache/rate limits         | Redis or Upstash Redis                                     |
+| Observability             | OpenTelemetry, LangSmith, Langfuse                         |
+| Evals                     | pytest, promptfoo, Ragas, trace evaluators                 |
+| Deployment                | Vercel web, Render/Fly/Railway API, Neon/Supabase Postgres |
 
 ## Start Here
 

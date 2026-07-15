@@ -5,29 +5,30 @@ a principal engineer.
 
 ## Main Navigation
 
-| Section | Purpose |
-| --- | --- |
-| Portfolio | Enterprise workflow library |
-| Command Center | Active workflow run and executive summary |
-| Agent Graph | Interactive LangGraph execution graph |
-| Evidence Board | Real sources, logs, documents, citations, API results |
-| Policy Studio | OPA decisions, approval rules, tool permissions |
-| Tool Registry | MCP tools, schemas, scopes, risk classes |
-| Memory Explorer | Thread memory, long-term facts, retention metadata |
-| Trace Timeline | Model calls, tool calls, retries, approvals, costs |
-| Eval Dashboard | Regression, safety, grounding, and quality checks |
-| Deployment Panel | Health, env vars, CI, migrations, connector status |
-| Code Lens | Graph code, schemas, configs, policies, tests |
+| Section                   | Purpose                                                           |
+| ------------------------- | ----------------------------------------------------------------- |
+| Portfolio                 | Enterprise workflow library                                       |
+| Command Center            | Active workflow run and executive summary                         |
+| Multi-Agent Orchestration | Supervisor-worker coordination, handoffs, evidence reconciliation |
+| Agent Graph               | Interactive LangGraph execution graph                             |
+| Evidence Board            | Real sources, logs, documents, citations, API results             |
+| Policy Studio             | OPA decisions, approval rules, tool permissions                   |
+| Tool Registry             | MCP tools, schemas, scopes, risk classes                          |
+| Memory Explorer           | Thread memory, long-term facts, retention metadata                |
+| Trace Timeline            | Model calls, tool calls, retries, approvals, costs                |
+| Eval Dashboard            | Regression, safety, grounding, and quality checks                 |
+| Deployment Panel          | Health, env vars, CI, migrations, connector status                |
+| Code Lens                 | Graph code, schemas, configs, policies, tests                     |
 
 ## Peel-The-Layers Interaction
 
 Every visual node should support three depth levels:
 
-| Level | Audience | Contents |
-| --- | --- | --- |
-| Executive | CEO | Outcome, risk, cost, confidence, next action |
-| Architect | CTO | Graph node, policy, tool, memory, trace |
-| Engineer | Developer | Schema, payload, source file, test, deployment config |
+| Level     | Audience  | Contents                                              |
+| --------- | --------- | ----------------------------------------------------- |
+| Executive | CEO       | Outcome, risk, cost, confidence, next action          |
+| Architect | CTO       | Graph node, policy, tool, memory, trace               |
+| Engineer  | Developer | Schema, payload, source file, test, deployment config |
 
 ## Node Inspection Contract
 

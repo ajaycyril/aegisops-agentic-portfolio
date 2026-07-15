@@ -39,7 +39,10 @@ actions are enabled. A model-backed OpenAI Responses API planner adapter now rec
 `include_proposal=true` when OpenAI credentials and an explicit model are configured. The
 visual command center now surfaces the proposal/evaluation contract, planner readiness,
 model-call audit path, and approval stop-points without showing fake run output or enabling
-branch/PR writes.
+branch/PR writes. It also includes a React Flow multi-agent orchestration cockpit for the
+Production Incident Investigator, showing a supervisor-worker fan-out, specialist evidence
+streams, evaluator reconciliation, and approval-gated production actions as a visual contract
+only.
 
 Current production web deployment:
 
@@ -47,19 +50,19 @@ Current production web deployment:
 
 ## Milestone Map
 
-| Phase | Name | Status | Outcome |
-| --- | --- | --- | --- |
-| 0 | Architecture baseline | Complete | Docs, stack decisions, workflow portfolio, scaffold |
-| 1 | Foundation runtime | Complete | Installable web/API skeleton with health checks |
-| 2 | Governance and data layer | Implemented, Docker verification pending | Postgres, migrations, policy checks, audit model |
-| 3 | Workflow registry and run lifecycle | Implemented, live infra verification pending | Config-driven workflow catalog and run API |
-| 4 | Visual command center shell | Implemented | Portfolio UI, graph canvas, review, trace/evidence placeholders |
-| 5 | Tool and connector substrate | In progress | MCP tool contracts, GitHub connector foundation |
-| 6 | Engineering Issue-to-PR workflow | In progress | First real production workflow |
-| 7 | Incident Investigator workflow | Not started | Real observability/deployment investigation workflow |
-| 8 | Customer Support Escalation workflow | Not started | Real support/KB/CRM workflow path |
-| 9 | Evals, replay, and demo hardening | Not started | Captured real-run replay and quality gates |
-| 10 | Deployment and portfolio polish | Not started | Public free-tier deployment and executive-grade UI |
+| Phase | Name                                 | Status                                       | Outcome                                                                             |
+| ----- | ------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 0     | Architecture baseline                | Complete                                     | Docs, stack decisions, workflow portfolio, scaffold                                 |
+| 1     | Foundation runtime                   | Complete                                     | Installable web/API skeleton with health checks                                     |
+| 2     | Governance and data layer            | Implemented, Docker verification pending     | Postgres, migrations, policy checks, audit model                                    |
+| 3     | Workflow registry and run lifecycle  | Implemented, live infra verification pending | Config-driven workflow catalog and run API                                          |
+| 4     | Visual command center shell          | Implemented                                  | Portfolio UI, graph canvas, multi-agent canvas, review, trace/evidence placeholders |
+| 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub connector foundation                                     |
+| 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
+| 7     | Incident Investigator workflow       | In progress, visual contract only            | Real observability/deployment investigation workflow                                |
+| 8     | Customer Support Escalation workflow | Not started                                  | Real support/KB/CRM workflow path                                                   |
+| 9     | Evals, replay, and demo hardening    | Not started                                  | Captured real-run replay and quality gates                                          |
+| 10    | Deployment and portfolio polish      | Not started                                  | Public free-tier deployment and executive-grade UI                                  |
 
 ## Phase 0: Architecture Baseline
 
@@ -293,6 +296,8 @@ Completed artifacts:
 - Code Lens rendering the selected workflow YAML contract.
 - Proposal Review surface showing run route, readiness gates, typed planner/evaluator output
   contracts, model-call audit path, and approval stop-points.
+- Multi-Agent Orchestration surface for Production Incident Investigator, with custom React
+  Flow supervisor, specialist worker, evaluator, RCA, and approval nodes.
 - Favicon and mobile-first responsive styling.
 
 Goal: Build the UI surface before deep workflow implementation.
@@ -311,6 +316,8 @@ Tasks:
 9. Done: add visual status for connector readiness, replay availability, and live-run
    eligibility.
 10. Done: add Proposal Review surface and graph node for planner/evaluator contracts.
+11. Done: add multi-agent incident orchestration visual contract with specialist handoff
+    inspection.
 
 Acceptance criteria:
 
@@ -329,7 +336,7 @@ pnpm --filter @aegisops/web build
 
 Browser smoke checks were run with Playwright against `http://localhost:3000` at 1440 px and
 390 px widths. Both passed with no console errors, no horizontal overflow, no clipped text,
-and all seven React Flow nodes rendered.
+all seven primary graph nodes rendered, and all nine multi-agent orchestration nodes rendered.
 
 ## Phase 5: Tool and Connector Substrate
 
@@ -464,15 +471,20 @@ Acceptance criteria:
 
 Goal: Add real incident investigation across logs, deployments, and code changes.
 
+Status note: the visual multi-agent orchestration contract is present in the command center.
+The runtime workflow module, connector adapters, and captured-real replay remain future work.
+
 Tasks:
 
-1. Add workflow module.
-2. Add connector contracts for deployment events and logs/traces.
-3. Add graph nodes for incident intake, timeline construction, parallel investigation,
+1. Done: add visual multi-agent orchestration contract for supervisor-worker incident
+   investigation.
+2. Add workflow module.
+3. Add connector contracts for deployment events and logs/traces.
+4. Add graph nodes for incident intake, timeline construction, parallel investigation,
    hypothesis generation, evidence validation, RCA draft, and approval.
-4. Add source-grounded evidence board.
-5. Add policy rules for rollback and incident update actions.
-6. Add eval rubric for RCA quality.
+5. Add source-grounded evidence board.
+6. Add policy rules for rollback and incident update actions.
+7. Add eval rubric for RCA quality.
 
 Acceptance criteria:
 

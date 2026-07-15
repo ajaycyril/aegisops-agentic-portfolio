@@ -79,6 +79,7 @@ const workflowSeeds: WorkflowSeed[] = [
     patterns: ["react_tool_use", "parallel_investigation", "supervisor_multi_agent", "rca_generation"],
     approval_required_for: ["rollback", "incident_update", "paging_action"],
     visual_surfaces: [
+      "multi_agent_orchestration",
       "incident_timeline",
       "service_map",
       "evidence_board",

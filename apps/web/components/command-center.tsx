@@ -46,6 +46,7 @@ import {
 } from "recharts";
 
 import type { ApiReadiness, ApiStatus } from "@/lib/api";
+import { MultiAgentOrchestration } from "@/components/multi-agent-orchestration";
 import type {
   WorkflowCatalog,
   WorkflowDetail,
@@ -109,6 +110,7 @@ type ProposalReviewModel = {
 const navItems: NavItem[] = [
   { label: "Portfolio", icon: Boxes },
   { label: "Command", icon: Gauge },
+  { label: "Agents", icon: Network },
   { label: "Graph", icon: Workflow },
   { label: "Review", icon: BrainCircuit },
   { label: "Evidence", icon: Database },
@@ -387,6 +389,13 @@ export function CommandCenter({
               ))}
             </div>
           </section>
+
+          <MultiAgentOrchestration
+            workflows={workflows}
+            selectedWorkflowId={selectedWorkflow.id}
+            shouldReduceMotion={shouldReduceMotion}
+            onSelectWorkflow={setSelectedWorkflowId}
+          />
 
           <section className="panel graph-panel">
             <PanelHeader

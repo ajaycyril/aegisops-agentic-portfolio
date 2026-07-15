@@ -27,6 +27,7 @@ approval_required_for:
   - incident_update
   - paging_action
 visual_surfaces:
+  - multi_agent_orchestration
   - incident_timeline
   - service_map
   - evidence_board

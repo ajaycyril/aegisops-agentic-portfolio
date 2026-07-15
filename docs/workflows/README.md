@@ -27,6 +27,11 @@ records `model_calls` and is available from the run route with `include_proposal
 OpenAI credentials and a model are configured. The YAML files under `configs/workflows` remain
 the portfolio registry.
 
+The command center also contains a visual-only multi-agent orchestration contract for
+`incident_response_investigator`. It maps the Production Incident Investigator to supervisor,
+parallel specialist, evaluator, RCA drafter, and approval nodes so the UI can show why this use
+case justifies multi-agent orchestration before the runtime module is implemented.
+
 ## Workflow Contract
 
 Every workflow must define:

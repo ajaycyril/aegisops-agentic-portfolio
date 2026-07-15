@@ -113,10 +113,14 @@ Real systems:
 
 Agentic depth:
 
+- Supervisor-worker orchestration.
 - ReAct tool loop.
 - Parallel investigation.
+- Specialist handoffs for logs, traces, deploys, code, and impact.
+- Evaluator reconciliation when evidence conflicts.
 - Hypothesis generation.
 - Evidence-backed RCA.
+- Human approval before rollback, paging, or incident updates.
 
 ### 7. Sales / RFP Agent
 
