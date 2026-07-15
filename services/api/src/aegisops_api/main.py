@@ -11,6 +11,7 @@ from aegisops_api.config import Settings, get_settings
 from aegisops_api.connectors import ConnectorDetail, ConnectorNotFoundError, ConnectorSummary
 from aegisops_api.connectors.registry import get_connector_registry
 from aegisops_api.db.session import get_session
+from aegisops_api.evals import TraceEvalResponse, evaluate_workflow_run_trace
 from aegisops_api.logging import configure_logging
 from aegisops_api.policy import OpaClient, PolicyEvaluationError
 from aegisops_api.tools import (
@@ -48,6 +49,9 @@ from aegisops_api.workflows.customer_support_escalation import (
     SupportEscalationRejectedError,
     SupportEscalationRequest,
     SupportEscalationResponse,
+    SupportMessageSendAuthorizationRequest,
+    SupportMessageSendAuthorizationResponse,
+    authorize_support_message_send_disabled,
     collect_support_escalation_context,
     decide_support_approval,
     request_support_approval_review,
@@ -379,6 +383,24 @@ async def get_workflow_run_trace_endpoint(
         ) from exc
 
 
+@app.get(
+    "/workflow-runs/{run_id}/evals/trace",
+    response_model=TraceEvalResponse,
+    tags=["workflow-runs"],
+)
+async def evaluate_workflow_run_trace_endpoint(
+    run_id: UUID,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> TraceEvalResponse:
+    try:
+        return evaluate_workflow_run_trace(run_id=run_id, session=session)
+    except WorkflowRunStartRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+
+
 @app.post(
     "/workflow-runs/{run_id}/engineering-issue-to-pr/evidence",
     response_model=IssueToPrRunResponse,
@@ -522,6 +544,30 @@ async def decide_customer_support_approval(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/customer-support-escalation/message-send/authorize",
+    response_model=SupportMessageSendAuthorizationResponse,
+    status_code=201,
+    tags=["workflow-runs"],
+)
+async def authorize_customer_support_message_send(
+    run_id: UUID,
+    request: SupportMessageSendAuthorizationRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> SupportMessageSendAuthorizationResponse:
+    try:
+        return await authorize_support_message_send_disabled(
+            run_id=run_id,
+            request=request,
+            session=session,
+        )
+    except SupportEscalationRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(

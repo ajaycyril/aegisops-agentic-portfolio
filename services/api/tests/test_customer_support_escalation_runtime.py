@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun
+from aegisops_api.db.models import Approval, EvidenceRecord, MemoryRecord, ToolCall, WorkflowRun
 from aegisops_api.policy import PolicyDecision
 from aegisops_api.tools import (
     ToolCallAuthorizationRequest,
@@ -21,7 +21,9 @@ from aegisops_api.workflows.customer_support_escalation import (
     SupportDraftCitation,
     SupportEscalationRejectedError,
     SupportEscalationRequest,
+    SupportMessageSendAuthorizationRequest,
     SupportResponseDraft,
+    authorize_support_message_send_disabled,
     collect_support_escalation_context,
     decide_support_approval,
     request_support_approval_review,
@@ -179,6 +181,24 @@ def create_support_approval(run: WorkflowRun) -> Approval:
         requested_by="support-agent",
         request_payload={
             "schema_version": "customer_support_escalation.approval_review.v1",
+            "response_draft": {
+                "schema_version": "customer_support_escalation.response_draft.v1",
+                "ticket_id": "TCK-1024",
+                "customer_id": "cus_123",
+                "subject": "SSO lockout",
+                "response_body": "Human-reviewed response draft.",
+                "citation_uris": ["https://kb.example/articles/kb_42"],
+                "cited_documents": [
+                    {
+                        "document_id": "kb_42",
+                        "title": "Troubleshoot enterprise SSO lockouts",
+                        "source_uri": "https://kb.example/articles/kb_42",
+                    }
+                ],
+                "requires_human_review": True,
+                "customer_message_enabled": False,
+                "external_actions_enabled": False,
+            },
             "approval_contract": {
                 "customer_message_enabled": False,
                 "external_actions_enabled": False,
@@ -210,6 +230,9 @@ async def test_collect_support_context_creates_grounded_draft_and_redacted_metad
     evidence_records = [
         instance for instance in session.added if isinstance(instance, EvidenceRecord)
     ]
+    memory_records = [
+        instance for instance in session.added if isinstance(instance, MemoryRecord)
+    ]
     assert response.stage == "support_response_draft_created"
     assert response.customer_id == "cus_123"
     assert response.knowledge_document_count == 1
@@ -221,6 +244,15 @@ async def test_collect_support_context_creates_grounded_draft_and_redacted_metad
     assert response.customer_message_enabled is False
     assert len(response.tool_call_ids) == 3
     assert len(evidence_records) == 4
+    assert len(response.memory_records) == 1
+    assert len(memory_records) == 1
+    assert memory_records[0].scope == "run"
+    assert memory_records[0].memory_key == "customer_support.memory_policy"
+    assert memory_records[0].retention_class == "ephemeral_30d"
+    assert memory_records[0].memory_value["raw_customer_payload_persisted"] is False
+    assert memory_records[0].memory_value["requires_approval_for_user_or_org_scope"] is True
+    assert "cus_123" not in str(memory_records[0].memory_value)
+    assert "raw account name" not in str(memory_records[0].memory_value)
     assert {record.kind for record in evidence_records} == {
         "api_response",
         "document",
@@ -302,6 +334,68 @@ async def test_decide_support_approval_records_decision_without_send_execution()
     assert approval.decision_payload["customer_message_enabled"] is False
     assert evaluator.inputs[0]["requested_action"] == "customer_message"
     assert evaluator.inputs[0]["approval"]["write_actions_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_authorize_support_message_send_creates_blocked_tool_call() -> None:
+    run = create_support_run()
+    run.status = "waiting_for_approval"
+    approval = create_support_approval(run)
+    approval.status = "approved"
+    approval.policy_decision_id = "support-approval-decision"
+    draft = SupportResponseDraft.model_validate(approval.request_payload["response_draft"])
+    session = RuntimeSession({run.id: run}, {approval.id: approval})
+
+    response = await authorize_support_message_send_disabled(
+        run_id=run.id,
+        request=SupportMessageSendAuthorizationRequest(
+            approval_id=approval.id,
+            response_draft=draft,
+            requested_by="support-agent",
+            actor_id="support-lead",
+        ),
+        session=cast(Any, session),
+    )
+
+    tool_calls = [instance for instance in session.added if isinstance(instance, ToolCall)]
+    assert response.send_authorization_state == "blocked_send_adapter_disabled"
+    assert response.customer_message_enabled is False
+    assert response.external_actions_enabled is False
+    assert response.reason_codes == ["send_adapter_disabled"]
+    assert len(tool_calls) == 1
+    assert tool_calls[0].tool_name == "customer_message_send"
+    assert tool_calls[0].status == "blocked"
+    assert tool_calls[0].approval_id == approval.id
+    assert tool_calls[0].call_metadata["execution_state"] == "blocked_before_execution"
+    assert tool_calls[0].call_metadata["raw_customer_message_persisted"] is False
+    assert tool_calls[0].error_message == "Customer-visible send adapter is disabled by policy."
+
+
+@pytest.mark.asyncio
+async def test_authorize_support_message_send_rejects_unapproved_draft_mismatch() -> None:
+    run = create_support_run()
+    run.status = "waiting_for_approval"
+    approval = create_support_approval(run)
+    approval.status = "approved"
+    draft = SupportResponseDraft.model_validate(
+        {
+            **approval.request_payload["response_draft"],
+            "response_body": "This is not the approved draft.",
+        }
+    )
+    session = RuntimeSession({run.id: run}, {approval.id: approval})
+
+    with pytest.raises(SupportEscalationRejectedError) as exc_info:
+        await authorize_support_message_send_disabled(
+            run_id=run.id,
+            request=SupportMessageSendAuthorizationRequest(
+                approval_id=approval.id,
+                response_draft=draft,
+            ),
+            session=cast(Any, session),
+        )
+
+    assert exc_info.value.reason_code == "approval_draft_mismatch"
 
 
 @pytest.mark.asyncio

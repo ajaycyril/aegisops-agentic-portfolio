@@ -15,6 +15,7 @@ from aegisops_api.db.models import (
     Approval,
     AuditEvent,
     EvidenceRecord,
+    MemoryRecord,
     ModelCall,
     ToolCall,
     WorkflowRegistrySnapshot,
@@ -161,6 +162,19 @@ class EvidenceTraceRecord(BaseModel):
     created_at: str
 
 
+class MemoryTraceRecord(BaseModel):
+    id: UUID
+    scope: str
+    subject_id: str | None
+    memory_key: str
+    memory_value: dict[str, Any]
+    retention_class: str
+    data_sensitivity: str
+    source_evidence_id: UUID | None
+    created_at: str
+    expires_at: str | None
+
+
 class AuditTraceRecord(BaseModel):
     id: UUID
     event_type: str
@@ -182,6 +196,7 @@ class WorkflowRunTraceResponse(BaseModel):
     tool_calls: list[ToolCallTraceRecord]
     model_calls: list[ModelCallTraceRecord]
     evidence_records: list[EvidenceTraceRecord]
+    memory_records: list[MemoryTraceRecord]
     audit_events: list[AuditTraceRecord]
 
 
@@ -321,6 +336,9 @@ def get_workflow_run_trace(run_id: UUID, session: Session) -> WorkflowRunTraceRe
         .where(EvidenceRecord.run_id == run.id)
         .order_by(EvidenceRecord.created_at)
     ).scalars()
+    memory_records = session.execute(
+        select(MemoryRecord).where(MemoryRecord.run_id == run.id).order_by(MemoryRecord.created_at)
+    ).scalars()
     audit_events = session.execute(
         select(AuditEvent).where(AuditEvent.run_id == run.id).order_by(AuditEvent.created_at)
     ).scalars()
@@ -331,6 +349,7 @@ def get_workflow_run_trace(run_id: UUID, session: Session) -> WorkflowRunTraceRe
         tool_calls=[tool_call_to_trace_record(record) for record in tool_calls],
         model_calls=[model_call_to_trace_record(record) for record in model_calls],
         evidence_records=[evidence_to_trace_record(record) for record in evidence_records],
+        memory_records=[memory_to_trace_record(record) for record in memory_records],
         audit_events=[audit_to_trace_record(record) for record in audit_events],
     )
 
@@ -503,6 +522,21 @@ def evidence_to_trace_record(evidence: EvidenceRecord) -> EvidenceTraceRecord:
         metadata=evidence.evidence_metadata,
         captured_at=evidence.captured_at.isoformat(),
         created_at=evidence.created_at.isoformat(),
+    )
+
+
+def memory_to_trace_record(memory: MemoryRecord) -> MemoryTraceRecord:
+    return MemoryTraceRecord(
+        id=memory.id,
+        scope=memory.scope,
+        subject_id=memory.subject_id,
+        memory_key=memory.memory_key,
+        memory_value=memory.memory_value,
+        retention_class=memory.retention_class,
+        data_sensitivity=memory.data_sensitivity,
+        source_evidence_id=memory.source_evidence_id,
+        created_at=memory.created_at.isoformat(),
+        expires_at=memory.expires_at.isoformat() if memory.expires_at is not None else None,
     )
 
 

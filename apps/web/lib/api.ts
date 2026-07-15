@@ -134,6 +134,20 @@ const workflowRunTraceSchema = z.object({
       created_at: z.string(),
     }),
   ),
+  memory_records: z.array(
+    z.object({
+      id: z.string(),
+      scope: z.string(),
+      subject_id: z.string().nullable(),
+      memory_key: z.string(),
+      memory_value: jsonObjectSchema,
+      retention_class: z.string(),
+      data_sensitivity: z.string(),
+      source_evidence_id: z.string().nullable(),
+      created_at: z.string(),
+      expires_at: z.string().nullable(),
+    }),
+  ),
   audit_events: z.array(
     z.object({
       id: z.string(),
@@ -153,6 +167,28 @@ const workflowRunTraceSchema = z.object({
 });
 
 export type WorkflowRunTrace = z.infer<typeof workflowRunTraceSchema>;
+
+const traceEvalStatusSchema = z.enum(["pass", "warn", "fail"]);
+
+const workflowRunTraceEvalSchema = z.object({
+  run_id: z.string(),
+  workflow_id: z.string(),
+  evaluated_at: z.string(),
+  overall_status: traceEvalStatusSchema,
+  score: z.number(),
+  checks: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      status: traceEvalStatusSchema,
+      score: z.number(),
+      details: z.string(),
+      evidence_refs: z.array(z.string()),
+    }),
+  ),
+});
+
+export type WorkflowRunTraceEval = z.infer<typeof workflowRunTraceEvalSchema>;
 
 export type WorkflowRunTraceStatus =
   | {
@@ -175,6 +211,29 @@ export type WorkflowRunTraceStatus =
       configuredRunId: string;
       message: string;
       trace: WorkflowRunTrace;
+    };
+
+export type WorkflowRunTraceEvalStatus =
+  | {
+      label: "not_configured";
+      configuredRunId: null;
+      message: string;
+    }
+  | {
+      label: "unreachable";
+      configuredRunId: string;
+      message: string;
+    }
+  | {
+      label: "not_found";
+      configuredRunId: string;
+      message: string;
+    }
+  | {
+      label: "loaded";
+      configuredRunId: string;
+      message: string;
+      evals: WorkflowRunTraceEval;
     };
 
 export async function getApiStatus(): Promise<ApiStatus> {
@@ -241,11 +300,7 @@ export async function getApiStatus(): Promise<ApiStatus> {
 
 export async function getDemoWorkflowRunTrace(): Promise<WorkflowRunTraceStatus> {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const configuredRunId =
-    process.env.DEMO_WORKFLOW_RUN_ID ??
-    process.env.DEMO_TRACE_RUN_ID ??
-    process.env.NEXT_PUBLIC_DEMO_WORKFLOW_RUN_ID ??
-    null;
+  const configuredRunId = getConfiguredDemoRunId();
 
   if (!configuredRunId) {
     return {
@@ -307,6 +362,81 @@ export async function getDemoWorkflowRunTrace(): Promise<WorkflowRunTraceStatus>
       message: "Workflow trace endpoint could not be reached.",
     };
   }
+}
+
+export async function getDemoWorkflowRunTraceEval(): Promise<WorkflowRunTraceEvalStatus> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const configuredRunId = getConfiguredDemoRunId();
+
+  if (!configuredRunId) {
+    return {
+      label: "not_configured",
+      configuredRunId: null,
+      message:
+        "Set DEMO_WORKFLOW_RUN_ID to a real stored run id to render trace eval results.",
+    };
+  }
+
+  if (!baseUrl) {
+    return {
+      label: "unreachable",
+      configuredRunId,
+      message:
+        "NEXT_PUBLIC_API_BASE_URL is required before trace eval results can be fetched.",
+    };
+  }
+
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+
+  try {
+    const response = await fetch(
+      `${normalizedBaseUrl}/workflow-runs/${encodeURIComponent(configuredRunId)}/evals/trace`,
+      {
+        cache: "no-store",
+        headers: {
+          accept: "application/json",
+        },
+      },
+    );
+
+    if (response.status === 404) {
+      return {
+        label: "not_found",
+        configuredRunId,
+        message: "The configured run id was not found by the trace eval endpoint.",
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        label: "unreachable",
+        configuredRunId,
+        message: `Workflow trace eval endpoint returned HTTP ${response.status}.`,
+      };
+    }
+
+    return {
+      label: "loaded",
+      configuredRunId,
+      message: "Workflow trace eval endpoint returned executable eval results.",
+      evals: workflowRunTraceEvalSchema.parse(await response.json()),
+    };
+  } catch {
+    return {
+      label: "unreachable",
+      configuredRunId,
+      message: "Workflow trace eval endpoint could not be reached.",
+    };
+  }
+}
+
+function getConfiguredDemoRunId() {
+  return (
+    process.env.DEMO_WORKFLOW_RUN_ID ??
+    process.env.DEMO_TRACE_RUN_ID ??
+    process.env.NEXT_PUBLIC_DEMO_WORKFLOW_RUN_ID ??
+    null
+  );
 }
 
 const workflowStatusSchema = z.enum(["planned", "ready", "gated", "disabled"]);

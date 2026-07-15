@@ -53,6 +53,7 @@ import type {
   ApiReadiness,
   ApiStatus,
   WorkflowRunTrace,
+  WorkflowRunTraceEvalStatus,
   WorkflowRunTraceStatus,
 } from "@/lib/api";
 import { MultiAgentOrchestration } from "@/components/multi-agent-orchestration";
@@ -66,6 +67,7 @@ type CommandCenterProps = {
   apiStatus: ApiStatus;
   workflowCatalog: WorkflowCatalog;
   workflowRunTrace: WorkflowRunTraceStatus;
+  workflowRunTraceEval: WorkflowRunTraceEvalStatus;
 };
 
 type NavItem = {
@@ -218,6 +220,7 @@ export function CommandCenter({
   apiStatus,
   workflowCatalog,
   workflowRunTrace,
+  workflowRunTraceEval,
 }: CommandCenterProps) {
   const shouldReduceMotion = useReducedMotion();
   const workflows = workflowCatalog.workflows;
@@ -500,7 +503,10 @@ export function CommandCenter({
             </div>
           </section>
 
-          <ProposalReviewPanel review={proposalReview} />
+          <ProposalReviewPanel
+            review={proposalReview}
+            traceEval={workflowRunTraceEval}
+          />
 
           <section className="telemetry-grid">
             <section className="panel chart-panel">
@@ -733,6 +739,15 @@ function SupportEscalationPanel({
       state: "neutral",
     },
     {
+      title: "Memory Policy",
+      icon: Database,
+      layer: "memory guardrail",
+      tool: "memory_records",
+      artifact: "redacted run memory",
+      policy: "30d run scope",
+      state: "open",
+    },
+    {
       title: "Approval Decision",
       icon: ShieldCheck,
       layer: "OPA + human",
@@ -740,6 +755,15 @@ function SupportEscalationPanel({
       artifact: "approved or rejected row",
       policy: "no self approval",
       state: "neutral",
+    },
+    {
+      title: "Send Authorization",
+      icon: KeyRound,
+      layer: "disabled contract",
+      tool: "customer_message_send",
+      artifact: "blocked tool call",
+      policy: "approved draft hash",
+      state: "closed",
     },
     {
       title: "Send Gate",
@@ -779,6 +803,11 @@ function SupportEscalationPanel({
               POST /workflow-runs/{"{run_id}"}
               /customer-support-escalation/approvals/{"{approval_id}"}/decision
             </code>
+            <code>
+              POST /workflow-runs/{"{run_id}"}
+              /customer-support-escalation/message-send/authorize
+            </code>
+            <code>GET /workflow-runs/{"{run_id}"}/evals/trace</code>
           </div>
           <button
             className="focus-workflow-button"
@@ -832,8 +861,16 @@ function SupportEscalationPanel({
             <strong>hash-only records with redacted support and CRM metadata</strong>
           </div>
           <div className="support-contract-card">
+            <span>Memory Policy</span>
+            <strong>run-scoped, 30-day retention, no raw customer payloads</strong>
+          </div>
+          <div className="support-contract-card">
             <span>Draft Grounding</span>
             <strong>response citations must come from KB source URIs</strong>
+          </div>
+          <div className="support-contract-card">
+            <span>Trace Evals</span>
+            <strong>deterministic grounding, redaction, memory, send, and cost checks</strong>
           </div>
           <div className="support-contract-card blocked">
             <span>External Action</span>
@@ -845,7 +882,13 @@ function SupportEscalationPanel({
   );
 }
 
-function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
+function ProposalReviewPanel({
+  review,
+  traceEval,
+}: {
+  review: ProposalReviewModel;
+  traceEval: WorkflowRunTraceEvalStatus;
+}) {
   return (
     <section className="panel proposal-panel">
       <PanelHeader
@@ -908,6 +951,8 @@ function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
 
         <TraceReadout readout={review.traceReadout} />
 
+        <TraceEvalPanel traceEval={traceEval} />
+
         <div className="approval-review">
           <div className="contract-title">Approval Stops</div>
           <div className="approval-stop-list">
@@ -925,6 +970,59 @@ function ProposalReviewPanel({ review }: { review: ProposalReviewModel }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function TraceEvalPanel({
+  traceEval,
+}: {
+  traceEval: WorkflowRunTraceEvalStatus;
+}) {
+  if (traceEval.label !== "loaded") {
+    return (
+      <div className="trace-eval trace-eval-neutral">
+        <div className="trace-readout-header">
+          <div>
+            <div className="contract-title">Executable Eval Results</div>
+            <code>GET /workflow-runs/{"{run_id}"}/evals/trace</code>
+          </div>
+          <span className="trace-badge trace-badge-neutral">
+            {traceEval.label === "not_configured" ? "run id required" : traceEval.label}
+          </span>
+        </div>
+        <p>{traceEval.message}</p>
+      </div>
+    );
+  }
+
+  const statusState = evalStatusToGateState(traceEval.evals.overall_status);
+
+  return (
+    <div className={`trace-eval trace-eval-${statusState}`}>
+      <div className="trace-readout-header">
+        <div>
+          <div className="contract-title">Executable Eval Results</div>
+          <code>GET /workflow-runs/{"{run_id}"}/evals/trace</code>
+        </div>
+        <span className={`trace-badge trace-badge-${statusState}`}>
+          {traceEval.evals.overall_status} / {Math.round(traceEval.evals.score * 100)}%
+        </span>
+      </div>
+      <p>{traceEval.message}</p>
+      <div className="trace-eval-grid">
+        {traceEval.evals.checks.map((check) => {
+          const state = evalStatusToGateState(check.status);
+          return (
+            <div className={`trace-eval-check eval-${state}`} key={check.id}>
+              <span className={`review-state ${state}`} />
+              <strong>{check.label}</strong>
+              <em>{check.details}</em>
+              <small>{Math.round(check.score * 100)}% score</small>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -1829,6 +1927,7 @@ function createTraceRecordSummary(trace: WorkflowRunTrace) {
       value: `${trace.model_calls.length} / ${formatEstimatedCost(trace)}`,
     },
     { label: "Evidence", value: String(trace.evidence_records.length) },
+    { label: "Memory", value: String(trace.memory_records.length) },
     { label: "Audit events", value: String(trace.audit_events.length) },
   ];
 }
@@ -1840,6 +1939,7 @@ function emptyTraceRecords() {
     { label: "Tool calls", value: "0" },
     { label: "Model calls", value: "0 / $0.0000" },
     { label: "Evidence", value: "0" },
+    { label: "Memory", value: "0" },
     { label: "Audit events", value: "0" },
   ];
 }
@@ -1902,6 +2002,18 @@ function traceStateFromStatus(value: string): GateState {
     value.includes("failed") ||
     value.includes("error")
   ) {
+    return "closed";
+  }
+
+  return "neutral";
+}
+
+function evalStatusToGateState(value: "pass" | "warn" | "fail"): GateState {
+  if (value === "pass") {
+    return "open";
+  }
+
+  if (value === "fail") {
     return "closed";
   }
 

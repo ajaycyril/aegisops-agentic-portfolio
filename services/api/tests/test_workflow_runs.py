@@ -12,6 +12,7 @@ from aegisops_api.db.models import (
     Approval,
     AuditEvent,
     EvidenceRecord,
+    MemoryRecord,
     ModelCall,
     ToolCall,
     WorkflowRegistrySnapshot,
@@ -197,6 +198,18 @@ def test_get_workflow_run_trace_returns_metadata_records() -> None:
         captured_at=now,
         created_at=now,
     )
+    memory = MemoryRecord(
+        id=uuid4(),
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        scope="run",
+        subject_id=f"run:{run.id}",
+        memory_key="customer_support.memory_policy",
+        memory_value={"raw_customer_payload_persisted": False},
+        retention_class="ephemeral_30d",
+        data_sensitivity="confidential",
+        created_at=now,
+    )
     audit_event = AuditEvent(
         id=uuid4(),
         run_id=run.id,
@@ -210,7 +223,7 @@ def test_get_workflow_run_trace_returns_metadata_records() -> None:
     )
     session = TraceSession(
         run,
-        [[approval], [tool_call], [model_call], [evidence], [audit_event]],
+        [[approval], [tool_call], [model_call], [evidence], [memory], [audit_event]],
     )
 
     response = get_workflow_run_trace(run.id, cast(Session, session))
@@ -221,6 +234,8 @@ def test_get_workflow_run_trace_returns_metadata_records() -> None:
     assert response.tool_calls[0].execution_state == "authorized_not_executed"
     assert response.model_calls[0].estimated_cost_usd == "0"
     assert response.evidence_records[0].metadata["schema_version"].endswith("pr_preview.v1")
+    assert response.memory_records[0].memory_key == "customer_support.memory_policy"
+    assert response.memory_records[0].retention_class == "ephemeral_30d"
     assert response.audit_events[0].event_type == "pr_draft.preview_created"
 
 

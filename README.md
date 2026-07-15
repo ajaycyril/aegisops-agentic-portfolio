@@ -80,10 +80,11 @@ This repository currently defines:
 - Run-scoped Engineering PR draft preview route that verifies the approved authorization and
   input hash, then persists a dry-run evidence artifact with PR metadata and hashes only.
 - Generic workflow-run trace endpoint returning run, approval, tool-call, model-call, evidence,
-  and audit metadata for UI readouts.
+  memory, and audit metadata for UI readouts.
 - Server-rendered web trace reader keyed by `DEMO_WORKFLOW_RUN_ID`/`DEMO_TRACE_RUN_ID`, with
   no fake fallback data. It visualizes approval decisions, PR authorization blocks, dry-run
-  preview evidence, record counts, and recent trace metadata from `GET /workflow-runs/{run_id}/trace`.
+  preview evidence, record counts, and recent trace metadata from
+  `GET /workflow-runs/{run_id}/trace`.
 - Visual Proposal Review cockpit showing the route contract, planner readiness, typed
   proposal/evaluation output, model-call audit path, approval persistence contract, and approval
   stop-points.
@@ -110,8 +111,19 @@ This repository currently defines:
   approval record for the cited response draft while keeping customer-visible sending disabled.
 - Run-scoped Customer Support approval decision route that approves or rejects that pending
   customer-message approval through OPA and audits the decision without sending a message.
-- Rubric-only eval contracts for Engineering patch proposals and Incident RCA drafts, plus
-  structured incident approval policy fixtures for rollback, paging, and incident updates.
+- Run-scoped Customer Support send-disabled authorization route at
+  `POST /workflow-runs/{run_id}/customer-support-escalation/message-send/authorize` that
+  verifies the approved response draft hash, then persists a blocked `customer_message_send`
+  tool-call record with no raw customer message and no external execution.
+- Customer Support memory policy records that write only run-scoped, 30-day, redacted memory
+  governance metadata; user/org customer memory remains approval-gated.
+- Executable trace eval endpoint at `GET /workflow-runs/{run_id}/evals/trace`, with
+  deterministic checks for support grounding, redaction, memory policy, send-disabled state,
+  sensitive writes, policy metadata, and cost/model usage.
+- Visual eval-result panel in the command center when a real demo run id is configured.
+- Rubric eval contracts for Engineering patch proposals, Incident RCA drafts, and Customer
+  Support response drafts, plus structured approval policy fixtures for rollback, paging,
+  incident updates, and support messages.
 
 ## Core Principle
 
@@ -207,8 +219,9 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 8 with support grounding eval, memory policy, and send-disabled authorization.
-4. Continue Phase 9 by adding executable trace eval runners and UI eval-result display.
+3. Continue Phase 10 with API deployment target selection and production environment wiring.
+4. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`
+   at it for the public eval/trace readout.
 
 ## Local Development Target
 

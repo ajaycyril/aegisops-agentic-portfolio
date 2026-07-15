@@ -6,7 +6,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUBRIC_DIR = REPO_ROOT / "configs" / "evals" / "rubrics"
 WORKFLOW_DIR = REPO_ROOT / "configs" / "workflows"
-ALLOWED_ARTIFACT_TYPES = {"patch_proposal", "rca_draft"}
+ALLOWED_ARTIFACT_TYPES = {"patch_proposal", "rca_draft", "response_draft"}
 ALLOWED_ENFORCEMENT = {"deterministic", "human_review", "llm_judge", "schema"}
 
 
@@ -22,6 +22,7 @@ def test_eval_rubrics_are_weighted_source_grounded_contracts() -> None:
     rubric_paths = sorted(RUBRIC_DIR.glob("*.yaml"))
 
     assert {path.name for path in rubric_paths} == {
+        "customer_support_response_draft.yaml",
         "engineering_issue_to_pr_proposal.yaml",
         "incident_response_rca.yaml",
     }
@@ -50,9 +51,15 @@ def test_eval_rubrics_are_weighted_source_grounded_contracts() -> None:
 
 
 def test_eval_rubrics_keep_sensitive_actions_approval_gated() -> None:
+    support = load_yaml(RUBRIC_DIR / "customer_support_response_draft.yaml")
     incident = load_yaml(RUBRIC_DIR / "incident_response_rca.yaml")
     engineering = load_yaml(RUBRIC_DIR / "engineering_issue_to_pr_proposal.yaml")
 
+    assert support["approval_requirements"] == {
+        "customer_message": "approval_required",
+        "refund": "approval_required",
+        "account_change": "approval_required",
+    }
     assert incident["approval_requirements"] == {
         "rollback": "approval_required",
         "incident_update": "approval_required",

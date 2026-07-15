@@ -1099,7 +1099,8 @@ h1 {
 .proposal-contract,
 .approval-persistence,
 .approval-review,
-.trace-readout {
+.trace-readout,
+.trace-eval {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 8px;
@@ -1232,6 +1233,25 @@ h1 {
     rgba(255, 255, 255, 0.035);
 }
 
+.trace-eval {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 12px;
+  padding: 14px;
+  min-width: 0;
+  border-color: rgba(120, 166, 255, 0.16);
+  background:
+    linear-gradient(135deg, rgba(120, 166, 255, 0.075), rgba(53, 194, 167, 0.04)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.trace-eval-closed {
+  border-color: rgba(244, 201, 93, 0.22);
+  background:
+    linear-gradient(135deg, rgba(244, 201, 93, 0.075), rgba(255, 122, 144, 0.04)),
+    rgba(255, 255, 255, 0.035);
+}
+
 .trace-readout.trace-closed {
   border-color: rgba(244, 201, 93, 0.22);
   background:
@@ -1258,7 +1278,8 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.trace-readout p {
+.trace-readout p,
+.trace-eval p {
   margin: 0;
   color: #c9d2e1;
   font-size: 13px;
@@ -1286,6 +1307,57 @@ h1 {
 .trace-badge-closed {
   border-color: rgba(244, 201, 93, 0.3);
   color: #ffe4a3;
+}
+
+.trace-badge-neutral {
+  border-color: rgba(120, 166, 255, 0.24);
+  color: #cfe0ff;
+}
+
+.trace-eval-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trace-eval-check {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 6px 10px;
+  align-content: start;
+  min-height: 118px;
+  padding: 12px;
+  border: 1px solid rgba(120, 166, 255, 0.14);
+  background: rgba(120, 166, 255, 0.04);
+  border-radius: 8px;
+}
+
+.trace-eval-check.eval-open {
+  border-color: rgba(53, 194, 167, 0.22);
+}
+
+.trace-eval-check.eval-closed {
+  border-color: rgba(244, 201, 93, 0.24);
+}
+
+.trace-eval-check strong {
+  color: #f0f4fb;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.trace-eval-check em,
+.trace-eval-check small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trace-eval-check small {
+  color: #dce8ff;
 }
 
 .trace-outcome-grid {
@@ -1331,7 +1403,7 @@ h1 {
 
 .trace-record-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1473,7 +1545,7 @@ h1 {
 
 .support-stage-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   min-width: 0;
 }
@@ -1757,13 +1829,15 @@ h1 {
   .proposal-route,
   .approval-persistence,
   .approval-review,
-  .trace-readout {
+  .trace-readout,
+  .trace-eval {
     grid-column: auto;
   }
 
   .approval-stop-list,
   .support-contract-grid,
   .support-stage-grid,
+  .trace-eval-grid,
   .trace-outcome-grid,
   .trace-events {
     grid-template-columns: 1fr;

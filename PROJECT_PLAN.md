@@ -67,12 +67,14 @@ creates pending `approvals` rows for those proposed production actions without e
 The Incident approval decision route now approves or rejects those records through OPA, audits
 the reviewer decision, and still returns no-write execution state. Read-only HTTP JSON adapters
 now provide live observability log and deployment event search when connector connection IDs,
-base URLs, and optional bearer tokens are configured. Phase 8 has started with read-only
-Customer Support Escalation context collection across support ticket, CRM customer profile, and
-knowledge base search connectors, with hash-only/redacted evidence persistence, an internal
-cited response draft contract, a pending approval-review queue for customer messages, and
-OPA-checked customer-message approval decisions while customer-visible send actions remain
-disabled.
+base URLs, and optional bearer tokens are configured. Phase 8 is implemented at code/test level
+with read-only Customer Support Escalation context collection across support ticket, CRM
+customer profile, and knowledge base search connectors, hash-only/redacted evidence
+persistence, an internal cited response draft contract, a pending approval-review queue for
+customer messages, OPA-checked customer-message approval decisions, run-scoped redacted memory
+policy records, and blocked send authorization while customer-visible send actions remain
+disabled. Phase 9 has started with executable trace evals and UI eval-result display over real
+persisted run traces.
 
 Current production web deployment:
 
@@ -90,9 +92,9 @@ Current production web deployment:
 | 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub and HTTP JSON read adapters                              |
 | 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
 | 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
-| 8     | Customer Support Escalation workflow | In progress                                  | Real support/KB/CRM workflow path                                                   |
-| 9     | Evals, replay, and demo hardening    | Not started                                  | Captured real-run replay and quality gates                                          |
-| 10    | Deployment and portfolio polish      | Not started                                  | Public free-tier deployment and executive-grade UI                                  |
+| 8     | Customer Support Escalation workflow | Implemented                                  | Real support/KB/CRM workflow path                                                   |
+| 9     | Evals, replay, and demo hardening    | In progress                                  | Captured real-run replay and quality gates                                          |
+| 10    | Deployment and portfolio polish      | In progress                                  | Public free-tier deployment and executive-grade UI                                  |
 
 ## Phase 0: Architecture Baseline
 
@@ -490,8 +492,8 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Continue Phase 8 with support grounding eval, memory policy, and send-disabled authorization.
-3. Continue Phase 9 with executable trace eval runners and UI eval-result display.
+2. Continue Phase 10 with backend deployment target selection and production env wiring.
+3. Capture a real sandbox run and point `DEMO_TRACE_RUN_ID` at it for public trace/eval display.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -583,13 +585,16 @@ Acceptance criteria:
 
 Goal: Add real support workflow with knowledge retrieval and human-approved response drafting.
 
-Status note: the first runtime slices are implemented. The workflow is `ready` behind real
+Status note: the runtime slices are implemented at code/test level. The workflow is `ready` behind real
 connector readiness and uses `support_ticket_read`, `crm_customer_profile_read`, and
 `knowledge_base_search` tools through HTTP JSON adapters. The run-scoped context route persists
 hash-only/redacted evidence metadata and can create an internal cited response draft with
 `include_draft=true`. The approval-review route stores a pending external-message approval for
 that draft, and the approval decision route records OPA-checked approve/reject decisions.
-Customer-visible messages, refunds, and account changes remain disabled.
+The context route also writes run-scoped redacted memory-policy records with 30-day retention.
+The send-disabled authorization route verifies the approved draft hash and persists a blocked
+`customer_message_send` tool-call record. Customer-visible messages, refunds, and account
+changes remain disabled.
 
 Tasks:
 
@@ -599,9 +604,9 @@ Tasks:
 4. In progress: add graph nodes for triage, account lookup, KB search, policy check, response
    draft, evaluator, approval, and handoff. Done for read-only ticket, CRM, KB search, and
    redacted evidence persistence, plus cited internal response draft creation.
-5. Add memory policy for customer preferences and prior incidents.
-6. In progress: add approval workflow for customer-visible messages. Done for pending approval
-   review queue and OPA-checked approval decisions; pending send-disabled authorization.
+5. Done: add memory policy for customer preferences and prior incidents.
+6. Done: add approval workflow for customer-visible messages, including pending approval review
+   queue, OPA-checked approval decisions, and send-disabled authorization.
 
 Acceptance criteria:
 
@@ -621,8 +626,9 @@ Tasks:
 3. Add promptfoo config for red-team and regression checks.
 4. Add Ragas or custom grounding evals for RAG outputs.
 5. In progress: add trace evals for tool validity, policy compliance, cost, and grounding.
-   Done for rubric contracts covering Engineering proposal quality and Incident RCA grounding;
-   pending executable trace eval runners and UI result display.
+   Done for rubric contracts covering Engineering proposal quality, Incident RCA grounding, and
+   Customer Support response drafts. Done for executable deterministic trace eval runners and
+   UI eval-result display over real configured run ids.
 6. Add admin-only live-run gate.
 7. Add per-run budget enforcement.
 8. Add demo reset and seed from captured real traces only.
@@ -682,7 +688,7 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue Phase 8 with support grounding eval, memory policy, and send-disabled authorization,
-or continue Phase 9 with executable trace eval runners and UI eval-result display. Do not enable
-rollback, paging, incident-update, customer-message, refund, account-change, branch, or
-pull-request write execution.
+Continue Phase 10 with backend deployment target selection, production environment wiring, and
+real sandbox run capture for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging,
+incident-update, customer-message, refund, account-change, branch, or pull-request write
+execution.

@@ -81,8 +81,15 @@ come from retrieved knowledge base source URIs. The approval-review route
 external-message approval record for that draft. The decision route
 `POST /workflow-runs/{run_id}/customer-support-escalation/approvals/{approval_id}/decision`
 records OPA-checked approve/reject decisions while keeping send execution disabled.
-Customer-visible messages, refunds, and account changes remain disabled until send-disabled
-authorization and final connector hardening are added.
+The context route writes a run-scoped `memory_records` policy artifact with 30-day retention,
+hashed customer reference, no raw customer payload, and approval-required user/org memory
+expansion. The send-disabled authorization route
+`POST /workflow-runs/{run_id}/customer-support-escalation/message-send/authorize` verifies the
+approved response draft hash and writes a blocked `customer_message_send` tool-call record.
+`GET /workflow-runs/{run_id}/evals/trace` can evaluate support grounding, redaction, memory
+policy, send-disabled state, and model/cost behavior from persisted trace metadata.
+Customer-visible messages, refunds, and account changes remain disabled until final connector
+hardening is added.
 
 ## Workflow Contract
 

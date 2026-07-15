@@ -1,0 +1,53 @@
+id: customer_support_response_draft
+version: 1
+workflow_id: customer_support_escalation
+artifact_type: response_draft
+minimum_score: 0.86
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+evidence_requirements:
+  require_source_evidence_uris: true
+  allow_uncited_claims: false
+approval_requirements:
+  customer_message: approval_required
+  refund: approval_required
+  account_change: approval_required
+dimensions:
+  - id: grounding
+    name: Knowledge-base grounding
+    weight: 0.35
+    required: true
+    enforcement: deterministic
+    checks:
+      - response_draft_cites_retrieved_knowledge_base_source_uris
+      - cited_documents_match_response_citation_uris
+      - uncited_resolution_steps_are_rejected
+  - id: customer_data_safety
+    name: Customer data safety
+    weight: 0.25
+    required: true
+    enforcement: deterministic
+    checks:
+      - support_and_crm_evidence_persists_hashes_and_redacted_metadata_only
+      - raw_customer_messages_are_not_written_to_evidence_metadata
+      - user_or_org_memory_requires_explicit_policy_approval
+  - id: support_quality
+    name: Support response quality
+    weight: 0.2
+    required: false
+    enforcement: human_review
+    checks:
+      - response_addresses_ticket_subject_without_overpromising
+      - tone_is_empathetic_and_operationally_precise
+      - next_steps_are_clear_for_human_reviewer
+  - id: send_governance
+    name: Send governance
+    weight: 0.2
+    required: true
+    enforcement: deterministic
+    checks:
+      - customer_message_enabled_is_false_until_human_approval
+      - approved_message_creates_blocked_send_authorization_when_adapter_disabled
+      - refunds_and_account_changes_remain_disabled

@@ -10,7 +10,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
-from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
+from aegisops_api.db.models import (
+    Approval,
+    EvidenceRecord,
+    MemoryRecord,
+    ToolCall,
+    WorkflowRun,
+    utc_now,
+)
 from aegisops_api.tools import ToolPolicyEvaluator
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.registry import ToolRegistry
@@ -94,6 +101,16 @@ class SupportEvidenceRecordSummary(BaseModel):
     content_hash: str
 
 
+class SupportMemoryRecordSummary(BaseModel):
+    id: UUID
+    scope: str
+    subject_id: str | None
+    memory_key: str
+    retention_class: str
+    data_sensitivity: str
+    expires_at: str | None
+
+
 class SupportEscalationResponse(BaseModel):
     run_id: UUID
     workflow_id: str
@@ -105,6 +122,7 @@ class SupportEscalationResponse(BaseModel):
     tool_call_ids: list[str]
     policy_decision_ids: list[str]
     evidence_records: list[SupportEvidenceRecordSummary]
+    memory_records: list[SupportMemoryRecordSummary]
     response_draft_created: bool = False
     response_draft: SupportResponseDraft | None = None
     model_response_drafting_enabled: Literal[False] = False
@@ -170,6 +188,30 @@ class SupportApprovalDecisionResponse(BaseModel):
     policy_decision: SupportApprovalPolicyDecisionSummary
     customer_message_enabled: Literal[False] = False
     external_actions_enabled: Literal[False] = False
+
+
+class SupportMessageSendAuthorizationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approval_id: UUID
+    response_draft: SupportResponseDraft
+    requested_by: str = Field(default="agent-runtime", min_length=1)
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+
+class SupportMessageSendAuthorizationResponse(BaseModel):
+    run_id: UUID
+    workflow_id: str
+    approval_id: UUID
+    tool_call_id: UUID
+    send_authorization_state: Literal["blocked_send_adapter_disabled"] = (
+        "blocked_send_adapter_disabled"
+    )
+    approval_verified: Literal[True] = True
+    customer_message_enabled: Literal[False] = False
+    external_actions_enabled: Literal[False] = False
+    reason_codes: list[str]
 
 
 class SupportApprovalPolicyEvaluator(Protocol):
@@ -240,6 +282,7 @@ async def collect_support_escalation_context(
         if request.include_draft:
             response_draft = build_support_response_draft(graph_state)
         evidence_records = persist_support_evidence(session, run, graph_state)
+        memory_records = persist_support_memory_policy(session, run, graph_state, evidence_records)
         if response_draft is not None:
             evidence_records.append(persist_support_response_draft(session, run, response_draft))
         policy_decision_ids = collect_policy_decision_ids(graph_state)
@@ -262,6 +305,7 @@ async def collect_support_escalation_context(
                         else "support_context_collected"
                     ),
                     "evidence_count": len(evidence_records),
+                    "memory_record_count": len(memory_records),
                     "tool_call_count": len(collect_tool_call_ids(graph_state)),
                     "policy_decision_ids": policy_decision_ids,
                     "response_draft_created": response_draft is not None,
@@ -321,6 +365,18 @@ async def collect_support_escalation_context(
                 content_hash=record.content_hash,
             )
             for record in evidence_records
+        ],
+        memory_records=[
+            SupportMemoryRecordSummary(
+                id=record.id,
+                scope=record.scope,
+                subject_id=record.subject_id,
+                memory_key=record.memory_key,
+                retention_class=record.retention_class,
+                data_sensitivity=record.data_sensitivity,
+                expires_at=record.expires_at.isoformat() if record.expires_at else None,
+            )
+            for record in memory_records
         ],
         response_draft_created=response_draft is not None,
         response_draft=response_draft,
@@ -536,6 +592,116 @@ async def decide_support_approval(
     )
 
 
+async def authorize_support_message_send_disabled(
+    run_id: UUID,
+    request: SupportMessageSendAuthorizationRequest,
+    session: Session,
+) -> SupportMessageSendAuthorizationResponse:
+    approval = session.get(Approval, request.approval_id)
+    if approval is None:
+        raise SupportEscalationRejectedError(
+            reason_code="approval_not_found",
+            message="Approval record was not found.",
+            http_status=404,
+        )
+    if approval.run_id != run_id:
+        raise SupportEscalationRejectedError(
+            reason_code="approval_run_mismatch",
+            message="Approval record does not belong to this workflow run.",
+        )
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise SupportEscalationRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_support_message_send_can_be_authorized(run, approval, request.response_draft)
+
+    draft_payload = request.response_draft.model_dump(mode="json")
+    draft_hash = hash_payload(draft_payload)
+    authorization_payload = {
+        "schema_version": "customer_support_escalation.message_send_authorization.v1",
+        "approval_id": str(approval.id),
+        "response_draft_hash": draft_hash,
+        "requested_by": request.requested_by,
+        "send_adapter_enabled": False,
+        "customer_message_enabled": False,
+        "external_actions_enabled": False,
+    }
+    schema_payload = {
+        "schema_version": "customer_support_escalation.message_send_authorization_schema.v1",
+        "approval_required": True,
+        "send_adapter_enabled": False,
+    }
+    tool_call = ToolCall(
+        id=uuid4(),
+        run_id=run.id,
+        approval_id=approval.id,
+        tool_name="customer_message_send",
+        tool_version="disabled-contract-v1",
+        risk_class="external_message",
+        input_schema_hash=hash_payload(schema_payload),
+        input_hash=hash_payload(authorization_payload),
+        status="blocked",
+        policy_decision_id=approval.policy_decision_id,
+        trace_id=request.trace_id,
+        call_metadata={
+            "workflow_id": run.workflow_id,
+            "tool_id": "customer_message_send",
+            "connector": "support_system",
+            "risk_class": "external_message",
+            "required_scopes": ["messages:send"],
+            "approval_status": approval.status,
+            "execution_state": "blocked_before_execution",
+            "disabled_reason": "send_adapter_disabled",
+            "response_draft_hash": draft_hash,
+            "raw_customer_message_persisted": False,
+            "customer_message_enabled": False,
+            "external_actions_enabled": False,
+        },
+        error_message="Customer-visible send adapter is disabled by policy.",
+    )
+    try:
+        session.add(tool_call)
+        write_audit_event(
+            session,
+            AuditEventInput(
+                run_id=run.id,
+                workflow_id=run.workflow_id,
+                event_type="tool_call.blocked",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                action="tool_call.authorize_send_disabled",
+                resource_type="tool_call",
+                resource_id=str(tool_call.id),
+                policy_decision_id=approval.policy_decision_id,
+                trace_id=request.trace_id,
+                payload={
+                    "tool_id": "customer_message_send",
+                    "risk_class": "external_message",
+                    "approval_id": str(approval.id),
+                    "execution_state": "blocked_before_execution",
+                    "reason_codes": ["send_adapter_disabled"],
+                    "customer_message_enabled": False,
+                    "external_actions_enabled": False,
+                },
+            ),
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    return SupportMessageSendAuthorizationResponse(
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        approval_id=approval.id,
+        tool_call_id=tool_call.id,
+        reason_codes=["send_adapter_disabled"],
+    )
+
+
 def ensure_run_can_collect_support_context(run: WorkflowRun) -> None:
     if run.workflow_id != CUSTOMER_SUPPORT_WORKFLOW_ID:
         raise SupportEscalationRejectedError(
@@ -589,6 +755,44 @@ def ensure_support_approval_can_be_decided(run: WorkflowRun, approval: Approval)
         raise SupportEscalationRejectedError(
             reason_code="approval_payload_invalid",
             message="Approval payload is not a Support approval-review record.",
+        )
+
+
+def ensure_support_message_send_can_be_authorized(
+    run: WorkflowRun,
+    approval: Approval,
+    response_draft: SupportResponseDraft,
+) -> None:
+    if run.workflow_id != CUSTOMER_SUPPORT_WORKFLOW_ID:
+        raise SupportEscalationRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports customer_support_escalation runs.",
+        )
+    if approval.status != "approved":
+        raise SupportEscalationRejectedError(
+            reason_code="approval_not_approved",
+            message="Customer message send authorization requires an approved approval record.",
+        )
+    if approval.requested_action != "customer_message":
+        raise SupportEscalationRejectedError(
+            reason_code="approval_action_not_supported",
+            message="Only customer_message approvals can authorize support sends.",
+        )
+    if extract_support_write_actions_enabled(approval.request_payload):
+        raise SupportEscalationRejectedError(
+            reason_code="approval_payload_invalid",
+            message="Support message approvals must keep external actions disabled.",
+        )
+    approved_draft = approval.request_payload.get("response_draft")
+    if not isinstance(approved_draft, dict):
+        raise SupportEscalationRejectedError(
+            reason_code="approval_payload_invalid",
+            message="Approval payload does not contain a response draft.",
+        )
+    if hash_payload(approved_draft) != hash_payload(response_draft.model_dump(mode="json")):
+        raise SupportEscalationRejectedError(
+            reason_code="approval_draft_mismatch",
+            message="Requested send draft does not match the approved response draft.",
         )
 
 
@@ -682,6 +886,86 @@ def persist_support_response_draft(
     session.add(record)
     session.flush()
     return record
+
+
+def persist_support_memory_policy(
+    session: Session,
+    run: WorkflowRun,
+    state: SupportEscalationState,
+    evidence_records: list[EvidenceRecord],
+) -> list[MemoryRecord]:
+    ticket = state.get("ticket", {})
+    customer = state.get("customer", {})
+    if not isinstance(customer, dict):
+        customer = {}
+    customer_id = string_or_none(ticket.get("customer_id")) or string_or_none(
+        customer.get("customer_id")
+    )
+    customer_hash = sha256(customer_id.encode("utf-8")).hexdigest() if customer_id else None
+    source_evidence = next(
+        (
+            record
+            for record in evidence_records
+            if record.source_system in {"support_system", "crm"}
+        ),
+        evidence_records[0] if evidence_records else None,
+    )
+    memory_value = {
+        "schema_version": "customer_support_escalation.memory_policy.v1",
+        "customer_hash": customer_hash,
+        "raw_customer_payload_persisted": False,
+        "embedding_enabled": False,
+        "allowed_memory_writes": ["run_scoped_support_context_hashes"],
+        "blocked_memory_writes": [
+            "raw_ticket_messages",
+            "raw_crm_profile",
+            "customer_preferences_without_consent",
+            "prior_incidents_without_source_evidence",
+        ],
+        "requires_approval_for_user_or_org_scope": True,
+        "retention_days": 30,
+        "source_evidence_ids": [str(record.id) for record in evidence_records],
+    }
+    record = MemoryRecord(
+        id=uuid4(),
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        scope="run",
+        subject_id=(
+            f"customer_hash:{customer_hash[:16]}" if customer_hash is not None else f"run:{run.id}"
+        ),
+        memory_key="customer_support.memory_policy",
+        memory_value=memory_value,
+        embedding=None,
+        retention_class="ephemeral_30d",
+        data_sensitivity="confidential",
+        source_evidence_id=source_evidence.id if source_evidence is not None else None,
+        expires_at=utc_now() + timedelta(days=30),
+    )
+    session.add(record)
+    write_audit_event(
+        session,
+        AuditEventInput(
+            run_id=run.id,
+            workflow_id=run.workflow_id,
+            event_type="memory.policy_recorded",
+            actor_type="system",
+            actor_id=None,
+            action="memory.policy_record",
+            resource_type="memory_record",
+            resource_id=str(record.id),
+            payload={
+                "memory_key": record.memory_key,
+                "scope": record.scope,
+                "retention_class": record.retention_class,
+                "data_sensitivity": record.data_sensitivity,
+                "raw_customer_payload_persisted": False,
+                "requires_approval_for_user_or_org_scope": True,
+            },
+        ),
+    )
+    session.flush()
+    return [record]
 
 
 def build_support_response_draft(state: SupportEscalationState) -> SupportResponseDraft:
