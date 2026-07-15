@@ -75,8 +75,11 @@ Customer Support Escalation runtime slice. The route
 workflow run. It collects a support ticket, CRM customer profile, and knowledge base documents
 through policy-authorized read tools backed by HTTP JSON adapters. Persisted evidence stores
 hashes and redacted metadata instead of raw customer messages or customer profile payloads.
-Response drafting, customer-visible messages, refunds, and account changes remain disabled
-until grounded draft, eval, and approval contracts are added.
+With `include_draft=true`, it creates an internal cited response draft whose citations must
+come from retrieved knowledge base source URIs. The approval-review route
+`POST /workflow-runs/{run_id}/customer-support-escalation/approval-review` stores a pending
+external-message approval record for that draft. Customer-visible messages, refunds, and account
+changes remain disabled until approval decisions, policy fixtures, and send adapters are added.
 
 ## Workflow Contract
 

@@ -69,8 +69,9 @@ the reviewer decision, and still returns no-write execution state. Read-only HTT
 now provide live observability log and deployment event search when connector connection IDs,
 base URLs, and optional bearer tokens are configured. Phase 8 has started with read-only
 Customer Support Escalation context collection across support ticket, CRM customer profile, and
-knowledge base search connectors, with hash-only/redacted evidence persistence and
-customer-visible actions disabled.
+knowledge base search connectors, with hash-only/redacted evidence persistence, an internal
+cited response draft contract, a pending approval-review queue for customer messages, and
+customer-visible send actions disabled.
 
 Current production web deployment:
 
@@ -488,7 +489,7 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Continue Phase 8 with support response draft contracts, grounding eval, and approval queue.
+2. Continue Phase 8 with support approval decisions, grounding eval, and memory policy.
 3. Continue Phase 9 with executable trace eval runners and UI eval-result display.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -581,11 +582,12 @@ Acceptance criteria:
 
 Goal: Add real support workflow with knowledge retrieval and human-approved response drafting.
 
-Status note: the first read-only runtime slice is implemented. The workflow is `ready` behind
-real connector readiness and uses `support_ticket_read`, `crm_customer_profile_read`, and
+Status note: the first runtime slices are implemented. The workflow is `ready` behind real
+connector readiness and uses `support_ticket_read`, `crm_customer_profile_read`, and
 `knowledge_base_search` tools through HTTP JSON adapters. The run-scoped context route persists
-hash-only/redacted evidence metadata and keeps response drafting, customer-visible messages,
-refunds, and account changes disabled.
+hash-only/redacted evidence metadata and can create an internal cited response draft with
+`include_draft=true`. The approval-review route stores a pending external-message approval for
+that draft. Customer-visible messages, refunds, and account changes remain disabled.
 
 Tasks:
 
@@ -594,9 +596,10 @@ Tasks:
 3. Done: add knowledge base retrieval over real docs.
 4. In progress: add graph nodes for triage, account lookup, KB search, policy check, response
    draft, evaluator, approval, and handoff. Done for read-only ticket, CRM, KB search, and
-   redacted evidence persistence.
+   redacted evidence persistence, plus cited internal response draft creation.
 5. Add memory policy for customer preferences and prior incidents.
-6. Add approval workflow for customer-visible messages.
+6. In progress: add approval workflow for customer-visible messages. Done for pending approval
+   review queue; pending approval decision policy fixtures and send-disabled authorization.
 
 Acceptance criteria:
 
@@ -677,7 +680,7 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue Phase 8 with support response draft contracts, grounding eval, and approval queue, or
-continue Phase 9 with executable trace eval runners and UI eval-result display. Do not enable
-rollback, paging, incident-update, customer-message, refund, account-change, branch, or
-pull-request write execution.
+Continue Phase 8 with support approval decisions, grounding eval, and memory policy, or continue
+Phase 9 with executable trace eval runners and UI eval-result display. Do not enable rollback,
+paging, incident-update, customer-message, refund, account-change, branch, or pull-request write
+execution.

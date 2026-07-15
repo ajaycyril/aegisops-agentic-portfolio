@@ -104,8 +104,10 @@ This repository currently defines:
 - Run-scoped Customer Support Escalation context route at
   `POST /workflow-runs/{run_id}/customer-support-escalation/context` that reads a real support
   ticket, CRM customer profile, and cited knowledge documents through policy-authorized tools,
-  persists hash-only/redacted evidence metadata, and keeps response drafting and customer
-  messaging disabled.
+  persists hash-only/redacted evidence metadata, and can create an internal cited response draft
+  with `include_draft=true`.
+- Run-scoped Customer Support approval-review route that creates a pending external-message
+  approval record for the cited response draft while keeping customer-visible sending disabled.
 - Rubric-only eval contracts for Engineering patch proposals and Incident RCA drafts, plus
   structured incident approval policy fixtures for rollback, paging, and incident updates.
 
@@ -203,7 +205,7 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 8 with support response draft contracts, grounding eval, and approval queue.
+3. Continue Phase 8 with support approval decisions, grounding eval, and memory policy.
 4. Continue Phase 9 by adding executable trace eval runners and UI eval-result display.
 
 ## Local Development Target

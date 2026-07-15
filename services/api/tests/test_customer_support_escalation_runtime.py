@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from aegisops_api.db.models import EvidenceRecord, WorkflowRun
+from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun
 from aegisops_api.tools import (
     ToolCallAuthorizationRequest,
     ToolCallAuthorizationResponse,
@@ -14,9 +14,13 @@ from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.execution import ToolPolicyDecisionSummary
 from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.customer_support_escalation import (
+    SupportApprovalReviewRequest,
+    SupportDraftCitation,
     SupportEscalationRejectedError,
     SupportEscalationRequest,
+    SupportResponseDraft,
     collect_support_escalation_context,
+    request_support_approval_review,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
 
@@ -113,6 +117,9 @@ class RuntimeSession:
     def commit(self) -> None:
         self.commit_count += 1
 
+    def rollback(self) -> None:
+        pass
+
     def get(self, model: object, identifier: object) -> object | None:
         if model is WorkflowRun:
             return self.runs.get(cast(UUID, identifier))
@@ -134,13 +141,13 @@ def create_support_run(input_payload: dict[str, Any] | None = None) -> WorkflowR
 
 
 @pytest.mark.asyncio
-async def test_collect_support_context_persists_redacted_evidence_metadata() -> None:
+async def test_collect_support_context_creates_grounded_draft_and_redacted_metadata() -> None:
     run = create_support_run()
     session = RuntimeSession({run.id: run})
 
     response = await collect_support_escalation_context(
         run_id=run.id,
-        request=SupportEscalationRequest(actor_id="support-lead-1"),
+        request=SupportEscalationRequest(actor_id="support-lead-1", include_draft=True),
         session=cast(Any, session),
         workflow_registry=cast(WorkflowRegistry, object()),
         tool_registry=cast(ToolRegistry, object()),
@@ -153,13 +160,17 @@ async def test_collect_support_context_persists_redacted_evidence_metadata() -> 
     evidence_records = [
         instance for instance in session.added if isinstance(instance, EvidenceRecord)
     ]
-    assert response.stage == "support_context_collected"
+    assert response.stage == "support_response_draft_created"
     assert response.customer_id == "cus_123"
     assert response.knowledge_document_count == 1
-    assert response.response_drafting_enabled is False
+    assert response.response_draft_created is True
+    assert response.response_draft is not None
+    assert response.response_draft.requires_human_review is True
+    assert response.response_draft.citation_uris == ["https://kb.example/articles/kb_42"]
+    assert response.model_response_drafting_enabled is False
     assert response.customer_message_enabled is False
     assert len(response.tool_call_ids) == 3
-    assert len(evidence_records) == 3
+    assert len(evidence_records) == 4
     assert {record.kind for record in evidence_records} == {
         "api_response",
         "document",
@@ -170,6 +181,46 @@ async def test_collect_support_context_persists_redacted_evidence_metadata() -> 
     assert "raw ticket subject" not in str(evidence_records[0].evidence_metadata)
     assert run.status == "running"
     assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_request_support_approval_review_creates_pending_customer_message() -> None:
+    run = create_support_run()
+    run.status = "running"
+    session = RuntimeSession({run.id: run})
+    draft = SupportResponseDraft(
+        ticket_id="TCK-1024",
+        customer_id="cus_123",
+        subject="SSO lockout",
+        response_body="Human-reviewed response draft.",
+        citation_uris=["https://kb.example/articles/kb_42"],
+        cited_documents=[
+            SupportDraftCitation(
+                document_id="kb_42",
+                title="Troubleshoot enterprise SSO lockouts",
+                source_uri="https://kb.example/articles/kb_42",
+            )
+        ],
+    )
+
+    response = await request_support_approval_review(
+        run_id=run.id,
+        request=SupportApprovalReviewRequest(
+            response_draft=draft,
+            requested_by="support-agent",
+            actor_id="support-lead-1",
+        ),
+        session=cast(Any, session),
+    )
+
+    approvals = [instance for instance in session.added if isinstance(instance, Approval)]
+    assert response.run_status == "waiting_for_approval"
+    assert response.customer_message_enabled is False
+    assert len(response.approvals) == 1
+    assert response.approvals[0].requested_action == "customer_message"
+    assert approvals[0].risk_class == "external_message"
+    assert approvals[0].request_payload["response_draft"]["ticket_id"] == "TCK-1024"
+    assert run.status == "waiting_for_approval"
 
 
 @pytest.mark.asyncio

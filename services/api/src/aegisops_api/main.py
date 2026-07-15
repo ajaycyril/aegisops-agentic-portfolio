@@ -41,10 +41,13 @@ from aegisops_api.workflows import (
     get_workflow_run_trace,
 )
 from aegisops_api.workflows.customer_support_escalation import (
+    SupportApprovalReviewRequest,
+    SupportApprovalReviewResponse,
     SupportEscalationRejectedError,
     SupportEscalationRequest,
     SupportEscalationResponse,
     collect_support_escalation_context,
+    request_support_approval_review,
 )
 from aegisops_api.workflows.engineering_issue_to_pr import (
     ApprovalPolicyEvaluator,
@@ -460,6 +463,30 @@ async def collect_customer_support_escalation_context(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="workflow graph execution failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/customer-support-escalation/approval-review",
+    response_model=SupportApprovalReviewResponse,
+    status_code=201,
+    tags=["workflow-runs"],
+)
+async def request_customer_support_approval_review(
+    run_id: UUID,
+    request: SupportApprovalReviewRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> SupportApprovalReviewResponse:
+    try:
+        return await request_support_approval_review(
+            run_id=run_id,
+            request=request,
+            session=session,
+        )
+    except SupportEscalationRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(
