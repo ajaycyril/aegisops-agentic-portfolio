@@ -1159,6 +1159,10 @@ function createProposalReview(
           value: "approvals",
         },
         {
+          label: "Decision route",
+          value: "workflow-specific decision route pending",
+        },
+        {
           label: "Status",
           value: "pending until reviewer decision is implemented",
         },
@@ -1277,11 +1281,16 @@ function createProposalReview(
       },
       {
         label: "Audit",
-        value: "approval.requested and workflow_run.waiting_for_approval",
+        value: "approval.requested, approval.approved, approval.rejected",
+      },
+      {
+        label: "Decision route",
+        value:
+          "POST /workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision",
       },
       {
         label: "Execution",
-        value: "approval_requested_no_write_execution",
+        value: "approval_decision_recorded_no_write_execution",
       },
     ],
     approvalStops: workflow.approval_required_for,

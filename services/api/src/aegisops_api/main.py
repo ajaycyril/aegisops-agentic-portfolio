@@ -35,14 +35,19 @@ from aegisops_api.tools.adapters import (
 from aegisops_api.tools.registry import get_tool_registry
 from aegisops_api.workflows import WorkflowDetail, WorkflowNotFoundError, WorkflowSummary
 from aegisops_api.workflows.engineering_issue_to_pr import (
+    ApprovalPolicyEvaluator,
+    IssueToPrApprovalDecisionRequest,
+    IssueToPrApprovalDecisionResponse,
     IssueToPrApprovalReviewRequest,
     IssueToPrApprovalReviewResponse,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     IssueToPrRunResponse,
+    OpaApprovalPolicyEvaluator,
     OpenAIIssueToPrPlanner,
     OpenAIPlannerConfig,
     collect_engineering_issue_context,
+    decide_issue_to_pr_approval,
     request_issue_to_pr_approval_review,
 )
 from aegisops_api.workflows.engineering_issue_to_pr.graph import IssueToPrPlanner
@@ -107,6 +112,19 @@ async def get_tool_policy_evaluator(
     opa_client = OpaClient(str(settings.opa_base_url))
     try:
         yield OpaToolPolicyEvaluator(opa_client)
+    finally:
+        await opa_client.aclose()
+
+
+async def get_approval_policy_evaluator(
+    settings: SettingsDependency,
+) -> AsyncGenerator[ApprovalPolicyEvaluator, None]:
+    if settings.opa_base_url is None:
+        raise HTTPException(status_code=503, detail="OPA policy engine is not configured")
+
+    opa_client = OpaClient(str(settings.opa_base_url))
+    try:
+        yield OpaApprovalPolicyEvaluator(opa_client)
     finally:
         await opa_client.aclose()
 
@@ -387,6 +405,38 @@ async def request_engineering_issue_to_pr_approval_review(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision",
+    response_model=IssueToPrApprovalDecisionResponse,
+    tags=["workflow-runs"],
+)
+async def decide_engineering_issue_to_pr_approval(
+    run_id: UUID,
+    approval_id: UUID,
+    request: IssueToPrApprovalDecisionRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[
+        ApprovalPolicyEvaluator,
+        Depends(get_approval_policy_evaluator),
+    ],
+) -> IssueToPrApprovalDecisionResponse:
+    try:
+        return await decide_issue_to_pr_approval(
+            run_id=run_id,
+            approval_id=approval_id,
+            request=request,
+            session=session,
+            policy_evaluator=policy_evaluator,
+        )
+    except IssueToPrRunRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
 
 
 @app.post(

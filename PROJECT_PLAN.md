@@ -41,8 +41,10 @@ visual command center now surfaces the proposal/evaluation contract, planner rea
 model-call audit path, approval-review persistence contract, and approval stop-points without
 showing fake run output or enabling branch/PR writes. A run-scoped Engineering approval-review
 route creates pending `approvals` rows for proposed branch/PR actions, records audit events,
-and moves runs to `waiting_for_approval` without executing GitHub writes. It also includes a
-React Flow multi-agent orchestration cockpit for the
+and moves runs to `waiting_for_approval` without executing GitHub writes. A second run-scoped
+decision route now approves or rejects those pending records through OPA, enforces a four-eyes
+review policy, audits the decision, and still returns a no-write execution state. It also
+includes a React Flow multi-agent orchestration cockpit for the
 Production Incident Investigator, showing a supervisor-worker fan-out, specialist evidence
 streams, evaluator reconciliation, and approval-gated production actions as a visual contract
 only. The Production Incident Investigator now also has a first backend runtime slice: a typed
@@ -395,6 +397,13 @@ Completed artifacts:
   with proposal/evaluation/action payloads, evidence URI validation, 24-hour expiry, run status
   transition to `waiting_for_approval`, and audit events. No branch or pull-request write
   adapter is enabled.
+- Run-scoped Engineering approval decision route at
+  `POST /workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision`.
+- OPA approval-decision fixtures for branch approval, PR rejection, missing approver rejection,
+  and self-approval rejection.
+- Approval decision persistence for approve/reject transitions, including policy decision
+  metadata, approver ID, decision payload, audit events, four-eyes enforcement input, and
+  `approval_decision_recorded_no_write_execution`.
 - GitHub issue/file/PR draft tool contracts.
 - Approved SQL read-only query tool contract.
 - Document retrieval tool contract.
@@ -437,9 +446,10 @@ cd services/api && .venv/bin/mypy .
 
 Next slice:
 
-1. Add explicit OPA policy fixtures for branch and PR approval decisions.
-2. Add approval decision endpoints and tests for approve/reject transitions.
-3. Keep branch and PR write adapters disabled until decision persistence, policy checks, and UI
+1. Wire approved approval IDs into the blocked GitHub PR draft authorization path.
+2. Add tests proving write-class authorization remains blocked without an approved approval ID
+   and policy-checked approval context.
+3. Keep branch and PR write adapters disabled until explicit dry-run write planning and UI
    review are complete.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -464,15 +474,16 @@ Tasks:
 1. Done: create `services/api/src/aegisops_api/workflows/engineering_issue_to_pr/`.
 2. Done: add typed state and contracts for issue context collection.
 3. In progress: add graph nodes. Done for issue ingestion, repo context reads, optional
-   planning, patch proposal contract, test plan contract, evaluator contract, and approval
-   review persistence. Pending approval decision and PR draft.
+   planning, patch proposal contract, test plan contract, evaluator contract, approval review
+   persistence, and approve/reject decision route. Pending PR draft.
 4. In progress: add GitHub tools. Done for issue read and file read; branch and PR draft write
    adapters remain disabled.
-5. In progress: add policy rules for branch and PR approval. Pending explicit fixtures for
-   approval decision transitions.
+5. In progress: add policy rules for branch and PR approval. Done for approval decision
+   fixtures; pending tool authorization wiring with approved approval IDs.
 6. Add visual graph mapping for UI.
 7. In progress: add tests for branch decisions and approval paths. Done for pending
-   approval-review creation; pending approve/reject transitions.
+   approval-review creation and approve/reject transitions; pending approved write-tool
+   authorization tests.
 8. Add first captured real-run replay format.
 
 Acceptance criteria:
@@ -606,5 +617,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue by adding explicit OPA policy fixtures and decision endpoints for approving or
-rejecting proposed branch/PR actions. Do not enable branch or pull-request writes.
+Continue by wiring approved approval IDs into the policy-checked GitHub PR draft authorization
+path. Do not enable branch or pull-request write execution.

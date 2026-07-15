@@ -32,7 +32,8 @@ after the architecture baseline is accepted.
 
 - `engineering_issue_to_pr`: guarded GitHub issue/file evidence collection, captured-real
   replay loading, optional OpenAI proposal/evaluator contracts, pending approval-review
-  persistence for proposed branch/PR actions, and no write adapters.
+  persistence for proposed branch/PR actions, approve/reject decision persistence through OPA,
+  and no write adapters.
 - `incident_response_investigator`: guarded read-only evidence collection for observability
   logs, deployment events, optional GitHub files, and captured-real replay fixtures. RCA
   generation and production write actions remain disabled until approval and validation paths

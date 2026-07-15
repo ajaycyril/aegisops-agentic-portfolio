@@ -28,8 +28,11 @@ OpenAI credentials and a model are configured. The approval-review route
 `POST /workflow-runs/{run_id}/engineering-issue-to-pr/approval-review` persists pending
 `approvals` rows for proposed branch and pull-request actions, validates action evidence URIs
 against the proposal, records audit events, and moves the run to `waiting_for_approval`.
-It does not execute branch or pull-request writes. The YAML files under `configs/workflows`
-remain the portfolio registry.
+The decision route
+`POST /workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision`
+approves or rejects pending approval records through OPA, stores decision metadata, and audits
+the reviewer decision. Neither route executes branch or pull-request writes. The YAML files
+under `configs/workflows` remain the portfolio registry.
 
 `services/api/src/aegisops_api/workflows/incident_response_investigator/` now contains the
 first Production Incident Investigator runtime slice. The route

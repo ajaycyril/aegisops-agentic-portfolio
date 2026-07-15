@@ -66,6 +66,9 @@ This repository currently defines:
 - Run-scoped Engineering approval-review route that persists pending `approvals` rows for
   proposed branch and pull-request actions, validates evidence URIs against the proposal, moves
   the run to `waiting_for_approval`, and records audit events without executing GitHub writes.
+- Run-scoped Engineering approval decision route that approves or rejects pending branch/PR
+  approval records through OPA, captures decision metadata, enforces four-eyes review input, and
+  still returns a no-write execution state.
 - Visual Proposal Review cockpit showing the route contract, planner readiness, typed
   proposal/evaluation output, model-call audit path, approval persistence contract, and approval
   stop-points.
@@ -171,8 +174,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 6 by adding explicit OPA policy fixtures and decision endpoints for
-   approving or rejecting proposed branch/PR actions.
+3. Continue Phase 6 by wiring approved approval IDs into the policy-checked GitHub PR draft
+   authorization path without enabling write execution.
 4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
 

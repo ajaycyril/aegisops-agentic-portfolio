@@ -4,7 +4,7 @@ import json
 from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
 from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
+from aegisops_api.policy import OpaClient, PolicyDecision
 from aegisops_api.tools import ToolPolicyEvaluator
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.registry import ToolRegistry
@@ -34,6 +35,8 @@ from aegisops_api.workflows.registry import WorkflowRegistry
 
 IssueToPrRunStage = Literal["issue_context_collected"]
 IssueToPrApprovalActionType = Literal["branch_creation", "pull_request_creation"]
+IssueToPrApprovalDecisionAction = Literal["approve", "reject"]
+IssueToPrApprovalDecisionStatus = Literal["approved", "rejected"]
 
 
 class IssueToPrRunRejectedError(RuntimeError):
@@ -156,6 +159,52 @@ class IssueToPrApprovalReviewResponse(BaseModel):
         "approval_requested_no_write_execution"
     )
     write_actions_enabled: Literal[False] = False
+
+
+class IssueToPrApprovalDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: IssueToPrApprovalDecisionAction
+    approver_id: str = Field(min_length=1)
+    decision_reason: str | None = Field(default=None, min_length=1)
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+
+class ApprovalPolicyDecisionSummary(BaseModel):
+    allowed: bool
+    requires_approval: bool
+    decision_id: str | None
+    reason_codes: list[str]
+
+
+class IssueToPrApprovalDecisionResponse(BaseModel):
+    approval_id: UUID
+    run_id: UUID
+    workflow_id: str
+    run_status: str
+    requested_action: IssueToPrApprovalActionType
+    approval_status: IssueToPrApprovalDecisionStatus
+    approver_id: str
+    decided_at: str
+    policy_decision: ApprovalPolicyDecisionSummary
+    execution_state: Literal["approval_decision_recorded_no_write_execution"] = (
+        "approval_decision_recorded_no_write_execution"
+    )
+    write_actions_enabled: Literal[False] = False
+
+
+class ApprovalPolicyEvaluator(Protocol):
+    async def evaluate(self, input_payload: dict[str, Any]) -> PolicyDecision:
+        pass
+
+
+class OpaApprovalPolicyEvaluator:
+    def __init__(self, opa_client: OpaClient) -> None:
+        self._opa_client = opa_client
+
+    async def evaluate(self, input_payload: dict[str, Any]) -> PolicyDecision:
+        return await self._opa_client.evaluate("aegisops.approvals", input_payload)
 
 
 async def collect_engineering_issue_context(
@@ -441,6 +490,130 @@ async def request_issue_to_pr_approval_review(
     )
 
 
+async def decide_issue_to_pr_approval(
+    run_id: UUID,
+    approval_id: UUID,
+    request: IssueToPrApprovalDecisionRequest,
+    session: Session,
+    policy_evaluator: ApprovalPolicyEvaluator,
+) -> IssueToPrApprovalDecisionResponse:
+    approval = session.get(Approval, approval_id)
+    if approval is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_not_found",
+            message="Approval record was not found.",
+            http_status=404,
+        )
+    if approval.run_id != run_id:
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_run_mismatch",
+            message="Approval record does not belong to this workflow run.",
+        )
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_approval_can_be_decided(run, approval)
+
+    policy_input = build_approval_decision_policy_input(
+        run=run,
+        approval=approval,
+        request=request,
+    )
+    decision = await policy_evaluator.evaluate(policy_input)
+    if not decision.allowed:
+        write_audit_event(
+            session,
+            AuditEventInput(
+                run_id=run.id,
+                workflow_id=run.workflow_id,
+                event_type="approval.decision_blocked",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                action=f"approval.{request.decision}",
+                resource_type="approval",
+                resource_id=str(approval.id),
+                policy_decision_id=decision.decision_id,
+                trace_id=request.trace_id,
+                payload={
+                    "requested_action": approval.requested_action,
+                    "policy_reason_codes": decision.reason_codes,
+                    "write_actions_enabled": False,
+                },
+            ),
+        )
+        session.commit()
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_decision_policy_denied",
+            message="OPA policy denied the approval decision.",
+            http_status=403,
+        )
+
+    decided_at = utc_now()
+    approval.status = "approved" if request.decision == "approve" else "rejected"
+    approval.approver_id = request.approver_id
+    approval.policy_decision_id = decision.decision_id
+    approval.decided_at = decided_at
+    approval.decision_payload = {
+        "schema_version": "engineering_issue_to_pr.approval_decision.v1",
+        "decision": request.decision,
+        "decision_reason": request.decision_reason,
+        "approver_id": request.approver_id,
+        "policy": {
+            "decision_id": decision.decision_id,
+            "package_path": decision.package_path,
+            "reason_codes": decision.reason_codes,
+            "result": decision.result,
+        },
+        "write_actions_enabled": False,
+    }
+    if request.decision == "reject":
+        run.status = "canceled"
+    write_audit_event(
+        session,
+        AuditEventInput(
+            run_id=run.id,
+            workflow_id=run.workflow_id,
+            event_type=f"approval.{approval.status}",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            action=f"approval.{request.decision}",
+            resource_type="approval",
+            resource_id=str(approval.id),
+            policy_decision_id=decision.decision_id,
+            trace_id=request.trace_id,
+            payload={
+                "requested_action": approval.requested_action,
+                "risk_class": approval.risk_class,
+                "decision": request.decision,
+                "run_status": run.status,
+                "write_actions_enabled": False,
+            },
+        ),
+    )
+    session.commit()
+
+    return IssueToPrApprovalDecisionResponse(
+        approval_id=approval.id,
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        run_status=run.status,
+        requested_action=cast(IssueToPrApprovalActionType, approval.requested_action),
+        approval_status=cast(IssueToPrApprovalDecisionStatus, approval.status),
+        approver_id=request.approver_id,
+        decided_at=decided_at.isoformat(),
+        policy_decision=ApprovalPolicyDecisionSummary(
+            allowed=decision.allowed,
+            requires_approval=decision.requires_approval,
+            decision_id=decision.decision_id,
+            reason_codes=decision.reason_codes,
+        ),
+    )
+
+
 def ensure_run_can_collect_issue_context(run: WorkflowRun) -> None:
     if run.workflow_id != ENGINEERING_WORKFLOW_ID:
         raise IssueToPrRunRejectedError(
@@ -485,6 +658,58 @@ def ensure_run_can_request_issue_to_pr_approval(run: WorkflowRun) -> None:
             reason_code="execution_mode_not_supported",
             message=f"Workflow run execution mode is {run.execution_mode}.",
         )
+
+
+def ensure_approval_can_be_decided(run: WorkflowRun, approval: Approval) -> None:
+    if run.workflow_id != ENGINEERING_WORKFLOW_ID:
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports engineering_issue_to_pr runs.",
+        )
+    if approval.requested_action not in {"branch_creation", "pull_request_creation"}:
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_action_not_supported",
+            message="This runtime path only supports branch and pull-request approvals.",
+        )
+    if approval.status != "pending":
+        raise IssueToPrRunRejectedError(
+            reason_code="approval_not_pending",
+            message=f"Approval status is {approval.status}.",
+        )
+    if run.status != "waiting_for_approval":
+        raise IssueToPrRunRejectedError(
+            reason_code="workflow_run_not_waiting_for_approval",
+            message=f"Workflow run status is {run.status}.",
+        )
+
+
+def build_approval_decision_policy_input(
+    run: WorkflowRun,
+    approval: Approval,
+    request: IssueToPrApprovalDecisionRequest,
+) -> dict[str, Any]:
+    return {
+        "workflow_id": run.workflow_id,
+        "autonomy_level": run.autonomy_level,
+        "decision_action": request.decision,
+        "risk_class": approval.risk_class,
+        "requested_action": approval.requested_action,
+        "approver_id": request.approver_id,
+        "approval": {
+            "id": str(approval.id),
+            "status": approval.status,
+            "requested_by": approval.requested_by,
+            "write_actions_enabled": extract_write_actions_enabled(approval.request_payload),
+            "request_payload": approval.request_payload,
+        },
+    }
+
+
+def extract_write_actions_enabled(request_payload: dict[str, Any]) -> bool:
+    approval_contract = request_payload.get("approval_contract", {})
+    if not isinstance(approval_contract, dict):
+        return True
+    return approval_contract.get("write_actions_enabled") is not False
 
 
 def build_graph_input_from_run(

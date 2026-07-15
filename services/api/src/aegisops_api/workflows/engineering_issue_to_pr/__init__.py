@@ -19,19 +19,29 @@ from aegisops_api.workflows.engineering_issue_to_pr.replay import (
     ReplayFixtureError,
 )
 from aegisops_api.workflows.engineering_issue_to_pr.runtime import (
+    ApprovalPolicyDecisionSummary,
+    ApprovalPolicyEvaluator,
     ApprovalReviewItem,
+    IssueToPrApprovalDecisionRequest,
+    IssueToPrApprovalDecisionResponse,
     IssueToPrApprovalReviewRequest,
     IssueToPrApprovalReviewResponse,
     IssueToPrRunRejectedError,
     IssueToPrRunRequest,
     IssueToPrRunResponse,
+    OpaApprovalPolicyEvaluator,
     ProposedIssueToPrWriteAction,
     collect_engineering_issue_context,
+    decide_issue_to_pr_approval,
     request_issue_to_pr_approval_review,
 )
 
 __all__ = [
+    "ApprovalPolicyDecisionSummary",
+    "ApprovalPolicyEvaluator",
     "ApprovalReviewItem",
+    "IssueToPrApprovalDecisionRequest",
+    "IssueToPrApprovalDecisionResponse",
     "IssueToPrGraphDependencies",
     "IssueToPrEvaluation",
     "IssueToPrGraphInput",
@@ -45,6 +55,7 @@ __all__ = [
     "IssueToPrRunResponse",
     "OpenAIIssueToPrPlanner",
     "OpenAIPlannerConfig",
+    "OpaApprovalPolicyEvaluator",
     "PolicyBackedIssueToPrToolRuntime",
     "PlannerModelCallError",
     "PlannedFileChange",
@@ -53,5 +64,6 @@ __all__ = [
     "TestPlanStep",
     "collect_engineering_issue_context",
     "create_engineering_issue_to_pr_graph",
+    "decide_issue_to_pr_approval",
     "request_issue_to_pr_approval_review",
 ]

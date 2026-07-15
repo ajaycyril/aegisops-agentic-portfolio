@@ -20,6 +20,7 @@ decision_points:
       - external_messages
       - refunds
       - pull_request_creation
+      - approval_decision
       - access_changes
       - budget_exceptions
   budget:

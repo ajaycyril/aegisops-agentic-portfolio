@@ -1,0 +1,22 @@
+{
+  "decision_point": "human_approval",
+  "package": "aegisops.approvals",
+  "input": {
+    "workflow_id": "engineering_issue_to_pr",
+    "autonomy_level": "approval_required",
+    "decision_action": "approve",
+    "risk_class": "write",
+    "requested_action": "branch_creation",
+    "approver_id": "agent-runtime",
+    "approval": {
+      "status": "pending",
+      "requested_by": "agent-runtime",
+      "write_actions_enabled": false
+    }
+  },
+  "expected": {
+    "allow": false,
+    "requires_approval": true,
+    "reason_codes": ["self_approval_not_allowed"]
+  }
+}

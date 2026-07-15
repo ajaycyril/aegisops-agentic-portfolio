@@ -27,3 +27,6 @@ The baseline Rego modules live under `policies/aegisops/`:
 - `data_sensitivity.rego`
 
 Structured policy fixture inputs live under `configs/policies/fixtures/`.
+
+Current approval fixtures cover the Engineering branch/PR decision path, including allowed
+approval, allowed rejection, missing approver rejection, and self-approval rejection.
