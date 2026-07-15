@@ -5,7 +5,7 @@ from collections.abc import Iterable, Mapping
 from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal, Self, cast
+from typing import Any, Literal, Protocol, Self, cast
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -38,6 +38,8 @@ from aegisops_api.workflows.registry import WorkflowRegistry
 
 IncidentRunStage = Literal["incident_evidence_collected", "incident_rca_draft_created"]
 IncidentApprovalActionType = Literal["rollback", "incident_update", "paging_action"]
+IncidentApprovalDecisionAction = Literal["approve", "reject"]
+IncidentApprovalDecisionStatus = Literal["approved", "rejected"]
 
 
 class IncidentInvestigationRejectedError(RuntimeError):
@@ -174,6 +176,42 @@ class IncidentApprovalReviewResponse(BaseModel):
     approvals: list[IncidentApprovalReviewItem]
     write_actions_enabled: Literal[False] = False
     external_actions_enabled: Literal[False] = False
+
+
+class IncidentApprovalDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: IncidentApprovalDecisionAction
+    approver_id: str = Field(min_length=1)
+    decision_reason: str = Field(min_length=1)
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+
+class IncidentApprovalPolicyDecisionSummary(BaseModel):
+    allowed: bool
+    requires_approval: bool
+    decision_id: str | None
+    reason_codes: list[str]
+
+
+class IncidentApprovalDecisionResponse(BaseModel):
+    approval_id: UUID
+    run_id: UUID
+    workflow_id: str
+    run_status: str
+    requested_action: IncidentApprovalActionType
+    approval_status: IncidentApprovalDecisionStatus
+    approver_id: str
+    decided_at: str
+    policy_decision: IncidentApprovalPolicyDecisionSummary
+    write_actions_enabled: Literal[False] = False
+    external_actions_enabled: Literal[False] = False
+
+
+class IncidentApprovalPolicyEvaluator(Protocol):
+    async def evaluate(self, input_payload: dict[str, Any]) -> Any:
+        pass
 
 
 class IncidentInvestigationResponse(BaseModel):
@@ -382,6 +420,131 @@ async def collect_incident_evidence(
     )
 
 
+async def decide_incident_approval(
+    run_id: UUID,
+    approval_id: UUID,
+    request: IncidentApprovalDecisionRequest,
+    session: Session,
+    policy_evaluator: IncidentApprovalPolicyEvaluator,
+) -> IncidentApprovalDecisionResponse:
+    approval = session.get(Approval, approval_id)
+    if approval is None:
+        raise IncidentInvestigationRejectedError(
+            reason_code="approval_not_found",
+            message="Approval record was not found.",
+            http_status=404,
+        )
+    if approval.run_id != run_id:
+        raise IncidentInvestigationRejectedError(
+            reason_code="approval_run_mismatch",
+            message="Approval record does not belong to this workflow run.",
+        )
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise IncidentInvestigationRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_incident_approval_can_be_decided(run, approval)
+
+    policy_input = build_incident_approval_decision_policy_input(
+        run=run,
+        approval=approval,
+        request=request,
+    )
+    decision = await policy_evaluator.evaluate(policy_input)
+    if not decision.allowed:
+        write_audit_event(
+            session,
+            AuditEventInput(
+                run_id=run.id,
+                workflow_id=run.workflow_id,
+                event_type="approval.decision_blocked",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                action=f"approval.{request.decision}",
+                resource_type="approval",
+                resource_id=str(approval.id),
+                policy_decision_id=decision.decision_id,
+                trace_id=request.trace_id,
+                payload={
+                    "requested_action": approval.requested_action,
+                    "policy_reason_codes": decision.reason_codes,
+                    "write_actions_enabled": False,
+                    "external_actions_enabled": False,
+                },
+            ),
+        )
+        session.commit()
+        raise IncidentInvestigationRejectedError(
+            reason_code="approval_decision_policy_denied",
+            message="OPA policy denied the incident approval decision.",
+            http_status=403,
+        )
+
+    decided_at = utc_now()
+    approval.status = "approved" if request.decision == "approve" else "rejected"
+    approval.approver_id = request.approver_id
+    approval.policy_decision_id = decision.decision_id
+    approval.decided_at = decided_at
+    approval.decision_payload = {
+        "schema_version": "incident_response_investigator.approval_decision.v1",
+        "decision": request.decision,
+        "decision_reason": request.decision_reason,
+        "approver_id": request.approver_id,
+        "policy": {
+            "decision_id": decision.decision_id,
+            "package_path": decision.package_path,
+            "reason_codes": decision.reason_codes,
+            "result": decision.result,
+        },
+        "write_actions_enabled": False,
+        "external_actions_enabled": False,
+    }
+    write_audit_event(
+        session,
+        AuditEventInput(
+            run_id=run.id,
+            workflow_id=run.workflow_id,
+            event_type=f"approval.{approval.status}",
+            actor_type="user" if request.actor_id else "system",
+            actor_id=request.actor_id,
+            action=f"approval.{request.decision}",
+            resource_type="approval",
+            resource_id=str(approval.id),
+            policy_decision_id=decision.decision_id,
+            trace_id=request.trace_id,
+            payload={
+                "requested_action": approval.requested_action,
+                "risk_class": approval.risk_class,
+                "decision": request.decision,
+                "run_status": run.status,
+                "write_actions_enabled": False,
+                "external_actions_enabled": False,
+            },
+        ),
+    )
+    session.commit()
+
+    return IncidentApprovalDecisionResponse(
+        approval_id=approval.id,
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        run_status=run.status,
+        requested_action=cast(IncidentApprovalActionType, approval.requested_action),
+        approval_status=cast(IncidentApprovalDecisionStatus, approval.status),
+        approver_id=request.approver_id,
+        decided_at=decided_at.isoformat(),
+        policy_decision=IncidentApprovalPolicyDecisionSummary(
+            allowed=decision.allowed,
+            requires_approval=decision.requires_approval,
+            decision_id=decision.decision_id,
+            reason_codes=decision.reason_codes,
+        ),
+    )
+
+
 async def request_incident_approval_review(
     run_id: UUID,
     request: IncidentApprovalReviewRequest,
@@ -531,6 +694,66 @@ def ensure_run_can_request_incident_approval(run: WorkflowRun) -> None:
             reason_code="workflow_run_not_ready_for_approval",
             message=f"Workflow run status is {run.status}.",
         )
+
+
+def ensure_incident_approval_can_be_decided(run: WorkflowRun, approval: Approval) -> None:
+    if run.workflow_id != INCIDENT_WORKFLOW_ID:
+        raise IncidentInvestigationRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports incident_response_investigator runs.",
+        )
+    if run.status != "waiting_for_approval":
+        raise IncidentInvestigationRejectedError(
+            reason_code="workflow_run_not_waiting_for_approval",
+            message=f"Workflow run status is {run.status}.",
+        )
+    if approval.status != "pending":
+        raise IncidentInvestigationRejectedError(
+            reason_code="approval_not_pending",
+            message=f"Approval status is {approval.status}.",
+        )
+    if approval.requested_action not in {"rollback", "paging_action", "incident_update"}:
+        raise IncidentInvestigationRejectedError(
+            reason_code="approval_action_not_supported",
+            message=f"Approval action is {approval.requested_action}.",
+        )
+    if approval.request_payload.get("schema_version") != (
+        "incident_response_investigator.approval_review.v1"
+    ):
+        raise IncidentInvestigationRejectedError(
+            reason_code="approval_payload_invalid",
+            message="Approval payload is not an Incident approval-review record.",
+        )
+
+
+def build_incident_approval_decision_policy_input(
+    run: WorkflowRun,
+    approval: Approval,
+    request: IncidentApprovalDecisionRequest,
+) -> dict[str, Any]:
+    return {
+        "workflow_id": run.workflow_id,
+        "autonomy_level": run.autonomy_level,
+        "decision_action": request.decision,
+        "risk_class": approval.risk_class,
+        "requested_action": approval.requested_action,
+        "approver_id": request.approver_id,
+        "approval": {
+            "status": approval.status,
+            "requested_by": approval.requested_by,
+            "write_actions_enabled": extract_incident_write_actions_enabled(
+                approval.request_payload
+            ),
+            "request_payload": approval.request_payload,
+        },
+    }
+
+
+def extract_incident_write_actions_enabled(request_payload: dict[str, Any]) -> bool:
+    approval_contract = request_payload.get("approval_contract", {})
+    if not isinstance(approval_contract, dict):
+        return True
+    return bool(approval_contract.get("write_actions_enabled", True))
 
 
 def incident_action_risk_class(action_type: IncidentApprovalActionType) -> str:

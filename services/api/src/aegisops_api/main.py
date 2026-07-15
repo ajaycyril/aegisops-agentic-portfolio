@@ -65,12 +65,15 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
 from aegisops_api.workflows.engineering_issue_to_pr.graph import IssueToPrPlanner
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.incident_response_investigator import (
+    IncidentApprovalDecisionRequest,
+    IncidentApprovalDecisionResponse,
     IncidentApprovalReviewRequest,
     IncidentApprovalReviewResponse,
     IncidentInvestigationRejectedError,
     IncidentInvestigationRequest,
     IncidentInvestigationResponse,
     collect_incident_evidence,
+    decide_incident_approval,
     request_incident_approval_review,
 )
 from aegisops_api.workflows.incident_response_investigator import (
@@ -438,6 +441,38 @@ async def request_incident_response_approval_review(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/incident-response-investigator/approvals/{approval_id}/decision",
+    response_model=IncidentApprovalDecisionResponse,
+    tags=["workflow-runs"],
+)
+async def decide_incident_response_approval(
+    run_id: UUID,
+    approval_id: UUID,
+    request: IncidentApprovalDecisionRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+    policy_evaluator: Annotated[
+        ApprovalPolicyEvaluator,
+        Depends(get_approval_policy_evaluator),
+    ],
+) -> IncidentApprovalDecisionResponse:
+    try:
+        return await decide_incident_approval(
+            run_id=run_id,
+            approval_id=approval_id,
+            request=request,
+            session=session,
+            policy_evaluator=policy_evaluator,
+        )
+    except IncidentInvestigationRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except (PolicyEvaluationError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
 
 
 @app.post(

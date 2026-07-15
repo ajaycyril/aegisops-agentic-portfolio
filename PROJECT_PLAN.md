@@ -64,6 +64,8 @@ external write actions remain disabled. Rubric-only eval contracts now cover Eng
 proposal quality and Incident RCA grounding, and structured incident approval policy fixtures
 cover rollback, paging, and incident-update decisions. The Incident approval-review route now
 creates pending `approvals` rows for those proposed production actions without executing them.
+The Incident approval decision route now approves or rejects those records through OPA, audits
+the reviewer decision, and still returns no-write execution state.
 
 Current production web deployment:
 
@@ -476,9 +478,9 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Add Incident approval decision handling for rollback, paging, and incident-update records
-   without enabling those writes.
-3. Add promptfoo red-team/regression config after deterministic rubric validation is in place.
+2. Add real observability/deployment adapter implementations for the Incident Investigator
+   evidence route.
+3. Start Phase 8 with support connector and knowledge retrieval abstractions.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -534,9 +536,9 @@ Status note: the visual multi-agent orchestration contract is present in the com
 The first runtime slice is implemented as guarded read-only evidence collection for logs,
 deployment events, and optional repository files. Source-grounded evidence validation and a
 typed RCA draft contract are implemented without model generation or external writes. Pending
-approval records for rollback, paging, and incident-update proposals are implemented, while
-approval decisions and production write actions remain future work. Captured-real-run replay
-schema and loading are implemented without committing fabricated replay payloads.
+approval records and approve/reject decisions for rollback, paging, and incident-update
+proposals are implemented, while production write actions remain future work. Captured-real-run
+replay schema and loading are implemented without committing fabricated replay payloads.
 
 Tasks:
 
@@ -552,7 +554,7 @@ Tasks:
    pending richer UI visualization over persisted evidence records.
 6. In progress: add policy rules for rollback and incident update actions. Done for structured
    approval decision fixtures and pending approval records covering rollback, paging, and
-   incident updates; pending approval decision handling.
+   incident updates, plus OPA-checked approve/reject decision handling with no write execution.
 7. Done: add captured-real-run replay format and loader.
 8. Done: add eval rubric for RCA quality.
 
@@ -655,5 +657,6 @@ A feature is done only when:
 
 ## Current Next Task
 
-Add Incident approval decision handling for rollback, paging, and incident-update records. Do
-not enable rollback, paging, incident-update, branch, or pull-request write execution.
+Add real observability/deployment adapter implementations for the Incident Investigator
+evidence route, or start Phase 8 support connector and knowledge retrieval abstractions. Do not
+enable rollback, paging, incident-update, branch, or pull-request write execution.

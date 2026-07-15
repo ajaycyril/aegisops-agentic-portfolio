@@ -41,7 +41,7 @@ after the architecture baseline is accepted.
   logs, deployment events, optional GitHub files, and captured-real replay fixtures. The route
   returns source-grounded evidence validation and can create a typed hash-only RCA draft
   contract with `include_rca=true`. Its approval-review route can create pending approval
-  records for rollback, paging, and incident-update proposals; production write actions remain
-  disabled.
+  records for rollback, paging, and incident-update proposals. Its decision route approves or
+  rejects those records through policy without executing production write actions.
 - `configs/evals/rubrics`: structured eval contracts for Engineering patch proposals and
   Incident RCA drafts, validated in tests without model calls or fake data.

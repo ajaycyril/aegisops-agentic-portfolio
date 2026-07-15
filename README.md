@@ -93,6 +93,8 @@ This repository currently defines:
 - Run-scoped Incident approval-review route that creates pending `approvals` rows for rollback,
   paging, and incident-update proposals from a grounded RCA draft without executing those
   actions.
+- Run-scoped Incident approval decision route that approves or rejects those records through
+  OPA policy, audits the decision, and still returns a no-write execution state.
 - Rubric-only eval contracts for Engineering patch proposals and Incident RCA drafts, plus
   structured incident approval policy fixtures for rollback, paging, and incident updates.
 
@@ -190,10 +192,10 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 7 by adding approval decision handling for Incident rollback, paging, and
-   incident-update records without executing those writes.
-4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
+3. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
+4. Continue Phase 8 by adding the customer support connector and knowledge-retrieval
+   abstractions.
 
 ## Local Development Target
 

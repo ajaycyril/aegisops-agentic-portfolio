@@ -57,7 +57,10 @@ whose persisted draft artifact stores hashes and metadata only. Rollback, paging
 updates, and external write actions remain disabled. The approval-review route
 `POST /workflow-runs/{run_id}/incident-response-investigator/approval-review` creates pending
 `approvals` rows for rollback, paging, and incident-update proposals from that RCA draft, but
-does not execute those actions.
+does not execute those actions. The decision route
+`POST /workflow-runs/{run_id}/incident-response-investigator/approvals/{approval_id}/decision`
+approves or rejects those records through OPA and audits the decision while keeping production
+actions disabled.
 
 The command center also contains a multi-agent orchestration contract for
 `incident_response_investigator`. It maps the Production Incident Investigator to supervisor,

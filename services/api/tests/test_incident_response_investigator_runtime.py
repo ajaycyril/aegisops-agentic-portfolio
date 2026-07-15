@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from aegisops_api.db.models import Approval, AuditEvent, EvidenceRecord, WorkflowRun
 from aegisops_api.main import (
     app,
+    get_approval_policy_evaluator,
     get_database_session,
     get_tool_adapter_registry,
     get_tool_policy_evaluator,
@@ -26,6 +27,7 @@ from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.execution import ToolPolicyDecisionSummary
 from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.incident_response_investigator import (
+    IncidentApprovalDecisionRequest,
     IncidentApprovalReviewRequest,
     IncidentInvestigationRejectedError,
     IncidentInvestigationRequest,
@@ -34,6 +36,7 @@ from aegisops_api.workflows.incident_response_investigator import (
     IncidentRcaDraft,
     ReplayFixtureError,
     collect_incident_evidence,
+    decide_incident_approval,
     request_incident_approval_review,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
@@ -49,6 +52,23 @@ class FakeToolPolicyEvaluator:
             reason_codes=[],
             result={"allow": True},
         )
+
+
+class FakeApprovalPolicyEvaluator:
+    def __init__(self, decision: PolicyDecision | None = None) -> None:
+        self.decision = decision or PolicyDecision(
+            package_path="aegisops.approvals",
+            allowed=True,
+            requires_approval=True,
+            decision_id="approval-decision-runtime",
+            reason_codes=[],
+            result={"allow": True, "requires_approval": True, "reason_codes": []},
+        )
+        self.inputs: list[dict[str, Any]] = []
+
+    async def evaluate(self, input_payload: dict[str, Any]) -> PolicyDecision:
+        self.inputs.append(input_payload)
+        return self.decision
 
 
 class FakeIncidentToolRuntime:
@@ -144,8 +164,13 @@ class UngroundedIncidentToolRuntime(FakeIncidentToolRuntime):
 
 
 class RuntimeSession:
-    def __init__(self, runs: dict[UUID, WorkflowRun]) -> None:
+    def __init__(
+        self,
+        runs: dict[UUID, WorkflowRun],
+        approvals: dict[UUID, Approval] | None = None,
+    ) -> None:
         self.runs = runs
+        self.approvals = approvals or {}
         self.added: list[object] = []
         self.flush_count = 0
         self.commit_count = 0
@@ -162,6 +187,8 @@ class RuntimeSession:
     def get(self, model: object, identifier: object) -> object | None:
         if model is WorkflowRun:
             return self.runs.get(cast(UUID, identifier))
+        if model is Approval:
+            return self.approvals.get(cast(UUID, identifier))
         return None
 
 
@@ -251,6 +278,32 @@ def create_incident_approval_review_request() -> IncidentApprovalReviewRequest:
                 proposed_payload_metadata={"audience": "internal"},
             ),
         ],
+    )
+
+
+def create_pending_incident_approval(run: WorkflowRun) -> Approval:
+    review_request = create_incident_approval_review_request()
+    proposed_action = review_request.proposed_actions[0]
+    return Approval(
+        id=uuid4(),
+        run_id=run.id,
+        status="pending",
+        risk_class="write",
+        requested_action=proposed_action.action_type,
+        requested_by=review_request.requested_by,
+        request_payload={
+            "schema_version": "incident_response_investigator.approval_review.v1",
+            "rca_draft": review_request.rca_draft.model_dump(mode="json"),
+            "proposed_action": proposed_action.model_dump(mode="json"),
+            "approval_contract": {
+                "approval_table": "approvals",
+                "write_actions_enabled": False,
+                "external_actions_enabled": False,
+                "dry_run_only": True,
+                "future_tool_call_approval_id_required": True,
+            },
+        },
+        decision_payload={},
     )
 
 
@@ -469,6 +522,91 @@ async def test_request_incident_approval_review_requires_running_run() -> None:
 
 
 @pytest.mark.asyncio
+async def test_decide_incident_approval_records_policy_checked_decision() -> None:
+    run = create_live_incident_run()
+    run.status = "waiting_for_approval"
+    approval = create_pending_incident_approval(run)
+    session = RuntimeSession({run.id: run}, {approval.id: approval})
+    evaluator = FakeApprovalPolicyEvaluator()
+
+    response = await decide_incident_approval(
+        run_id=run.id,
+        approval_id=approval.id,
+        request=IncidentApprovalDecisionRequest(
+            decision="approve",
+            approver_id="incident-commander",
+            decision_reason="Grounded RCA draft reviewed.",
+            actor_id="incident-commander",
+            trace_id="trace-decision",
+        ),
+        session=cast(Session, session),
+        policy_evaluator=evaluator,
+    )
+
+    assert response.approval_status == "approved"
+    assert response.requested_action == "rollback"
+    assert response.write_actions_enabled is False
+    assert response.external_actions_enabled is False
+    assert approval.status == "approved"
+    assert approval.approver_id == "incident-commander"
+    assert approval.decision_payload["schema_version"] == (
+        "incident_response_investigator.approval_decision.v1"
+    )
+    assert approval.decision_payload["write_actions_enabled"] is False
+    assert approval.decision_payload["external_actions_enabled"] is False
+    assert evaluator.inputs[0]["decision_action"] == "approve"
+    assert evaluator.inputs[0]["requested_action"] == "rollback"
+    assert evaluator.inputs[0]["approval"]["write_actions_enabled"] is False
+    audit_events = [item for item in session.added if isinstance(item, AuditEvent)]
+    assert audit_events[-1].event_type == "approval.approved"
+    assert audit_events[-1].payload["write_actions_enabled"] is False
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_decide_incident_approval_records_policy_denial_without_status_change() -> None:
+    run = create_live_incident_run()
+    run.status = "waiting_for_approval"
+    approval = create_pending_incident_approval(run)
+    session = RuntimeSession({run.id: run}, {approval.id: approval})
+    evaluator = FakeApprovalPolicyEvaluator(
+        PolicyDecision(
+            package_path="aegisops.approvals",
+            allowed=False,
+            requires_approval=True,
+            decision_id="decision-denied",
+            reason_codes=["self_approval_not_allowed"],
+            result={
+                "allow": False,
+                "requires_approval": True,
+                "reason_codes": ["self_approval_not_allowed"],
+            },
+        )
+    )
+
+    with pytest.raises(IncidentInvestigationRejectedError, match="OPA policy denied"):
+        await decide_incident_approval(
+            run_id=run.id,
+            approval_id=approval.id,
+            request=IncidentApprovalDecisionRequest(
+                decision="approve",
+                approver_id="agent-runtime",
+                decision_reason="Self approval must be blocked.",
+            ),
+            session=cast(Session, session),
+            policy_evaluator=evaluator,
+        )
+
+    assert approval.status == "pending"
+    audit_events = [item for item in session.added if isinstance(item, AuditEvent)]
+    assert audit_events[-1].event_type == "approval.decision_blocked"
+    assert audit_events[-1].payload["policy_reason_codes"] == [
+        "self_approval_not_allowed"
+    ]
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
 async def test_collect_incident_evidence_rejects_missing_input() -> None:
     run = create_live_incident_run(input_payload={})
     session = RuntimeSession({run.id: run})
@@ -628,6 +766,39 @@ def test_incident_approval_review_endpoint_returns_404_for_missing_run() -> None
 
     assert response.status_code == 404
     assert response.json()["detail"]["reason_code"] == "workflow_run_not_found"
+
+
+def test_incident_approval_decision_endpoint_returns_404_for_missing_approval() -> None:
+    run = create_live_incident_run()
+    run.status = "waiting_for_approval"
+    missing_approval_id = uuid4()
+
+    def override_session() -> Any:
+        yield cast(Session, RuntimeSession({run.id: run}))
+
+    async def override_policy() -> FakeApprovalPolicyEvaluator:
+        return FakeApprovalPolicyEvaluator()
+
+    app.dependency_overrides[get_database_session] = override_session
+    app.dependency_overrides[get_approval_policy_evaluator] = override_policy
+    try:
+        client = TestClient(app)
+        response = client.post(
+            (
+                f"/workflow-runs/{run.id}/incident-response-investigator/approvals/"
+                f"{missing_approval_id}/decision"
+            ),
+            json={
+                "decision": "approve",
+                "approver_id": "incident-commander",
+                "decision_reason": "Reviewed grounded RCA draft.",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["reason_code"] == "approval_not_found"
 
 
 def write_replay_fixture(directory: Path, source_run_id: str) -> None:

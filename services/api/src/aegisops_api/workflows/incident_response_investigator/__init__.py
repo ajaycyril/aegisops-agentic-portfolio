@@ -14,6 +14,10 @@ from aegisops_api.workflows.incident_response_investigator.replay import (
     ReplayFixtureError,
 )
 from aegisops_api.workflows.incident_response_investigator.runtime import (
+    IncidentApprovalDecisionRequest,
+    IncidentApprovalDecisionResponse,
+    IncidentApprovalPolicyDecisionSummary,
+    IncidentApprovalPolicyEvaluator,
     IncidentApprovalReviewItem,
     IncidentApprovalReviewRequest,
     IncidentApprovalReviewResponse,
@@ -27,10 +31,15 @@ from aegisops_api.workflows.incident_response_investigator.runtime import (
     IncidentRcaClaim,
     IncidentRcaDraft,
     collect_incident_evidence,
+    decide_incident_approval,
     request_incident_approval_review,
 )
 
 __all__ = [
+    "IncidentApprovalDecisionRequest",
+    "IncidentApprovalDecisionResponse",
+    "IncidentApprovalPolicyDecisionSummary",
+    "IncidentApprovalPolicyEvaluator",
     "IncidentApprovalReviewItem",
     "IncidentApprovalReviewRequest",
     "IncidentApprovalReviewResponse",
@@ -55,5 +64,6 @@ __all__ = [
     "as_incident_investigation_state",
     "collect_incident_evidence",
     "create_incident_investigation_graph",
+    "decide_incident_approval",
     "request_incident_approval_review",
 ]
