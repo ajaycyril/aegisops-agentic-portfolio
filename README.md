@@ -208,7 +208,9 @@ Read these documents in order:
 7. [Visual Product Blueprint](./docs/architecture/04-visual-product-blueprint.md)
 8. [Use-Case Portfolio](./docs/use-cases/README.md)
 9. [Workflow Contracts](./docs/workflows/README.md)
-10. [Local Development Setup](./docs/development/local-setup.md)
+10. [Production Deployment Runbook](./docs/deployment/production-runbook.md)
+11. [Portfolio Walkthrough Script](./docs/deployment/portfolio-walkthrough.md)
+12. [Local Development Setup](./docs/development/local-setup.md)
 
 ## Execution Plan
 
@@ -219,8 +221,7 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 10 with API deployment target selection and production environment wiring.
-4. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`
+3. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`
    at it for the public eval/trace readout.
 
 ## Local Development Target
@@ -245,6 +246,8 @@ The visual command center is deployed on Vercel:
 
 - Production URL: https://aegisops-agentic-portfolio.vercel.app
 - Vercel project: `aegisops-agentic-portfolio`
+- API deploy-ready artifacts: `services/api/Dockerfile`, `render.yaml`, and
+  `docs/deployment/production-runbook.md`
 
 The deployed web shell is the visual foundation. Live workflow execution remains disabled until
 real connectors, live policy checks, backend deployment, and spend controls are wired.

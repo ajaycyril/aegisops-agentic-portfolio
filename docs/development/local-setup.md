@@ -133,7 +133,10 @@ Tool registry endpoints:
 - `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/context`
 - `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/approval-review`
 - `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/approvals/{approval_id}/decision`
+- `POST http://localhost:8000/workflow-runs/{run_id}/customer-support-escalation/message-send/authorize`
 - `POST http://localhost:8000/workflow-runs/{run_id}/incident-response-investigator/evidence`
+- `GET http://localhost:8000/workflow-runs/{run_id}/trace`
+- `GET http://localhost:8000/workflow-runs/{run_id}/evals/trace`
 
 By default, workflows are visible but disabled because no real connectors are configured. For
 local readiness experiments, set `CONFIGURED_CONNECTORS` to a comma-separated list such as

@@ -492,8 +492,7 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Continue Phase 10 with backend deployment target selection and production env wiring.
-3. Capture a real sandbox run and point `DEMO_TRACE_RUN_ID` at it for public trace/eval display.
+2. Capture a real sandbox run and point `DEMO_TRACE_RUN_ID` at it for public trace/eval display.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
 
@@ -646,14 +645,14 @@ Goal: Deploy a polished public demo with production-grade engineering posture.
 
 Tasks:
 
-1. Add Vercel deployment config for web.
-2. Add API deployment config for selected free-tier host.
-3. Add production env var documentation.
-4. Add database migration deployment steps.
-5. Add health, readiness, and connector status panels.
-6. Add final visual polish for command center screens.
-7. Add portfolio walkthrough script.
-8. Add README deployment guide.
+1. Done: add Vercel deployment config for web.
+2. Done: add API deployment config for selected free-tier/low-cost host candidate.
+3. Done: add production env var documentation.
+4. Done: add database migration deployment steps.
+5. Done: add health, readiness, connector status, trace, and eval panels.
+6. Done: add final visual polish for command center screens.
+7. Done: add portfolio walkthrough script.
+8. Done: add README deployment guide.
 
 Acceptance criteria:
 
@@ -688,7 +687,6 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue Phase 10 with backend deployment target selection, production environment wiring, and
-real sandbox run capture for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging,
-incident-update, customer-message, refund, account-change, branch, or pull-request write
-execution.
+Run live Phase 2/3 infrastructure verification on a Docker-capable machine, then capture a real
+sandbox run for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging, incident-update,
+customer-message, refund, account-change, branch, or pull-request write execution.

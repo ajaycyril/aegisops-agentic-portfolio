@@ -21,3 +21,11 @@ upgrade path.
 | Observability | LangSmith/Langfuse free tiers | Paid or self-hosted observability |
 
 Free-tier hosting is acceptable for the public demo. It is not a production SLA.
+
+## Deployment Artifacts
+
+- `services/api/Dockerfile` builds the FastAPI runtime with workflow configs and Rego policy
+  files included.
+- `render.yaml` is a Docker web-service blueprint candidate with live runs disabled by default.
+- `docs/deployment/production-runbook.md` documents production env vars, migrations, OPA, and
+  trace/eval demo gates.

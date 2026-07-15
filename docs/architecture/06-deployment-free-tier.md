@@ -40,6 +40,15 @@ Before public deployment:
 - Admin-only live-run control.
 - Replay mode clearly labeled.
 
+## Repository Artifacts
+
+- `services/api/Dockerfile` packages the FastAPI runtime, configs, and policy files.
+- `render.yaml` provides a Docker web-service blueprint candidate with live runs disabled by
+  default.
+- `docs/deployment/production-runbook.md` is the operator checklist for API env vars,
+  migrations, OPA, connector gates, and real-run trace/eval display.
+- `docs/deployment/portfolio-walkthrough.md` is the executive demo script.
+
 ## Cost Controls
 
 The public demo should default to safe modes:
