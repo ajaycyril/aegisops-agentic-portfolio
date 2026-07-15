@@ -65,10 +65,13 @@ from aegisops_api.workflows.engineering_issue_to_pr import (
 from aegisops_api.workflows.engineering_issue_to_pr.graph import IssueToPrPlanner
 from aegisops_api.workflows.engineering_issue_to_pr.replay import ReplayFixtureError
 from aegisops_api.workflows.incident_response_investigator import (
+    IncidentApprovalReviewRequest,
+    IncidentApprovalReviewResponse,
     IncidentInvestigationRejectedError,
     IncidentInvestigationRequest,
     IncidentInvestigationResponse,
     collect_incident_evidence,
+    request_incident_approval_review,
 )
 from aegisops_api.workflows.incident_response_investigator import (
     ReplayFixtureError as IncidentReplayFixtureError,
@@ -411,6 +414,30 @@ async def collect_engineering_issue_to_pr_evidence(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="workflow graph execution failed") from exc
+
+
+@app.post(
+    "/workflow-runs/{run_id}/incident-response-investigator/approval-review",
+    response_model=IncidentApprovalReviewResponse,
+    status_code=201,
+    tags=["workflow-runs"],
+)
+async def request_incident_response_approval_review(
+    run_id: UUID,
+    request: IncidentApprovalReviewRequest,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> IncidentApprovalReviewResponse:
+    try:
+        return await request_incident_approval_review(
+            run_id=run_id,
+            request=request,
+            session=session,
+        )
+    except IncidentInvestigationRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
 
 
 @app.post(

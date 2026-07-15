@@ -54,7 +54,10 @@ evidence records keep hashes and metadata instead of raw log/code payloads. The 
 source-grounded evidence validation for every evidence item. When `include_rca=true`, it can
 create a typed RCA draft contract whose claims may only cite grounded source evidence URIs and
 whose persisted draft artifact stores hashes and metadata only. Rollback, paging, incident
-updates, and external write actions remain disabled.
+updates, and external write actions remain disabled. The approval-review route
+`POST /workflow-runs/{run_id}/incident-response-investigator/approval-review` creates pending
+`approvals` rows for rollback, paging, and incident-update proposals from that RCA draft, but
+does not execute those actions.
 
 The command center also contains a multi-agent orchestration contract for
 `incident_response_investigator`. It maps the Production Incident Investigator to supervisor,

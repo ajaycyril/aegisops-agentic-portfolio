@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from aegisops_api.db.models import AuditEvent, EvidenceRecord, WorkflowRun
+from aegisops_api.db.models import Approval, AuditEvent, EvidenceRecord, WorkflowRun
 from aegisops_api.main import (
     app,
     get_database_session,
@@ -26,10 +26,15 @@ from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.execution import ToolPolicyDecisionSummary
 from aegisops_api.tools.registry import ToolRegistry
 from aegisops_api.workflows.incident_response_investigator import (
+    IncidentApprovalReviewRequest,
     IncidentInvestigationRejectedError,
     IncidentInvestigationRequest,
+    IncidentProposedAction,
+    IncidentRcaClaim,
+    IncidentRcaDraft,
     ReplayFixtureError,
     collect_incident_evidence,
+    request_incident_approval_review,
 )
 from aegisops_api.workflows.registry import WorkflowRegistry
 
@@ -188,6 +193,67 @@ def create_live_incident_run(input_payload: dict[str, Any] | None = None) -> Wor
     )
 
 
+def create_incident_rca_draft() -> IncidentRcaDraft:
+    evidence_uris = [
+        "https://observability.example/events/log-1",
+        "https://deployments.example/events/dep-1",
+    ]
+    return IncidentRcaDraft(
+        incident_id="inc-001",
+        service="checkout-api",
+        title="RCA draft: inc-001 / checkout-api",
+        summary="Draft RCA with grounded incident evidence.",
+        confidence="medium",
+        source_evidence_uris=evidence_uris,
+        claims=[
+            IncidentRcaClaim(
+                claim_type="impact",
+                statement="Log event log-1 recorded service errors.",
+                evidence_uris=[evidence_uris[0]],
+            ),
+            IncidentRcaClaim(
+                claim_type="probable_cause",
+                statement="Deployment dep-1 is an investigation lead.",
+                evidence_uris=evidence_uris,
+            ),
+        ],
+        approval_required_for=["rollback", "incident_update", "paging_action"],
+    )
+
+
+def create_incident_approval_review_request() -> IncidentApprovalReviewRequest:
+    rca_draft = create_incident_rca_draft()
+    return IncidentApprovalReviewRequest(
+        rca_draft=rca_draft,
+        requested_by="agent-runtime",
+        actor_id="incident-commander",
+        trace_id="trace-approval",
+        proposed_actions=[
+            IncidentProposedAction(
+                action_type="rollback",
+                summary="Prepare rollback for the suspect deployment.",
+                rationale="Rollback needs human review before execution.",
+                evidence_uris=[rca_draft.source_evidence_uris[1]],
+                proposed_payload_metadata={"target_deployment_id": "dep-1"},
+            ),
+            IncidentProposedAction(
+                action_type="paging_action",
+                summary="Page the checkout on-call lead.",
+                rationale="Escalation touches an external paging channel.",
+                evidence_uris=[rca_draft.source_evidence_uris[0]],
+                proposed_payload_metadata={"channel": "pager"},
+            ),
+            IncidentProposedAction(
+                action_type="incident_update",
+                summary="Draft an internal incident update.",
+                rationale="Customer-visible updates remain blocked.",
+                evidence_uris=rca_draft.source_evidence_uris,
+                proposed_payload_metadata={"audience": "internal"},
+            ),
+        ],
+    )
+
+
 @pytest.mark.asyncio
 async def test_collect_incident_evidence_runs_graph_and_persists_metadata_only() -> None:
     run = create_live_incident_run()
@@ -314,6 +380,92 @@ async def test_collect_incident_evidence_rejects_rca_for_ungrounded_evidence() -
     assert not any(isinstance(item, EvidenceRecord) for item in session.added)
     audit_events = [item for item in session.added if isinstance(item, AuditEvent)]
     assert audit_events[-1].event_type == "workflow_graph.failed"
+
+
+@pytest.mark.asyncio
+async def test_request_incident_approval_review_persists_pending_action_approvals() -> None:
+    run = create_live_incident_run()
+    run.status = "running"
+    session = RuntimeSession({run.id: run})
+
+    response = await request_incident_approval_review(
+        run_id=run.id,
+        request=create_incident_approval_review_request(),
+        session=cast(Session, session),
+    )
+
+    assert run.status == "waiting_for_approval"
+    assert response.run_status == "waiting_for_approval"
+    assert response.approval_state == "pending_human_review"
+    assert response.write_actions_enabled is False
+    assert response.external_actions_enabled is False
+    assert [approval.requested_action for approval in response.approvals] == [
+        "rollback",
+        "paging_action",
+        "incident_update",
+    ]
+    assert [approval.risk_class for approval in response.approvals] == [
+        "write",
+        "external_message",
+        "external_message",
+    ]
+    persisted_approvals = [item for item in session.added if isinstance(item, Approval)]
+    assert len(persisted_approvals) == 3
+    assert all(approval.status == "pending" for approval in persisted_approvals)
+    assert all(
+        approval.request_payload["schema_version"]
+        == "incident_response_investigator.approval_review.v1"
+        for approval in persisted_approvals
+    )
+    assert all(
+        approval.request_payload["approval_contract"]["write_actions_enabled"] is False
+        for approval in persisted_approvals
+    )
+    assert all(
+        approval.request_payload["approval_contract"]["external_actions_enabled"] is False
+        for approval in persisted_approvals
+    )
+    audit_events = [item for item in session.added if isinstance(item, AuditEvent)]
+    assert [event.event_type for event in audit_events] == [
+        "approval.requested",
+        "approval.requested",
+        "approval.requested",
+        "workflow_run.waiting_for_approval",
+    ]
+    assert session.commit_count == 1
+
+
+def test_incident_approval_review_rejects_action_evidence_outside_rca() -> None:
+    rca_draft = create_incident_rca_draft()
+
+    with pytest.raises(ValueError, match="may only cite RCA evidence URIs"):
+        IncidentApprovalReviewRequest(
+            rca_draft=rca_draft,
+            proposed_actions=[
+                IncidentProposedAction(
+                    action_type="rollback",
+                    summary="Unsafe evidence citation",
+                    rationale="Evidence must be grounded in RCA source URIs.",
+                    evidence_uris=["https://example.invalid/outside-evidence"],
+                )
+            ],
+        )
+
+
+@pytest.mark.asyncio
+async def test_request_incident_approval_review_requires_running_run() -> None:
+    run = create_live_incident_run()
+    run.status = "queued"
+    session = RuntimeSession({run.id: run})
+
+    with pytest.raises(IncidentInvestigationRejectedError, match="Workflow run status"):
+        await request_incident_approval_review(
+            run_id=run.id,
+            request=create_incident_approval_review_request(),
+            session=cast(Session, session),
+        )
+
+    assert not any(isinstance(item, Approval) for item in session.added)
 
 
 @pytest.mark.asyncio
@@ -450,6 +602,26 @@ def test_incident_evidence_endpoint_returns_404_for_missing_run() -> None:
         response = client.post(
             f"/workflow-runs/{missing_run_id}/incident-response-investigator/evidence",
             json={},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["reason_code"] == "workflow_run_not_found"
+
+
+def test_incident_approval_review_endpoint_returns_404_for_missing_run() -> None:
+    missing_run_id = uuid4()
+
+    def override_session() -> Any:
+        yield cast(Session, RuntimeSession({}))
+
+    app.dependency_overrides[get_database_session] = override_session
+    try:
+        client = TestClient(app)
+        response = client.post(
+            f"/workflow-runs/{missing_run_id}/incident-response-investigator/approval-review",
+            json=create_incident_approval_review_request().model_dump(mode="json"),
         )
     finally:
         app.dependency_overrides.clear()

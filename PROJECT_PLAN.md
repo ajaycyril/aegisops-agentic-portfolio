@@ -62,7 +62,8 @@ evidence metadata persistence, captured-real-run replay loading, source-grounded
 validation, and typed hash-only RCA draft contracts. Rollback, paging, incident updates, and
 external write actions remain disabled. Rubric-only eval contracts now cover Engineering patch
 proposal quality and Incident RCA grounding, and structured incident approval policy fixtures
-cover rollback, paging, and incident-update decisions.
+cover rollback, paging, and incident-update decisions. The Incident approval-review route now
+creates pending `approvals` rows for those proposed production actions without executing them.
 
 Current production web deployment:
 
@@ -475,8 +476,8 @@ Next slice:
 
 1. Keep branch and PR write adapters disabled until final review and live connector hardening
    are complete.
-2. Continue the Incident Investigator runtime with approval records for rollback, paging, and
-   incident-update proposals without enabling those writes.
+2. Add Incident approval decision handling for rollback, paging, and incident-update records
+   without enabling those writes.
 3. Add promptfoo red-team/regression config after deterministic rubric validation is in place.
 
 ## Phase 6: Engineering Issue-to-PR Workflow
@@ -532,10 +533,10 @@ Goal: Add real incident investigation across logs, deployments, and code changes
 Status note: the visual multi-agent orchestration contract is present in the command center.
 The first runtime slice is implemented as guarded read-only evidence collection for logs,
 deployment events, and optional repository files. Source-grounded evidence validation and a
-typed RCA draft contract are implemented without model generation or external writes. Live
-connector adapters for observability/deployment systems, approval requests, and production
-write actions remain future work. Captured-real-run replay schema and loading are implemented
-without committing fabricated replay payloads.
+typed RCA draft contract are implemented without model generation or external writes. Pending
+approval records for rollback, paging, and incident-update proposals are implemented, while
+approval decisions and production write actions remain future work. Captured-real-run replay
+schema and loading are implemented without committing fabricated replay payloads.
 
 Tasks:
 
@@ -550,8 +551,8 @@ Tasks:
 5. In progress: add source-grounded evidence board. Done for backend validation summaries;
    pending richer UI visualization over persisted evidence records.
 6. In progress: add policy rules for rollback and incident update actions. Done for structured
-   approval decision fixtures covering rollback, paging, and incident update self-approval
-   blocking; pending runtime approval records.
+   approval decision fixtures and pending approval records covering rollback, paging, and
+   incident updates; pending approval decision handling.
 7. Done: add captured-real-run replay format and loader.
 8. Done: add eval rubric for RCA quality.
 
@@ -654,6 +655,5 @@ A feature is done only when:
 
 ## Current Next Task
 
-Continue the Incident Investigator runtime with approval records for rollback, paging, and
-incident-update proposals. Do not enable rollback, paging, incident-update, branch, or
-pull-request write execution.
+Add Incident approval decision handling for rollback, paging, and incident-update records. Do
+not enable rollback, paging, incident-update, branch, or pull-request write execution.

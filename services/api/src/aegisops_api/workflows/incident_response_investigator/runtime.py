@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
+from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal, Self, cast
@@ -11,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
-from aegisops_api.db.models import EvidenceRecord, WorkflowRun, utc_now
+from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
 from aegisops_api.tools import ToolPolicyEvaluator
 from aegisops_api.tools.adapters import ToolAdapterRegistry
 from aegisops_api.tools.registry import ToolRegistry
@@ -36,6 +37,7 @@ from aegisops_api.workflows.incident_response_investigator.replay import (
 from aegisops_api.workflows.registry import WorkflowRegistry
 
 IncidentRunStage = Literal["incident_evidence_collected", "incident_rca_draft_created"]
+IncidentApprovalActionType = Literal["rollback", "incident_update", "paging_action"]
 
 
 class IncidentInvestigationRejectedError(RuntimeError):
@@ -124,6 +126,54 @@ class IncidentRcaDraft(BaseModel):
             if not claim_uris.issubset(allowed_uris):
                 raise ValueError("RCA claims may only cite grounded source evidence URIs.")
         return self
+
+
+class IncidentProposedAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action_type: IncidentApprovalActionType
+    summary: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    evidence_uris: list[str] = Field(min_length=1)
+    proposed_payload_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class IncidentApprovalReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rca_draft: IncidentRcaDraft
+    proposed_actions: list[IncidentProposedAction] = Field(min_length=1, max_length=3)
+    requested_by: str = Field(default="agent-runtime", min_length=1)
+    actor_id: str | None = None
+    trace_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_action_evidence_is_grounded(self) -> Self:
+        allowed_uris = set(self.rca_draft.source_evidence_uris)
+        for action in self.proposed_actions:
+            if not set(action.evidence_uris).issubset(allowed_uris):
+                raise ValueError("Incident approval actions may only cite RCA evidence URIs.")
+        return self
+
+
+class IncidentApprovalReviewItem(BaseModel):
+    id: UUID
+    status: str
+    requested_action: IncidentApprovalActionType
+    risk_class: str
+    requested_by: str
+    requested_at: str
+    expires_at: str
+
+
+class IncidentApprovalReviewResponse(BaseModel):
+    run_id: UUID
+    workflow_id: str
+    run_status: str
+    approval_state: Literal["pending_human_review"] = "pending_human_review"
+    approvals: list[IncidentApprovalReviewItem]
+    write_actions_enabled: Literal[False] = False
+    external_actions_enabled: Literal[False] = False
 
 
 class IncidentInvestigationResponse(BaseModel):
@@ -332,6 +382,118 @@ async def collect_incident_evidence(
     )
 
 
+async def request_incident_approval_review(
+    run_id: UUID,
+    request: IncidentApprovalReviewRequest,
+    session: Session,
+) -> IncidentApprovalReviewResponse:
+    run = session.get(WorkflowRun, run_id)
+    if run is None:
+        raise IncidentInvestigationRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    ensure_run_can_request_incident_approval(run)
+
+    requested_at = utc_now()
+    expires_at = requested_at + timedelta(hours=24)
+    approvals: list[Approval] = []
+    try:
+        run.status = "waiting_for_approval"
+        for action in request.proposed_actions:
+            risk_class = incident_action_risk_class(action.action_type)
+            approval = Approval(
+                id=uuid4(),
+                run_id=run.id,
+                status="pending",
+                risk_class=risk_class,
+                requested_action=action.action_type,
+                requested_by=request.requested_by,
+                request_payload={
+                    "schema_version": "incident_response_investigator.approval_review.v1",
+                    "rca_draft": request.rca_draft.model_dump(mode="json"),
+                    "proposed_action": action.model_dump(mode="json"),
+                    "approval_contract": {
+                        "approval_table": "approvals",
+                        "write_actions_enabled": False,
+                        "external_actions_enabled": False,
+                        "dry_run_only": True,
+                        "future_tool_call_approval_id_required": True,
+                    },
+                },
+                decision_payload={},
+                requested_at=requested_at,
+                expires_at=expires_at,
+            )
+            session.add(approval)
+            approvals.append(approval)
+            write_audit_event(
+                session,
+                AuditEventInput(
+                    run_id=run.id,
+                    workflow_id=run.workflow_id,
+                    event_type="approval.requested",
+                    actor_type="user" if request.actor_id else "system",
+                    actor_id=request.actor_id,
+                    action="approval.request",
+                    resource_type="approval",
+                    resource_id=str(approval.id),
+                    trace_id=request.trace_id,
+                    payload={
+                        "requested_action": action.action_type,
+                        "risk_class": risk_class,
+                        "requested_by": request.requested_by,
+                        "write_actions_enabled": False,
+                        "external_actions_enabled": False,
+                        "dry_run_only": True,
+                    },
+                ),
+            )
+        write_audit_event(
+            session,
+            AuditEventInput(
+                run_id=run.id,
+                workflow_id=run.workflow_id,
+                event_type="workflow_run.waiting_for_approval",
+                actor_type="user" if request.actor_id else "system",
+                actor_id=request.actor_id,
+                action="workflow_run.request_incident_action_approval",
+                resource_type="workflow_run",
+                resource_id=str(run.id),
+                trace_id=request.trace_id,
+                payload={
+                    "approval_count": len(approvals),
+                    "requested_actions": [approval.requested_action for approval in approvals],
+                    "write_actions_enabled": False,
+                    "external_actions_enabled": False,
+                },
+            ),
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    return IncidentApprovalReviewResponse(
+        run_id=run.id,
+        workflow_id=run.workflow_id,
+        run_status=run.status,
+        approvals=[
+            IncidentApprovalReviewItem(
+                id=approval.id,
+                status=approval.status,
+                requested_action=cast(IncidentApprovalActionType, approval.requested_action),
+                risk_class=approval.risk_class,
+                requested_by=approval.requested_by,
+                requested_at=approval.requested_at.isoformat(),
+                expires_at=expires_at.isoformat(),
+            )
+            for approval in approvals
+        ],
+    )
+
+
 def ensure_run_can_collect_incident_evidence(run: WorkflowRun) -> None:
     if run.workflow_id != INCIDENT_WORKFLOW_ID:
         raise IncidentInvestigationRejectedError(
@@ -356,6 +518,25 @@ def ensure_run_can_collect_incident_evidence(run: WorkflowRun) -> None:
             reason_code="execution_mode_not_supported",
             message=f"Workflow run execution mode is {run.execution_mode}.",
         )
+
+
+def ensure_run_can_request_incident_approval(run: WorkflowRun) -> None:
+    if run.workflow_id != INCIDENT_WORKFLOW_ID:
+        raise IncidentInvestigationRejectedError(
+            reason_code="workflow_not_supported",
+            message="This runtime path only supports incident_response_investigator runs.",
+        )
+    if run.status not in {"running", "waiting_for_approval"}:
+        raise IncidentInvestigationRejectedError(
+            reason_code="workflow_run_not_ready_for_approval",
+            message=f"Workflow run status is {run.status}.",
+        )
+
+
+def incident_action_risk_class(action_type: IncidentApprovalActionType) -> str:
+    if action_type == "rollback":
+        return "write"
+    return "external_message"
 
 
 def build_graph_input_from_run(

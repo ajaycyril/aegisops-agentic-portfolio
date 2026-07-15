@@ -90,6 +90,9 @@ This repository currently defines:
   replay loading. It now returns source-grounded evidence validation and can create a typed,
   hash-only RCA draft contract when `include_rca=true`; rollback, paging, incident updates,
   and external writes remain disabled.
+- Run-scoped Incident approval-review route that creates pending `approvals` rows for rollback,
+  paging, and incident-update proposals from a grounded RCA draft without executing those
+  actions.
 - Rubric-only eval contracts for Engineering patch proposals and Incident RCA drafts, plus
   structured incident approval policy fixtures for rollback, paging, and incident updates.
 
@@ -187,8 +190,8 @@ Current next task:
 
 1. Verify Phase 2/3 live infrastructure on a machine with Docker.
 2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
-3. Continue Phase 7 by adding pending approval records for Incident rollback, paging, and
-   incident-update proposals without executing those writes.
+3. Continue Phase 7 by adding approval decision handling for Incident rollback, paging, and
+   incident-update records without executing those writes.
 4. Continue Phase 7 by adding real observability/deployment adapters for the Incident
    Investigator evidence route.
 
