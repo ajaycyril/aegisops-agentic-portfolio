@@ -11,7 +11,9 @@
     "typecheck": "pnpm -r typecheck",
     "format": "pnpm -r format",
     "test": "pnpm -r test",
-    "docs:check": "node scripts/check-docs-placeholders.mjs"
+    "docs:check": "node scripts/check-docs-placeholders.mjs",
+    "vercel-api:sync-config": "node scripts/sync-vercel-api-config-snapshot.mjs",
+    "vercel-api:check-config": "node scripts/sync-vercel-api-config-snapshot.mjs --check"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

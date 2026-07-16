@@ -1,0 +1,35 @@
+id: incident_response_investigator
+name: Production Incident Investigator
+domain: incident_response
+status: planned
+enabled_when:
+  connectors:
+    - observability
+    - deployments
+    - github
+  required_scopes:
+    - logs:read
+    - traces:read
+    - deployments:read
+    - checks:read
+patterns:
+  - react_tool_use
+  - parallel_investigation
+  - supervisor_multi_agent
+  - rca_generation
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: read_only
+approval_required_for:
+  - rollback
+  - incident_update
+  - paging_action
+visual_surfaces:
+  - multi_agent_orchestration
+  - incident_timeline
+  - service_map
+  - evidence_board
+  - root_cause_hypotheses
+  - remediation_plan

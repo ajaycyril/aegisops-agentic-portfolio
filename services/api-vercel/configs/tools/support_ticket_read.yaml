@@ -1,0 +1,55 @@
+id: support_ticket_read
+name: Support Ticket Read
+description: Read a single support escalation ticket and its customer-safe metadata.
+connector: support_system
+mcp_server: aegisops.support
+status: contract_ready
+risk_class: read
+required_scopes:
+  - tickets:read
+allowed_workflows:
+  - customer_support_escalation
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - ticket_id
+  properties:
+    ticket_id:
+      type: string
+      minLength: 1
+    include_messages:
+      type: boolean
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - ticket
+  properties:
+    ticket:
+      type: object
+      additionalProperties: true
+      required:
+        - ticket_id
+        - subject
+        - customer_id
+        - source_uri
+      properties:
+        ticket_id:
+          type: string
+        subject:
+          type: string
+        customer_id:
+          type: string
+        source_uri:
+          type: string
+        product:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string

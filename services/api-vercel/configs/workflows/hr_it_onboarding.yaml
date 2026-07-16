@@ -1,0 +1,32 @@
+id: hr_it_onboarding
+name: Onboarding and Access Agent
+domain: hr_it_ops
+status: planned
+enabled_when:
+  connectors:
+    - identity_provider
+    - ticketing
+    - document_store
+  required_scopes:
+    - users:read
+    - access_requests:write
+    - documents:read
+patterns:
+  - checklist_orchestration
+  - approval_routing
+  - policy_gate
+  - memory_workflow
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: approval_required
+approval_required_for:
+  - access_grant
+  - manager_message
+  - identity_update
+visual_surfaces:
+  - onboarding_map
+  - access_matrix
+  - approval_queue
+  - audit_trail

@@ -1,0 +1,32 @@
+id: supply_chain_supplier_risk
+name: Supplier Risk Agent
+domain: supply_chain
+status: planned
+enabled_when:
+  connectors:
+    - supplier_system
+    - web_research
+    - sanctions_source
+  required_scopes:
+    - suppliers:read
+    - procurement:read
+    - research:read
+patterns:
+  - web_research_agent
+  - parallel_investigation
+  - evaluator_optimizer
+  - policy_gate
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: read_only
+approval_required_for:
+  - supplier_status_change
+  - external_notification
+visual_surfaces:
+  - supplier_map
+  - risk_signals
+  - source_citations
+  - mitigation_brief
+  - policy_lens

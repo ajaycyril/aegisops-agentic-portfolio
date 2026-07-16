@@ -7,7 +7,8 @@ Provider free-tier availability changes over time; verify current quotas before 
 
 | Layer | Demo Target | Required Before Live Runs |
 | --- | --- | --- |
-| Web | Vercel project `aegisops-agentic-portfolio` | `NEXT_PUBLIC_API_BASE_URL` only when API is deployed |
+| Web | Vercel project `aegisops-agentic-portfolio` | `DEMO_TRACE_RUN_ID` only after a captured real run exists |
+| Public registry API | Vercel Services app at `/api` from `services/api-vercel` | Not used for live runs |
 | API | Docker web service from `services/api/Dockerfile` | database, OPA, budgets, connector env vars |
 | Database | Managed Postgres with pgvector | Alembic head applied |
 | Policy | OPA service or sidecar | `policies/aegisops/*.rego` loaded |
@@ -20,12 +21,42 @@ The web app deploys from `apps/web`.
 Required production variables:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://<api-host>
 DEMO_TRACE_RUN_ID=<captured-real-run-id>
 ```
 
-Leave both unset for a static visual-only public demo. The command center will show repository
-contracts, disabled live controls, and no fake trace data.
+`NEXT_PUBLIC_API_BASE_URL` is optional when the Vercel Services `/api` gateway is deployed in
+the same project. Leave `DEMO_TRACE_RUN_ID` unset until a captured real run exists; the command
+center will show registry contracts, disabled live controls, and no fake trace data.
+
+## Public Registry API
+
+The production Vercel deployment also includes `services/api-vercel`, a slim read-only FastAPI
+service mounted at `/api`.
+
+Safe public endpoints:
+
+```text
+GET /api/health
+GET /api/ready
+GET /api/version
+GET /api/workflows
+GET /api/workflows/{workflow_id}
+GET /api/connectors
+GET /api/connectors/{connector_id}
+GET /api/tools
+GET /api/tools/{tool_id}
+```
+
+This service reads a committed config snapshot from `services/api-vercel/configs` and reports
+workflow, connector, and tool counts in `/api/ready`. It must not expose live run creation,
+tool execution, model calls, memory, approval decisions, or connector write actions.
+
+After editing canonical registry YAML under the repo-level `configs/` directory, run:
+
+```bash
+pnpm vercel-api:sync-config
+pnpm vercel-api:check-config
+```
 
 ## API Deployment
 

@@ -1,0 +1,33 @@
+id: engineering_issue_to_pr
+name: GitHub Issue-to-PR Agent
+domain: engineering
+status: planned
+enabled_when:
+  connectors:
+    - github
+  required_scopes:
+    - issues:read
+    - contents:read
+    - pull_requests:write
+    - checks:read
+patterns:
+  - plan_execute
+  - code_agent
+  - evaluator_optimizer
+  - human_in_the_loop
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: draft_only
+approval_required_for:
+  - branch_creation
+  - pull_request_creation
+  - external_comment
+visual_surfaces:
+  - executive_summary
+  - graph_view
+  - diff_viewer
+  - test_results
+  - trace_timeline
+  - policy_lens

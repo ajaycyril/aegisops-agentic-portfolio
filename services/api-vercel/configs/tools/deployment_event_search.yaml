@@ -1,0 +1,55 @@
+id: deployment_event_search
+name: Deployment Event Search
+description: Search real deployment and release events for incident correlation.
+connector: deployments
+mcp_server: aegisops.deployments
+status: contract_ready
+risk_class: read
+required_scopes:
+  - deployments:read
+  - checks:read
+allowed_workflows:
+  - incident_response_investigator
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - service
+    - time_window
+  properties:
+    service:
+      type: string
+    time_window:
+      type: object
+      additionalProperties: false
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+    environment:
+      type: string
+    status:
+      type: string
+      enum:
+        - queued
+        - building
+        - succeeded
+        - failed
+        - canceled
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - deployments
+  properties:
+    deployments:
+      type: array
+      items:
+        type: object
+        additionalProperties: true

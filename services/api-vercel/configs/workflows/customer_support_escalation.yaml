@@ -1,0 +1,34 @@
+id: customer_support_escalation
+name: Customer Support Escalation Agent
+domain: customer_support
+status: ready
+enabled_when:
+  connectors:
+    - support_system
+    - knowledge_base
+    - crm
+  required_scopes:
+    - tickets:read
+    - customers:read
+    - knowledge:read
+    - drafts:write
+patterns:
+  - routing
+  - rag_agent
+  - supervisor_multi_agent
+  - human_in_the_loop
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: draft_only
+approval_required_for:
+  - customer_message
+  - refund_request
+  - account_change
+visual_surfaces:
+  - customer_timeline
+  - evidence_board
+  - response_draft
+  - approval_queue
+  - memory_lens

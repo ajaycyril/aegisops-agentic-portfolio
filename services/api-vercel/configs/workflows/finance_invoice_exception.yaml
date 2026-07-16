@@ -1,0 +1,33 @@
+id: finance_invoice_exception
+name: Invoice Exception Agent
+domain: finance_ops
+status: planned
+enabled_when:
+  connectors:
+    - accounting_system
+    - document_store
+    - email
+  required_scopes:
+    - invoices:read
+    - vendors:read
+    - documents:read
+    - approvals:write
+patterns:
+  - document_understanding
+  - policy_gate
+  - approval_routing
+  - audit_packet_generation
+data_policy:
+  fake_data_allowed: false
+  replay_allowed_from_real_runs: true
+  regex_business_extraction_allowed: false
+default_autonomy: approval_required
+approval_required_for:
+  - payment_approval
+  - vendor_message
+  - accounting_update
+visual_surfaces:
+  - invoice_viewer
+  - policy_comparison
+  - approval_route
+  - audit_trail

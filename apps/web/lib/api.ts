@@ -237,8 +237,12 @@ export type WorkflowRunTraceEvalStatus =
       evals: WorkflowRunTraceEval;
     };
 
-export async function getApiStatus(): Promise<ApiStatus> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+type RequestHeaders = {
+  get(name: string): string | null;
+};
+
+export async function getApiStatus(apiBaseUrl?: string | null): Promise<ApiStatus> {
+  const baseUrl = apiBaseUrl ?? getApiBaseUrl();
 
   if (!baseUrl) {
     return {
@@ -299,8 +303,10 @@ export async function getApiStatus(): Promise<ApiStatus> {
   }
 }
 
-export async function getDemoWorkflowRunTrace(): Promise<WorkflowRunTraceStatus> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+export async function getDemoWorkflowRunTrace(
+  apiBaseUrl?: string | null,
+): Promise<WorkflowRunTraceStatus> {
+  const baseUrl = apiBaseUrl ?? getApiBaseUrl();
   const configuredRunId = getConfiguredDemoRunId();
 
   if (!configuredRunId) {
@@ -365,8 +371,10 @@ export async function getDemoWorkflowRunTrace(): Promise<WorkflowRunTraceStatus>
   }
 }
 
-export async function getDemoWorkflowRunTraceEval(): Promise<WorkflowRunTraceEvalStatus> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+export async function getDemoWorkflowRunTraceEval(
+  apiBaseUrl?: string | null,
+): Promise<WorkflowRunTraceEvalStatus> {
+  const baseUrl = apiBaseUrl ?? getApiBaseUrl();
   const configuredRunId = getConfiguredDemoRunId();
 
   if (!configuredRunId) {
@@ -440,6 +448,31 @@ function getConfiguredDemoRunId() {
   );
 }
 
+export function getApiBaseUrl(requestHeaders?: RequestHeaders | null) {
+  const configuredBaseUrl =
+    process.env.API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? null;
+
+  if (configuredBaseUrl) {
+    if (configuredBaseUrl.startsWith("/")) {
+      const origin = getRequestOrigin(requestHeaders);
+      return origin ? `${origin}${configuredBaseUrl}` : configuredBaseUrl;
+    }
+
+    return configuredBaseUrl;
+  }
+
+  const requestOrigin = getRequestOrigin(requestHeaders);
+  if (requestOrigin) {
+    return `${requestOrigin}/api`;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api`;
+  }
+
+  return null;
+}
+
 const workflowStatusSchema = z.enum(["planned", "ready", "gated", "disabled"]);
 const autonomyLevelSchema = z.enum([
   "read_only",
@@ -475,8 +508,10 @@ const workflowDetailSchema = workflowSummarySchema.extend({
 
 const workflowSummaryListSchema = z.array(workflowSummarySchema);
 
-export async function getWorkflowCatalog(): Promise<WorkflowCatalog> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+export async function getWorkflowCatalog(
+  apiBaseUrl?: string | null,
+): Promise<WorkflowCatalog> {
+  const baseUrl = apiBaseUrl ?? getApiBaseUrl();
 
   if (!baseUrl) {
     return repositoryMirrorCatalog(
@@ -536,6 +571,23 @@ export async function getWorkflowCatalog(): Promise<WorkflowCatalog> {
       "Workflow registry API could not be reached.",
     );
   }
+}
+
+function getRequestOrigin(requestHeaders?: RequestHeaders | null) {
+  if (!requestHeaders) {
+    return null;
+  }
+
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  if (!host) {
+    return null;
+  }
+
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
 }
 
 function repositoryMirrorCatalog(message: string): WorkflowCatalog {

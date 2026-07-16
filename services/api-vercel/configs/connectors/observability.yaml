@@ -1,0 +1,26 @@
+id: observability
+name: Observability
+provider: otel_compatible_backend
+category: operations
+status: contract_ready
+auth_type: otlp
+required_env_vars:
+  - OBSERVABILITY_CONNECTION_ID
+  - OBSERVABILITY_API_BASE_URL
+supported_scopes:
+  - analytics:read
+  - logs:read
+  - traces:read
+tool_ids:
+  - observability_log_search
+workflow_ids:
+  - data_bi_executive_analyst
+  - incident_response_investigator
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: true
+  external_network_access: true
+  permitted_data_classes:
+    - log_event
+    - trace_span
+    - service_metric

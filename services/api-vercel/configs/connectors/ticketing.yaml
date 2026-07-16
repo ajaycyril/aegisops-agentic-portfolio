@@ -1,0 +1,21 @@
+id: ticketing
+name: Ticketing System
+provider: enterprise_ticketing
+category: operations
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - TICKETING_CONNECTION_ID
+supported_scopes:
+  - access_requests:write
+tool_ids: []
+workflow_ids:
+  - hr_it_onboarding
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - access_ticket
+    - approval_records
+    - task_metadata

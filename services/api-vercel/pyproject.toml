@@ -1,0 +1,10 @@
+[project]
+name = "aegisops-vercel-readonly-api"
+version = "0.1.0"
+description = "Slim Vercel read-only API gateway for the AegisOps public portfolio."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.139.0",
+  "pydantic>=2.13.4",
+  "pyyaml>=6.0.3"
+]

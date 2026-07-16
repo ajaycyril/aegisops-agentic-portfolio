@@ -1,0 +1,48 @@
+id: github_issue_read
+name: GitHub Issue Read
+description: Read a real GitHub issue and normalize metadata for workflow intake.
+connector: github
+mcp_server: aegisops.github
+status: contract_ready
+risk_class: read
+required_scopes:
+  - issues:read
+allowed_workflows:
+  - engineering_issue_to_pr
+  - security_vulnerability_remediation
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - repository
+    - issue_number
+  properties:
+    repository:
+      type: string
+      description: GitHub repository in owner/name form.
+    issue_number:
+      type: integer
+      minimum: 1
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - title
+    - body
+    - labels
+    - author
+    - url
+  properties:
+    title:
+      type: string
+    body:
+      type: string
+    labels:
+      type: array
+      items:
+        type: string
+    author:
+      type: string
+    url:
+      type: string
+      format: uri

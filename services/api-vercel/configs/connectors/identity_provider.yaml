@@ -1,0 +1,23 @@
+id: identity_provider
+name: Identity Provider
+provider: enterprise_identity
+category: identity_access
+status: planned
+auth_type: oauth
+required_env_vars:
+  - IDENTITY_PROVIDER_CONNECTION_ID
+supported_scopes:
+  - access_requests:write
+  - users:read
+tool_ids: []
+workflow_ids:
+  - compliance_audit_evidence
+  - hr_it_onboarding
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - user_profile
+    - access_assignment
+    - approval_records

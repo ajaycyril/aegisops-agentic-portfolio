@@ -1,0 +1,33 @@
+id: github
+name: GitHub
+provider: github
+category: engineering
+status: contract_ready
+auth_type: github_app
+required_env_vars:
+  - GITHUB_APP_ID
+  - GITHUB_APP_PRIVATE_KEY
+  - GITHUB_WEBHOOK_SECRET
+supported_scopes:
+  - checks:read
+  - contents:read
+  - dependency_graph:read
+  - issues:read
+  - pull_requests:write
+tool_ids:
+  - github_file_read
+  - github_issue_read
+  - github_pull_request_draft
+workflow_ids:
+  - compliance_audit_evidence
+  - engineering_issue_to_pr
+  - incident_response_investigator
+  - security_vulnerability_remediation
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - source_code
+    - issue_metadata
+    - pull_request_metadata

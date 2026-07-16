@@ -1,0 +1,26 @@
+id: crm
+name: CRM
+provider: enterprise_crm
+category: revenue
+status: contract_ready
+auth_type: connection_profile
+required_env_vars:
+  - CRM_CONNECTION_ID
+  - CRM_API_BASE_URL
+supported_scopes:
+  - accounts:read
+  - customers:read
+  - opportunities:read
+tool_ids:
+  - crm_customer_profile_read
+workflow_ids:
+  - customer_support_escalation
+  - sales_rfp_agent
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: true
+  external_network_access: true
+  permitted_data_classes:
+    - account_profile
+    - customer_profile
+    - opportunity_metadata

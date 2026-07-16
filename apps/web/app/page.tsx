@@ -1,18 +1,25 @@
+import { headers } from "next/headers";
+
 import { CommandCenter } from "@/components/command-center";
 import {
+  getApiBaseUrl,
   getApiStatus,
   getDemoWorkflowRunTrace,
   getDemoWorkflowRunTraceEval,
   getWorkflowCatalog,
 } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
+  const requestHeaders = await headers();
+  const apiBaseUrl = getApiBaseUrl(requestHeaders);
   const [apiStatus, workflowCatalog, workflowRunTrace, workflowRunTraceEval] =
     await Promise.all([
-      getApiStatus(),
-      getWorkflowCatalog(),
-      getDemoWorkflowRunTrace(),
-      getDemoWorkflowRunTraceEval(),
+      getApiStatus(apiBaseUrl),
+      getWorkflowCatalog(apiBaseUrl),
+      getDemoWorkflowRunTrace(apiBaseUrl),
+      getDemoWorkflowRunTraceEval(apiBaseUrl),
     ]);
 
   return (

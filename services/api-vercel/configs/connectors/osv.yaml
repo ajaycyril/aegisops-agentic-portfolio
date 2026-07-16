@@ -1,0 +1,19 @@
+id: osv
+name: OSV Vulnerability Database
+provider: osv
+category: security
+status: planned
+auth_type: public_dataset
+required_env_vars: []
+supported_scopes:
+  - dependency_graph:read
+tool_ids: []
+workflow_ids:
+  - security_vulnerability_remediation
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - vulnerability_advisory
+    - package_metadata

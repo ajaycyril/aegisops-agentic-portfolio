@@ -80,10 +80,17 @@ true LangGraph/MCP agentic execution with cost, controls, failure modes, and sel
 fit. It also includes a peel-the-layers stack panel that maps executive, architect, and
 engineer views to the actual orchestration, model, tool, governance, memory, observability,
 eval, and deployment layers.
+The production Vercel deployment now uses Vercel Services for the web app plus a slim
+read-only FastAPI registry gateway under `/api`. That public gateway exposes real workflow,
+connector, and tool contracts from a checked config snapshot, reports registry counts in
+readiness, and intentionally excludes live workflow-run, model, database, OPA, connector, and
+write-action routes.
 
 Current production web deployment:
 
 - https://aegisops-agentic-portfolio.vercel.app
+- Public read-only API checks:
+  `/api/ready`, `/api/workflows`, `/api/connectors`, `/api/tools`
 
 ## Milestone Map
 
@@ -667,10 +674,14 @@ Tasks:
    and peel-the-layers stack depth panels.
 7. Done: add portfolio walkthrough script.
 8. Done: add README deployment guide.
+9. Done: deploy a Vercel Services read-only registry API and wire the web app to same-origin
+   `/api` at request time.
 
 Acceptance criteria:
 
 - Public URL loads the visual command center.
+- Public URL shows `API online` and `Live registry` from non-empty workflow, connector, and
+  tool registry endpoints.
 - Demo does not require unrestricted live credentials.
 - Free-tier limits and production upgrade path are documented.
 - The portfolio clearly presents stack depth and enterprise breadth.
@@ -704,3 +715,5 @@ A feature is done only when:
 Run live Phase 2/3 infrastructure verification on a Docker-capable machine, then capture a real
 sandbox run for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging, incident-update,
 customer-message, refund, account-change, branch, or pull-request write execution.
+When changing workflow, connector, or tool YAML contracts, run `pnpm vercel-api:sync-config`
+and `pnpm vercel-api:check-config` before the next Vercel deployment.

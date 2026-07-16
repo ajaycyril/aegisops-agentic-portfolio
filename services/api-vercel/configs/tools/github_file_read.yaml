@@ -1,0 +1,45 @@
+id: github_file_read
+name: GitHub File Read
+description: Read repository files through the GitHub connector for code and configuration context.
+connector: github
+mcp_server: aegisops.github
+status: contract_ready
+risk_class: read
+required_scopes:
+  - contents:read
+allowed_workflows:
+  - engineering_issue_to_pr
+  - security_vulnerability_remediation
+  - incident_response_investigator
+  - compliance_audit_evidence
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - repository
+    - path
+    - ref
+  properties:
+    repository:
+      type: string
+    path:
+      type: string
+    ref:
+      type: string
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+    - ref
+    - content
+    - sha
+  properties:
+    path:
+      type: string
+    ref:
+      type: string
+    content:
+      type: string
+    sha:
+      type: string

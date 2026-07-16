@@ -26,6 +26,8 @@ This repository currently defines:
 - Dependency manifests for web, API, and shared contracts.
 - Local infrastructure plan for Postgres, pgvector, Redis, and OPA.
 - Deployed visual command-center shell.
+- Vercel Services read-only API gateway under `/api` for public workflow, connector, and tool
+  registry endpoints, backed by a committed snapshot of the canonical registry YAML contracts.
 - SQLAlchemy governance data model and Alembic migration.
 - OPA/Rego policy baseline and structured policy fixtures.
 - Typed OPA client and audit event writer.
@@ -174,7 +176,8 @@ only for captured real runs and must be labeled as replay.
 ├── apps/
 │   └── web/                  # Visual command center
 ├── services/
-│   └── api/                  # FastAPI, LangGraph, OpenAI, policy, tools
+│   ├── api/                  # FastAPI, LangGraph, OpenAI, policy, tools
+│   └── api-vercel/           # Slim Vercel read-only registry API
 ├── packages/
 │   └── shared-contracts/     # Shared TypeScript contracts and generated schemas
 ├── configs/
@@ -207,7 +210,7 @@ only for captured real runs and must be labeled as replay.
 | Cache/rate limits         | Redis or Upstash Redis                                     |
 | Observability             | OpenTelemetry, LangSmith, Langfuse                         |
 | Evals                     | pytest, promptfoo, Ragas, trace evaluators                 |
-| Deployment                | Vercel web, Render/Fly/Railway API, Neon/Supabase Postgres |
+| Deployment                | Vercel web/read-only registry API, Docker API, Neon/Supabase Postgres |
 
 ## Start Here
 
@@ -260,11 +263,21 @@ The visual command center is deployed on Vercel:
 
 - Production URL: https://aegisops-agentic-portfolio.vercel.app
 - Vercel project: `aegisops-agentic-portfolio`
+- Public read-only API: `/api/ready`, `/api/workflows`, `/api/connectors`, `/api/tools`
 - API deploy-ready artifacts: `services/api/Dockerfile`, `render.yaml`, and
   `docs/deployment/production-runbook.md`
 
-The deployed web shell is the visual foundation. Live workflow execution remains disabled until
-real connectors, live policy checks, backend deployment, and spend controls are wired.
+The deployed Vercel API is read-only and only exposes registry contracts. Live workflow
+execution remains disabled until the full Docker API has real connectors, live OPA checks,
+database migrations, approvals, and spend controls configured.
+
+When workflow, connector, or tool YAML changes, update the Vercel API snapshot before
+deployment:
+
+```bash
+pnpm vercel-api:sync-config
+pnpm vercel-api:check-config
+```
 
 ## License
 

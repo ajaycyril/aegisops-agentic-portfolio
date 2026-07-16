@@ -1,0 +1,22 @@
+id: supplier_system
+name: Supplier System
+provider: procurement_platform
+category: supply_chain
+status: planned
+auth_type: connection_profile
+required_env_vars:
+  - SUPPLIER_SYSTEM_CONNECTION_ID
+supported_scopes:
+  - procurement:read
+  - suppliers:read
+tool_ids: []
+workflow_ids:
+  - supply_chain_supplier_risk
+data_boundaries:
+  stores_personal_data: true
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - supplier_profile
+    - procurement_record
+    - supplier_risk_signal

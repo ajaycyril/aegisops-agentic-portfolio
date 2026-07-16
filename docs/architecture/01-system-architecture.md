@@ -107,12 +107,26 @@ sequenceDiagram
 | --- | --- |
 | Web app | Visualization, workflow control, approvals, inspection |
 | API gateway | Auth, rate limits, workflow control, streaming |
+| Public registry API | Vercel read-only workflow, connector, and tool contract endpoints |
 | LangGraph runtime | Stateful orchestration and durable graph execution |
 | OpenAI layer | Model calls, structured outputs, specialist managed agents |
 | MCP layer | Tool contracts and external system access |
 | OPA layer | Dynamic policy decisions outside the model |
 | Postgres | App state, audit, memory, checkpoints, retrieval |
 | Observability | Traces, evals, model/tool telemetry, cost accounting |
+
+## Public Deployment Split
+
+The public Vercel deployment serves two safe surfaces:
+
+- `apps/web`: the visual command center.
+- `services/api-vercel`: a slim read-only FastAPI service mounted at `/api` that exposes
+  workflow, connector, and tool registry contracts.
+
+The stateful agent runtime remains in `services/api` and requires the production controls
+before live runs: Postgres, OPA, connector secrets, audit persistence, approval gates, and
+spend limits. The public registry API must not expose workflow-run creation, tool execution,
+model calls, memory mutation, approval decisions, or external write actions.
 
 ## Production Constraints
 

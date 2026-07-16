@@ -1,0 +1,19 @@
+id: sanctions_source
+name: Sanctions Source
+provider: public_sanctions_dataset
+category: risk
+status: planned
+auth_type: public_dataset
+required_env_vars: []
+supported_scopes:
+  - research:read
+tool_ids: []
+workflow_ids:
+  - supply_chain_supplier_risk
+data_boundaries:
+  stores_personal_data: false
+  stores_customer_data: false
+  external_network_access: true
+  permitted_data_classes:
+    - sanctions_record
+    - source_citation
