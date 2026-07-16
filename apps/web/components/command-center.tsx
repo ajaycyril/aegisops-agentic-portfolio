@@ -24,6 +24,7 @@ import {
   Network,
   PlayCircle,
   Puzzle,
+  RefreshCw,
   Route,
   Scale,
   Send,
@@ -186,8 +187,40 @@ type StackLayer = {
   engineer: string;
 };
 
+type TestDriveState = "idle" | "running" | "complete" | "failed";
+
+type TestDriveProbe = {
+  checked_at: string;
+  base_url: string;
+  endpoints: Array<{
+    id: string;
+    label: string;
+    path: string;
+    ok: boolean;
+    status: number | null;
+    latency_ms: number | null;
+    count: number | null;
+    summary: string;
+    error: string | null;
+  }>;
+  gates: Array<{
+    id: string;
+    label: string;
+    state: GateState;
+    detail: string;
+  }>;
+  counts: {
+    workflows: number;
+    connectors: number;
+    tools: number;
+  };
+  readiness: string;
+  next_steps: string[];
+};
+
 const navItems: NavItem[] = [
   { label: "Portfolio", icon: Boxes },
+  { label: "Test Drive", icon: PlayCircle },
   { label: "Command", icon: Gauge },
   { label: "Agents", icon: Network },
   { label: "Graph", icon: Workflow },
@@ -362,6 +395,11 @@ export function CommandCenter({
     workflows[0]?.id ?? "",
   );
   const [selectedNodeId, setSelectedNodeId] = useState("source");
+  const [testDriveState, setTestDriveState] =
+    useState<TestDriveState>("idle");
+  const [testDriveProbe, setTestDriveProbe] =
+    useState<TestDriveProbe | null>(null);
+  const [testDriveError, setTestDriveError] = useState<string | null>(null);
 
   const selectedWorkflow = useMemo(
     () =>
@@ -409,6 +447,33 @@ export function CommandCenter({
     0,
   );
   const canAttemptReplay = apiBacked && selectedWorkflow.enabled;
+  async function runTestDrive() {
+    setTestDriveState("running");
+    setTestDriveError(null);
+
+    try {
+      const response = await fetch("/test-drive/probe", {
+        cache: "no-store",
+        headers: {
+          accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Test drive probe returned HTTP ${response.status}`);
+      }
+
+      const probe = (await response.json()) as TestDriveProbe;
+      setTestDriveProbe(probe);
+      setTestDriveState("complete");
+    } catch (error) {
+      setTestDriveProbe(null);
+      setTestDriveState("failed");
+      setTestDriveError(
+        error instanceof Error ? error.message : "Test drive probe failed",
+      );
+    }
+  }
 
   return (
     <main className="app-shell">
@@ -425,7 +490,7 @@ export function CommandCenter({
         <div className="topbar-meta">
           <span className="status-pill status-live">
             <span className="dot" />
-            Phase 4 cockpit
+            Live testable
           </span>
           <span className="status-pill status-muted">
             <Server size={14} />
@@ -494,6 +559,18 @@ export function CommandCenter({
               <Metric value={String(approvalCount)} label="approval gates" />
             </div>
           </section>
+
+          <TestDrivePanel
+            apiStatus={apiStatus}
+            readiness={readiness}
+            workflowCatalog={workflowCatalog}
+            selectedWorkflow={selectedWorkflow}
+            workflowRunTrace={workflowRunTrace}
+            probe={testDriveProbe}
+            state={testDriveState}
+            error={testDriveError}
+            onRun={runTestDrive}
+          />
 
           <section className="ops-grid">
             <section className="panel portfolio-panel">
@@ -800,6 +877,223 @@ export function CommandCenter({
         </section>
       </div>
     </main>
+  );
+}
+
+function TestDrivePanel({
+  apiStatus,
+  readiness,
+  workflowCatalog,
+  selectedWorkflow,
+  workflowRunTrace,
+  probe,
+  state,
+  error,
+  onRun,
+}: {
+  apiStatus: ApiStatus;
+  readiness: ApiReadiness | null;
+  workflowCatalog: WorkflowCatalog;
+  selectedWorkflow: WorkflowDetail;
+  workflowRunTrace: WorkflowRunTraceStatus;
+  probe: TestDriveProbe | null;
+  state: TestDriveState;
+  error: string | null;
+  onRun: () => void;
+}) {
+  const registryCounts = probe?.counts ??
+    readiness?.registry_counts ?? {
+      workflows: workflowCatalog.workflows.length,
+      connectors: new Set(
+        workflowCatalog.workflows.flatMap(
+          (workflow) => workflow.required_connectors,
+        ),
+      ).size,
+      tools: 0,
+    };
+  const endpointRows = probe?.endpoints ?? [
+    {
+      id: "ready",
+      label: "Readiness",
+      path: "/ready",
+      ok: apiStatus.label === "online",
+      status: apiStatus.label === "online" ? 200 : null,
+      latency_ms: null,
+      count: null,
+      summary:
+        apiStatus.label === "online"
+          ? "server render reached readiness"
+          : apiStatus.message,
+      error: null,
+    },
+    {
+      id: "workflows",
+      label: "Workflows",
+      path: "/workflows",
+      ok: workflowCatalog.source === "api",
+      status: workflowCatalog.source === "api" ? 200 : null,
+      latency_ms: null,
+      count: workflowCatalog.workflows.length,
+      summary: `${workflowCatalog.workflows.length} workflows`,
+      error: null,
+    },
+  ];
+  const probeBaseUrl = probe?.base_url ?? "/api";
+  const workflowGateState = selectedWorkflow.enabled ? "open" : "closed";
+  const traceGateState = workflowRunTrace.label === "loaded" ? "open" : "neutral";
+  const liveRunGateState =
+    readiness?.database_configured &&
+    readiness.policy_configured &&
+    readiness.live_run_admin_gate_configured
+      ? "neutral"
+      : "closed";
+
+  return (
+    <section className="panel test-drive-panel">
+      <PanelHeader
+        icon={PlayCircle}
+        title="Test Drive"
+        badge={state === "complete" ? "live check complete" : "safe read-only"}
+      />
+      <div className="test-drive-grid">
+        <div className="test-drive-hero">
+          <div>
+            <div className="contract-title">One-click public proof</div>
+            <h2>Run the safe registry check</h2>
+            <p>
+              This checks only public read endpoints and keeps live workflow
+              writes, connector actions, model spend, and customer messages
+              closed.
+            </p>
+          </div>
+          <button
+            className="test-drive-button"
+            type="button"
+            disabled={state === "running"}
+            aria-busy={state === "running"}
+            onClick={onRun}
+          >
+            <RefreshCw size={17} className={state === "running" ? "spin" : ""} />
+            {state === "running" ? "Checking" : "Run live check"}
+          </button>
+        </div>
+
+        <div className="test-count-grid" aria-label="Live registry counts">
+          <TestCount value={registryCounts.workflows} label="workflows" />
+          <TestCount value={registryCounts.connectors} label="connectors" />
+          <TestCount value={registryCounts.tools} label="tools" />
+        </div>
+
+        <div className="test-gate-grid">
+          <TestGate
+            label="Public API"
+            state={apiStatus.label === "online" ? "open" : "closed"}
+            detail={apiStatus.message}
+          />
+          <TestGate
+            label="Selected workflow"
+            state={workflowGateState}
+            detail={
+              selectedWorkflow.enabled
+                ? `${selectedWorkflow.name} is connector-ready.`
+                : (selectedWorkflow.disabled_reason ??
+                  `${selectedWorkflow.name} is gated.`)
+            }
+          />
+          <TestGate
+            label="Captured trace"
+            state={traceGateState}
+            detail={workflowRunTrace.message}
+          />
+          <TestGate
+            label="Live execution"
+            state={liveRunGateState}
+            detail="Full runtime requires Docker/Postgres/OPA, connector secrets, and admin live-run key."
+          />
+        </div>
+
+        {error ? <div className="test-error">{error}</div> : null}
+
+        <div className="endpoint-board">
+          {endpointRows.map((endpoint) => (
+            <a
+              className={`endpoint-row endpoint-${endpoint.ok ? "open" : "closed"}`}
+              href={endpointHref(probeBaseUrl, endpoint.path)}
+              key={endpoint.id}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <span className={`review-state ${endpoint.ok ? "open" : "closed"}`} />
+              <div>
+                <strong>{endpoint.label}</strong>
+                <code>{endpoint.path}</code>
+              </div>
+              <em>
+                {endpoint.status ? `HTTP ${endpoint.status}` : "not checked"}
+                {endpoint.latency_ms !== null
+                  ? ` / ${endpoint.latency_ms}ms`
+                  : ""}
+              </em>
+              <small>{endpoint.error ?? endpoint.summary}</small>
+            </a>
+          ))}
+        </div>
+
+        <div className="selected-test-contract">
+          <div>
+            <span>Selected test subject</span>
+            <strong>{selectedWorkflow.name}</strong>
+          </div>
+          <div>
+            <span>Required connectors</span>
+            <strong>{selectedWorkflow.required_connectors.join(", ")}</strong>
+          </div>
+          <div>
+            <span>Closed blockers</span>
+            <strong>
+              {selectedWorkflow.missing_connectors.length > 0
+                ? selectedWorkflow.missing_connectors.join(", ")
+                : "live write adapters remain disabled"}
+            </strong>
+          </div>
+          <div>
+            <span>Approval gates</span>
+            <strong>
+              {selectedWorkflow.approval_required_for.map(humanize).join(", ")}
+            </strong>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TestCount({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="test-count">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function TestGate({
+  label,
+  state,
+  detail,
+}: {
+  label: string;
+  state: GateState;
+  detail: string;
+}) {
+  return (
+    <div className={`test-gate test-gate-${state}`}>
+      <span className={`review-state ${state}`} />
+      <div>
+        <strong>{label}</strong>
+        <em>{detail}</em>
+      </div>
+    </div>
   );
 }
 
@@ -2439,6 +2733,13 @@ function countBy(values: string[]) {
 function matchingScopes(workflow: WorkflowDetail, connector: string) {
   const prefix = connector.split("_")[0] ?? connector;
   return workflow.required_scopes.filter((scope) => scope.startsWith(prefix));
+}
+
+function endpointHref(baseUrl: string, path: string) {
+  const normalizedBaseUrl = baseUrl.endsWith("/")
+    ? baseUrl.slice(0, -1)
+    : baseUrl;
+  return `${normalizedBaseUrl}${path}`;
 }
 
 function formatWorkflowConfig(workflow: WorkflowDetail) {

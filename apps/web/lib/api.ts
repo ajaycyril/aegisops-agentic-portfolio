@@ -14,6 +14,19 @@ export type ApiHealth = {
 const apiReadinessSchema = z.object({
   status: z.string(),
   environment: z.string(),
+  mode: z.string().default("full_runtime"),
+  registry_configured: z.boolean().default(false),
+  registry_counts: z
+    .object({
+      workflows: z.number().int().nonnegative(),
+      connectors: z.number().int().nonnegative(),
+      tools: z.number().int().nonnegative(),
+    })
+    .default({
+      workflows: 0,
+      connectors: 0,
+      tools: 0,
+    }),
   policy_configured: z.boolean(),
   database_configured: z.boolean(),
   live_runs_require_approval: z.boolean(),
@@ -253,7 +266,7 @@ export async function getApiStatus(apiBaseUrl?: string | null): Promise<ApiStatu
   }
 
   try {
-    const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+    const normalizedBaseUrl = stripTrailingSlash(baseUrl);
     const response = await fetch(`${normalizedBaseUrl}/health`, {
       cache: "no-store",
       headers: {
@@ -327,7 +340,7 @@ export async function getDemoWorkflowRunTrace(
     };
   }
 
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
 
   try {
     const response = await fetch(
@@ -395,7 +408,7 @@ export async function getDemoWorkflowRunTraceEval(
     };
   }
 
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
 
   try {
     const response = await fetch(
@@ -519,7 +532,7 @@ export async function getWorkflowCatalog(
     );
   }
 
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
 
   try {
     const summaryResponse = await fetch(`${normalizedBaseUrl}/workflows`, {
@@ -588,6 +601,10 @@ function getRequestOrigin(requestHeaders?: RequestHeaders | null) {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   return `${protocol}://${host}`;
+}
+
+function stripTrailingSlash(value: string) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
 function repositoryMirrorCatalog(message: string): WorkflowCatalog {

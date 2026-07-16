@@ -271,6 +271,14 @@ The deployed Vercel API is read-only and only exposes registry contracts. Live w
 execution remains disabled until the full Docker API has real connectors, live OPA checks,
 database migrations, approvals, and spend controls configured.
 
+The portal includes a Test Drive panel that calls `/test-drive/probe`, verifies the safe
+read-only registry endpoints, and shows the closed live-run/write gates. To test locally
+against the production read-only registry:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://aegisops-agentic-portfolio.vercel.app/api pnpm --filter @aegisops/web dev --hostname 127.0.0.1 --port 3000
+```
+
 When workflow, connector, or tool YAML changes, update the Vercel API snapshot before
 deployment:
 

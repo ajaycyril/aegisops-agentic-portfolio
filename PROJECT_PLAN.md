@@ -676,12 +676,16 @@ Tasks:
 8. Done: add README deployment guide.
 9. Done: deploy a Vercel Services read-only registry API and wire the web app to same-origin
    `/api` at request time.
+10. Done: add an in-app Test Drive panel plus `/test-drive/probe` for safe read-only endpoint
+    verification without live connector credentials.
 
 Acceptance criteria:
 
 - Public URL loads the visual command center.
 - Public URL shows `API online` and `Live registry` from non-empty workflow, connector, and
   tool registry endpoints.
+- Test Drive can verify `/api/health`, `/api/ready`, `/api/workflows`, `/api/connectors`, and
+  `/api/tools` from the browser while showing live-run/write gates as closed.
 - Demo does not require unrestricted live credentials.
 - Free-tier limits and production upgrade path are documented.
 - The portfolio clearly presents stack depth and enterprise breadth.

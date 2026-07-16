@@ -58,6 +58,24 @@ pnpm vercel-api:sync-config
 pnpm vercel-api:check-config
 ```
 
+## Test Drive
+
+The web app exposes `GET /test-drive/probe` and an in-app Test Drive panel. The probe calls the
+safe public registry API, records endpoint status and latency, and returns workflow, connector,
+and tool counts. It also reports live workflow execution and external write gates as closed.
+
+Safe test target:
+
+```text
+GET /test-drive/probe
+```
+
+Local test command using the deployed read-only registry:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://aegisops-agentic-portfolio.vercel.app/api pnpm --filter @aegisops/web dev --hostname 127.0.0.1 --port 3000
+```
+
 ## API Deployment
 
 The API container is defined in `services/api/Dockerfile`. `render.yaml` is a deploy-ready
