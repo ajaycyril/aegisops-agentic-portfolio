@@ -24,6 +24,7 @@ export default async function Home() {
 
   return (
     <CommandCenter
+      apiBaseUrl={apiBaseUrl}
       apiStatus={apiStatus}
       workflowCatalog={workflowCatalog}
       workflowRunTrace={workflowRunTrace}

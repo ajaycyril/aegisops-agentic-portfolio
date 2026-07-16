@@ -24,7 +24,7 @@ This repository currently defines:
 - Real-data-only operating rules.
 - Free-tier deployment target with production-grade upgrade path.
 - Dependency manifests for web, API, and shared contracts.
-- Local infrastructure plan for Postgres, pgvector, Redis, and OPA.
+- Cloud-first infrastructure plan for managed Postgres, pgvector, Redis/Upstash, and OPA.
 - Deployed visual command-center shell.
 - Vercel Services read-only API gateway under `/api` for public workflow, connector, and tool
   registry endpoints, backed by a committed snapshot of the canonical registry YAML contracts.
@@ -40,15 +40,15 @@ This repository currently defines:
 - Per-run budget enforcement that evaluates persisted model cost, tool-call count, elapsed
   runtime, and prospective tool calls through OPA before runtime graph or tool execution work
   continues.
-- Registry-aware visual command center with portfolio selection, execution segmentation,
-  React Flow graph, evidence board, policy lens, trace timeline, code lens, and safe disabled
-  run-start controls.
+- Live-contract-first visual command center with five priority use cases, a shared React Flow
+  workflow player, real API run-start bridge, runtime readiness gates, trace-backed step
+  inspection, workflow tuning controls, and immediate rule-engine comparison.
 - Agentic-vs-rule-engine visual taxonomy that separates fixed deterministic checks, dynamic
   OPA policy, structured AI workflow calls, and true LangGraph/MCP agentic execution with
   costs, controls, failure modes, and selected-workflow fit.
-- Peel-the-layers stack panel that presents the selected workflow at executive, architect, and
-  engineer depth across orchestration, tools, memory, guardrails, policy, observability, evals,
-  and deployment.
+- Peel-the-layers stack panels that present workflow contracts, connector readiness, data
+  policy, approvals, orchestration, tools, memory, guardrails, policy, observability, evals,
+  and deployment without fabricated agent activity.
 - Typed tool contract registry with GitHub, SQL read, document retrieval, and observability
   tool definitions exposed through read-only API endpoints.
 - MCP tool contract server skeleton and `POST /tool-calls/authorize` boundary for
@@ -210,7 +210,7 @@ only for captured real runs and must be labeled as replay.
 | Cache/rate limits         | Redis or Upstash Redis                                     |
 | Observability             | OpenTelemetry, LangSmith, Langfuse                         |
 | Evals                     | pytest, promptfoo, Ragas, trace evaluators                 |
-| Deployment                | Vercel web/read-only registry API, Docker API, Neon/Supabase Postgres |
+| Deployment                | Vercel web/read-only registry API, cloud full API, Neon/Supabase Postgres |
 
 ## Start Here
 
@@ -226,8 +226,9 @@ Read these documents in order:
 8. [Use-Case Portfolio](./docs/use-cases/README.md)
 9. [Workflow Contracts](./docs/workflows/README.md)
 10. [Production Deployment Runbook](./docs/deployment/production-runbook.md)
-11. [Portfolio Walkthrough Script](./docs/deployment/portfolio-walkthrough.md)
-12. [Local Development Setup](./docs/development/local-setup.md)
+11. [Cloud-Only Runtime Plan](./docs/deployment/cloud-only-runtime.md)
+12. [Portfolio Walkthrough Script](./docs/deployment/portfolio-walkthrough.md)
+13. [Local Development Setup](./docs/development/local-setup.md)
 
 ## Execution Plan
 
@@ -236,20 +237,23 @@ next incomplete task without relying on chat history.
 
 Current next task:
 
-1. Verify Phase 2/3 live infrastructure on a machine with Docker.
-2. Run Alembic against local Postgres/pgvector and confirm OPA loads the Rego modules.
+1. Provision managed Postgres/pgvector and a hosted OPA-compatible policy endpoint.
+2. Deploy the full API runtime with `DATABASE_URL`, `OPA_BASE_URL`, spend controls, connector
+   readiness, and admin live-run key configured.
 3. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`
    at it for the public eval/trace readout.
 
-## Local Development Target
+## Cloud-First Development Target
 
-The first implementation milestone will support:
+Runtime verification and demos use managed cloud services. Local development still supports
+running the web app and API process, but it should point at cloud-managed state and policy
+services when validating live behavior.
 
 - `pnpm` workspace for frontend and shared TypeScript contracts.
 - Python virtual environment for the API and agent runtime.
-- Local Postgres with pgvector.
-- Local Redis-compatible cache.
-- Local OPA policy service.
+- Managed Postgres with pgvector.
+- Redis-compatible cache or Upstash Redis.
+- Hosted OPA-compatible policy service.
 - Environment variables validated at startup.
 
 ## Free-Tier Constraint
@@ -264,16 +268,19 @@ The visual command center is deployed on Vercel:
 - Production URL: https://aegisops-agentic-portfolio.vercel.app
 - Vercel project: `aegisops-agentic-portfolio`
 - Public read-only API: `/api/ready`, `/api/workflows`, `/api/connectors`, `/api/tools`
-- API deploy-ready artifacts: `services/api/Dockerfile`, `render.yaml`, and
+- API cloud-runtime artifacts: `services/api`, `services/api/Dockerfile` as an optional cloud
+  build artifact, `render.yaml`, and
   `docs/deployment/production-runbook.md`
 
 The deployed Vercel API is read-only and only exposes registry contracts. Live workflow
-execution remains disabled until the full Docker API has real connectors, live OPA checks,
+execution remains disabled until the full cloud API has real connectors, live OPA checks,
 database migrations, approvals, and spend controls configured.
 
 The portal includes a Test Drive panel that calls `/test-drive/probe`, verifies the safe
-read-only registry endpoints, and shows the closed live-run/write gates. To test locally
-against the production read-only registry:
+read-only registry endpoints, and shows the closed live-run/write gates. It also includes
+`POST /live-run/start`, a server-side bridge that sends a real upstream `POST /workflow-runs`
+request to the configured full API and returns the upstream gate status to the UI without
+inventing a run. To test locally against the production read-only registry:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=https://aegisops-agentic-portfolio.vercel.app/api pnpm --filter @aegisops/web dev --hostname 127.0.0.1 --port 3000

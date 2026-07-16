@@ -7,10 +7,10 @@ The demo must be free-tier friendly while remaining production-shaped.
 | Component | Free-Tier Target | Notes |
 | --- | --- | --- |
 | Web | Vercel Hobby | Visual command center |
-| API | Render, Fly, Railway, or similar | Containerized FastAPI service |
+| API | Render, Fly, Railway, Vercel service, or similar | Managed cloud FastAPI runtime |
 | Postgres | Neon or Supabase free | App state, audit, checkpoints, pgvector |
 | Cache | Upstash Redis free | Rate limits and run budget |
-| Policy | OPA container | Local container or sidecar |
+| Policy | Hosted OPA-compatible endpoint | Rego policy service with bundle deployment |
 | Observability | LangSmith/Langfuse free | Trace and eval visibility |
 
 ## Production Upgrade
@@ -42,8 +42,10 @@ Before public deployment:
 
 ## Repository Artifacts
 
-- `services/api/Dockerfile` packages the FastAPI runtime, configs, and policy files.
-- `render.yaml` provides a Docker web-service blueprint candidate with live runs disabled by
+- `services/api` packages the full FastAPI runtime, configs, and policy-aware routes.
+- `services/api/Dockerfile` is an optional cloud build artifact for hosts that build container
+  images; it is not a local Docker requirement.
+- `render.yaml` provides a cloud web-service blueprint candidate with live runs disabled by
   default and `LIVE_RUN_ADMIN_KEY` secret-managed for explicit live-run sandboxes.
 - `docs/deployment/production-runbook.md` is the operator checklist for API env vars,
   migrations, OPA, connector gates, and real-run trace/eval display.

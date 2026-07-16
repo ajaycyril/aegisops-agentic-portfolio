@@ -3,42 +3,32 @@
 import {
   Activity,
   AlertTriangle,
-  Bot,
-  Boxes,
   BrainCircuit,
   CheckCircle2,
   ClipboardCheck,
-  CircleDot,
-  Code2,
-  GitFork,
   Database,
-  FileCode2,
   FileText,
   Gauge,
   GitPullRequest,
-  KeyRound,
-  Layers3,
   LockKeyhole,
   MessageSquare,
-  Microscope,
   Network,
-  PlayCircle,
-  Puzzle,
+  Pause,
+  Play,
   RefreshCw,
   Route,
   Scale,
-  Send,
-  Server,
+  Search,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
-  TimerReset,
-  UserRound,
+  Timer,
   Workflow,
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
-import { useMemo, useState, type ReactNode } from "react";
+import { useReducedMotion } from "framer-motion";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
   Background,
   Controls,
@@ -47,2731 +37,1295 @@ import {
   type Edge,
   type Node,
 } from "@xyflow/react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import type {
-  ApiReadiness,
   ApiStatus,
   WorkflowRunTrace,
   WorkflowRunTraceEvalStatus,
   WorkflowRunTraceStatus,
 } from "@/lib/api";
-import { MultiAgentOrchestration } from "@/components/multi-agent-orchestration";
-import type {
-  WorkflowCatalog,
-  WorkflowDetail,
-  WorkflowStatus,
-} from "@/lib/workflows";
+import type { WorkflowCatalog, WorkflowDetail } from "@/lib/workflows";
 
 type CommandCenterProps = {
+  apiBaseUrl: string | null;
   apiStatus: ApiStatus;
   workflowCatalog: WorkflowCatalog;
   workflowRunTrace: WorkflowRunTraceStatus;
   workflowRunTraceEval: WorkflowRunTraceEvalStatus;
 };
 
-type NavItem = {
-  label: string;
+type UseCaseDefinition = {
+  workflowId: string;
+  shortName: string;
   icon: LucideIcon;
+  accent: string;
+  liveInputTemplate: Record<string, string>;
+  whyAgentic: string;
+  traditionalLimit: string;
 };
 
-type GraphNodeData = Record<string, unknown> & {
-  label: ReactNode;
-  title: string;
-  layer: string;
-  state: string;
-  evidence: string[];
-  policy: string;
-};
+type RuntimeStepKind =
+  | "contract"
+  | "readiness"
+  | "run"
+  | "tool"
+  | "evidence"
+  | "model"
+  | "policy"
+  | "approval"
+  | "memory"
+  | "eval"
+  | "output";
 
-type WorkflowNode = Node<GraphNodeData>;
-type WorkflowEdge = Edge;
+type RuntimeStepState = "complete" | "running" | "blocked" | "pending" | "not_configured";
 
-type GraphInspector = {
+type RuntimeStep = {
   id: string;
   title: string;
-  layer: string;
-  state: string;
-  evidence: string[];
-  policy: string;
+  kind: RuntimeStepKind;
+  state: RuntimeStepState;
+  actor: string;
+  summary: string;
+  data: string[];
+  reasoning: string[];
+  controls: string[];
+  source: "live_trace" | "live_api" | "workflow_contract";
+  timestamp?: string | null;
 };
 
-type GateState = "open" | "closed" | "neutral";
-
-type ProposalReviewModel = {
-  badge: string;
-  route: string;
-  routeState: GateState;
-  routeNote: string;
-  readiness: Array<{
-    label: string;
-    value: string;
-    state: GateState;
-  }>;
-  requestContract: Array<{
-    label: string;
-    value: string;
-  }>;
-  outputContract: Array<{
-    label: string;
-    value: string;
-  }>;
-  approvalRoute: string;
-  approvalPersistence: Array<{
-    label: string;
-    value: string;
-  }>;
-  approvalStops: string[];
-  traceReadout: TraceReadoutModel;
+type TuneState = {
+  autonomy: "read_only" | "draft_only" | "approval_required";
+  maxToolCalls: number;
+  maxUsd: number;
+  requireApproval: boolean;
+  includeModelPlanning: boolean;
 };
 
-type TraceReadoutModel = {
-  badge: string;
-  route: string;
-  state: GateState;
-  runId: string;
-  message: string;
-  outcomes: Array<{
-    label: string;
-    value: string;
-    state: GateState;
-  }>;
-  records: Array<{
-    label: string;
-    value: string;
-  }>;
-  events: Array<{
-    label: string;
-    value: string;
-    state: GateState;
-  }>;
-};
+type StartAttempt =
+  | { state: "idle"; message: string }
+  | { state: "running"; message: string }
+  | { state: "success"; message: string; body: unknown }
+  | { state: "blocked"; message: string; body: unknown }
+  | { state: "error"; message: string; body: unknown };
 
-type SupportRuntimeStage = {
+type FlowNodeData = Record<string, unknown> & {
+  label: ReactNode;
   title: string;
-  icon: LucideIcon;
-  layer: string;
-  tool: string;
-  artifact: string;
-  policy: string;
-  state: GateState;
 };
 
-type RuntimeMode = {
-  title: string;
-  icon: LucideIcon;
-  engine: string;
-  cost: string;
-  scope: string;
-  useWhen: string;
-  breaksWhen: string;
-  productionControls: string[];
-  noviceSignal: string;
+type Gate = {
+  label: string;
+  value: string;
+  state: "open" | "closed" | "neutral";
 };
 
-type StackLayer = {
-  title: string;
-  icon: LucideIcon;
-  choice: string;
-  status: GateState;
-  executive: string;
-  architect: string;
-  engineer: string;
-};
-
-type TestDriveState = "idle" | "running" | "complete" | "failed";
-
-type TestDriveProbe = {
-  checked_at: string;
-  base_url: string;
-  endpoints: Array<{
-    id: string;
-    label: string;
-    path: string;
-    ok: boolean;
-    status: number | null;
-    latency_ms: number | null;
-    count: number | null;
-    summary: string;
-    error: string | null;
-  }>;
-  gates: Array<{
-    id: string;
-    label: string;
-    state: GateState;
-    detail: string;
-  }>;
-  counts: {
-    workflows: number;
-    connectors: number;
-    tools: number;
-  };
-  readiness: string;
-  next_steps: string[];
-};
-
-const navItems: NavItem[] = [
-  { label: "Portfolio", icon: Boxes },
-  { label: "Test Drive", icon: PlayCircle },
-  { label: "Command", icon: Gauge },
-  { label: "Agents", icon: Network },
-  { label: "Graph", icon: Workflow },
-  { label: "Review", icon: BrainCircuit },
-  { label: "Evidence", icon: Database },
-  { label: "Policy", icon: LockKeyhole },
-  { label: "Trace", icon: Activity },
-  { label: "Code", icon: Code2 },
+const preferredUseCases: UseCaseDefinition[] = [
+  {
+    workflowId: "incident_response_investigator",
+    shortName: "Incident",
+    icon: Activity,
+    accent: "#35c2a7",
+    liveInputTemplate: {
+      incident_id: "",
+      service: "",
+      severity: "sev2",
+      time_window: "",
+    },
+    whyAgentic:
+      "Incident diagnosis needs adaptive investigation across logs, deployments, code ownership, hypotheses, policy, and approvals.",
+    traditionalLimit:
+      "A rule engine can page on thresholds, but it cannot decide which evidence is missing or reconcile competing causes.",
+  },
+  {
+    workflowId: "customer_support_escalation",
+    shortName: "Support",
+    icon: MessageSquare,
+    accent: "#78a6ff",
+    liveInputTemplate: {
+      ticket_id: "",
+      customer_id: "",
+      requested_action: "draft_response",
+    },
+    whyAgentic:
+      "Support escalation needs ticket context, CRM state, knowledge retrieval, redacted memory, and approval before customer-visible output.",
+    traditionalLimit:
+      "Rules can route by priority or keyword, but cannot produce a grounded response with citations and risk-aware stop points.",
+  },
+  {
+    workflowId: "engineering_issue_to_pr",
+    shortName: "Engineering",
+    icon: GitPullRequest,
+    accent: "#f4c95d",
+    liveInputTemplate: {
+      issue_url: "",
+      repository: "",
+      include_proposal: "false",
+    },
+    whyAgentic:
+      "Issue-to-PR work requires reading issue context, inspecting code, planning a patch, evaluating test coverage, and stopping before writes.",
+    traditionalLimit:
+      "Rules can label or assign an issue, but cannot inspect a repo and produce an evaluated implementation plan.",
+  },
+  {
+    workflowId: "supply_chain_supplier_risk",
+    shortName: "Supplier Risk",
+    icon: Network,
+    accent: "#ff7a90",
+    liveInputTemplate: {
+      supplier_id: "",
+      renewal_id: "",
+      geography: "",
+    },
+    whyAgentic:
+      "Supplier risk needs source-grounded research, sanctions context, procurement impact, and policy-gated status changes.",
+    traditionalLimit:
+      "Rules can flag a score, but they cannot collect new evidence and explain tradeoffs for a renewal decision.",
+  },
+  {
+    workflowId: "finance_invoice_exception",
+    shortName: "Finance",
+    icon: Scale,
+    accent: "#b79cff",
+    liveInputTemplate: {
+      invoice_id: "",
+      purchase_order_id: "",
+      vendor_id: "",
+    },
+    whyAgentic:
+      "Invoice exceptions need document evidence, policy routing, audit packets, and approval before payment or vendor communication.",
+    traditionalLimit:
+      "Rules can block amount mismatches, but they cannot classify the cause with document-backed reasoning.",
+  },
 ];
 
-const statusCopy: Record<WorkflowStatus, string> = {
-  planned: "Planned",
-  ready: "Ready",
-  gated: "Gated",
-  disabled: "Disabled",
+const stepIcons: Record<RuntimeStepKind, LucideIcon> = {
+  contract: Workflow,
+  readiness: ShieldCheck,
+  run: Play,
+  tool: Search,
+  evidence: FileText,
+  model: BrainCircuit,
+  policy: LockKeyhole,
+  approval: ClipboardCheck,
+  memory: Database,
+  eval: Gauge,
+  output: Sparkles,
 };
 
-const statusIcon: Record<WorkflowStatus, LucideIcon> = {
-  planned: CircleDot,
-  ready: CheckCircle2,
-  gated: AlertTriangle,
-  disabled: XCircle,
+const defaultTuneState: TuneState = {
+  autonomy: "read_only",
+  maxToolCalls: 12,
+  maxUsd: 0.25,
+  requireApproval: true,
+  includeModelPlanning: false,
 };
-
-const apiStatusLabel = {
-  not_configured: "API not deployed",
-  online: "API online",
-  unreachable: "API unreachable",
-} satisfies Record<ApiStatus["label"], string>;
-
-const runtimeModes = [
-  {
-    title: "Rule-based",
-    icon: FileCode2,
-    engine: "Typed deterministic gates",
-    cost: "$0 model cost",
-    scope: "Schema validation, status checks, connector readiness",
-    useWhen: "The decision path is stable, explicit, and low ambiguity.",
-    breaksWhen: "The work needs judgment, evidence tradeoffs, or changing context.",
-    productionControls: ["Pydantic schemas", "fixed state checks", "unit tests"],
-    noviceSignal: "Same input produces the same output every time.",
-  },
-  {
-    title: "Dynamic policy",
-    icon: Scale,
-    engine: "OPA/Rego",
-    cost: "$0 model cost",
-    scope: "Run eligibility, budget, tool access, approval routing",
-    useWhen: "Rules change by tenant, role, risk class, budget, or data sensitivity.",
-    breaksWhen: "Policy alone cannot find evidence, plan work, or draft an answer.",
-    productionControls: ["policy fixtures", "approval matrix", "audit decisions"],
-    noviceSignal: "The same request can be allowed, blocked, or escalated by context.",
-  },
-  {
-    title: "AI workflow",
-    icon: Bot,
-    engine: "Responses API",
-    cost: "metered",
-    scope: "Structured model calls, retrieval summaries, evaluator passes",
-    useWhen: "A model should transform grounded context into a typed draft or verdict.",
-    breaksWhen: "The task needs iterative tool use, state, retries, or handoffs.",
-    productionControls: ["structured outputs", "model_calls ledger", "eval rubrics"],
-    noviceSignal: "The model produces a bounded artifact, but it is not steering the whole run.",
-  },
-  {
-    title: "Agentic",
-    icon: Workflow,
-    engine: "LangGraph + MCP",
-    cost: "bounded",
-    scope: "Stateful planning, typed tools, interrupts, memory, replay",
-    useWhen: "The system must plan, gather evidence, call tools, adapt, and stop for review.",
-    breaksWhen: "A simple rule or one model call solves the task with less risk.",
-    productionControls: ["checkpoints", "typed tools", "guardrails", "human interrupts"],
-    noviceSignal: "The workflow changes its next step based on what it discovers.",
-  },
-] satisfies RuntimeMode[];
-
-const stackLayers = [
-  {
-    title: "Orchestration",
-    icon: GitFork,
-    choice: "LangGraph",
-    status: "open",
-    executive: "Turns messy work into visible stages, stop-points, and outcomes.",
-    architect: "Stateful graph runtime with checkpoints, interrupts, and replay contracts.",
-    engineer: "Workflow modules under services/api/src/aegisops_api/workflows.",
-  },
-  {
-    title: "Model Control",
-    icon: BrainCircuit,
-    choice: "OpenAI Responses API",
-    status: "open",
-    executive: "Uses AI where judgment or drafting is valuable, not everywhere.",
-    architect: "Structured planner and evaluator calls with model-call telemetry.",
-    engineer: "Planner adapters persist prompt version, tokens, trace ID, latency, and cost.",
-  },
-  {
-    title: "Specialist Agents",
-    icon: Bot,
-    choice: "OpenAI Agents SDK ready",
-    status: "neutral",
-    executive: "Supports specialist workers for incidents, support, and research.",
-    architect: "Reserved for handoffs, sessions, tracing, and guardrails where useful.",
-    engineer: "Runtime contracts separate specialist agents from deterministic gates.",
-  },
-  {
-    title: "Tool Boundary",
-    icon: Puzzle,
-    choice: "MCP + typed adapters",
-    status: "open",
-    executive: "No mystery tools; every external action has a schema and scope.",
-    architect: "Tool registry, connector registry, input hashes, and risk classes.",
-    engineer: "configs/tools plus policy-checked /tool-calls/authorize and execute.",
-  },
-  {
-    title: "Governance",
-    icon: ShieldCheck,
-    choice: "OPA/Rego",
-    status: "open",
-    executive: "AI does not decide whether risky actions are allowed.",
-    architect: "Run eligibility, tool access, budgets, and approvals are policy decisions.",
-    engineer: "Rego packages and JSON fixtures live under policies and configs/policies.",
-  },
-  {
-    title: "Memory",
-    icon: Database,
-    choice: "Postgres + pgvector",
-    status: "open",
-    executive: "Memory is explicit, retained by policy, and visible in trace.",
-    architect: "App state, memory records, evidence, audit, checkpoints, and retrieval.",
-    engineer: "SQLAlchemy models and Alembic migrations define durable contracts.",
-  },
-  {
-    title: "Observability",
-    icon: Activity,
-    choice: "OpenTelemetry-compatible",
-    status: "neutral",
-    executive: "Every run can be inspected after the fact.",
-    architect: "Trace timeline covers model calls, tool calls, approvals, evidence, and cost.",
-    engineer: "GET /workflow-runs/{run_id}/trace feeds the web trace reader.",
-  },
-  {
-    title: "Evals",
-    icon: ClipboardCheck,
-    choice: "Trace evals + rubric contracts",
-    status: "open",
-    executive: "The demo can prove grounding, safety, and spend controls.",
-    architect: "Deterministic checks plus rubric contracts for generated artifacts.",
-    engineer: "GET /workflow-runs/{run_id}/evals/trace and pytest eval coverage.",
-  },
-  {
-    title: "Deployment",
-    icon: Server,
-    choice: "Vercel web + API runbook",
-    status: "neutral",
-    executive: "The portal is public while live execution stays admin-gated.",
-    architect: "Free-tier web deployment with API/container deployment path.",
-    engineer: "Vercel app, services/api/Dockerfile, render.yaml, deployment docs.",
-  },
-] satisfies StackLayer[];
 
 export function CommandCenter({
+  apiBaseUrl,
   apiStatus,
   workflowCatalog,
   workflowRunTrace,
   workflowRunTraceEval,
 }: CommandCenterProps) {
   const shouldReduceMotion = useReducedMotion();
-  const workflows = workflowCatalog.workflows;
-  const [activeNav, setActiveNav] = useState(navItems[0].label);
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState(
-    workflows[0]?.id ?? "",
+  const availableUseCases = useMemo(
+    () => preferredUseCases.filter((useCase) => workflowCatalog.workflows.some((workflow) => workflow.id === useCase.workflowId)),
+    [workflowCatalog.workflows],
   );
-  const [selectedNodeId, setSelectedNodeId] = useState("source");
-  const [testDriveState, setTestDriveState] =
-    useState<TestDriveState>("idle");
-  const [testDriveProbe, setTestDriveProbe] =
-    useState<TestDriveProbe | null>(null);
-  const [testDriveError, setTestDriveError] = useState<string | null>(null);
+  const useCases = availableUseCases.length > 0 ? availableUseCases : preferredUseCases;
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState(useCases[0]?.workflowId ?? "");
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [selectedStepId, setSelectedStepId] = useState("");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [tuneState, setTuneState] = useState<TuneState>(defaultTuneState);
+  const [liveInput, setLiveInput] = useState<Record<string, string>>(useCases[0]?.liveInputTemplate ?? {});
+  const [startAttempt, setStartAttempt] = useState<StartAttempt>({
+    state: "idle",
+    message: "No live run request has been sent in this browser session.",
+  });
 
-  const selectedWorkflow = useMemo(
+  const selectedUseCase =
+    useCases.find((useCase) => useCase.workflowId === selectedWorkflowId) ?? useCases[0];
+  const workflow =
+    workflowCatalog.workflows.find((item) => item.id === selectedUseCase.workflowId) ??
+    workflowCatalog.workflows[0];
+  const matchingTrace =
+    workflowRunTrace.label === "loaded" && workflowRunTrace.trace.run.workflow_id === workflow.id
+      ? workflowRunTrace.trace
+      : null;
+
+  const steps = useMemo(
     () =>
-      workflows.find((workflow) => workflow.id === selectedWorkflowId) ??
-      workflows[0],
-    [selectedWorkflowId, workflows],
+      buildRuntimeSteps({
+        apiStatus,
+        workflowCatalog,
+        workflow,
+        trace: matchingTrace,
+        traceStatus: workflowRunTrace,
+        evalStatus: workflowRunTraceEval,
+        startAttempt,
+      }),
+    [
+      apiStatus,
+      workflowCatalog,
+      workflow,
+      matchingTrace,
+      workflowRunTrace,
+      workflowRunTraceEval,
+      startAttempt,
+    ],
   );
 
-  const graph = useMemo(
-    () => createWorkflowGraph(selectedWorkflow),
-    [selectedWorkflow],
+  const activeStep = steps[activeStepIndex] ?? steps[0];
+  const selectedStep = isPlaying
+    ? activeStep
+    : steps.find((step) => step.id === selectedStepId) ?? activeStep;
+  const flow = useMemo(
+    () => buildFlow(steps, activeStepIndex, selectedStep.id, selectedUseCase.accent),
+    [steps, activeStepIndex, selectedStep.id, selectedUseCase.accent],
   );
-  const activeNodeId = graph.inspectors.some(
-    (node) => node.id === selectedNodeId,
-  )
-    ? selectedNodeId
-    : "source";
-  const selectedNode =
-    graph.inspectors.find((node) => node.id === activeNodeId) ??
-    graph.inspectors[0];
-  const domainData = useMemo(() => createDomainChart(workflows), [workflows]);
-  const connectorData = useMemo(
-    () => createConnectorChart(workflows),
-    [workflows],
-  );
-  const apiBacked =
-    workflowCatalog.source === "api" && apiStatus.label === "online";
-  const readiness = apiStatus.label === "online" ? apiStatus.readiness : null;
-  const proposalReview = useMemo(
-    () =>
-      createProposalReview(
-        selectedWorkflow,
-        apiBacked,
-        readiness,
-        workflowRunTrace,
-      ),
-    [apiBacked, readiness, selectedWorkflow, workflowRunTrace],
-  );
-  const enabledCount = workflows.filter((workflow) => workflow.enabled).length;
-  const connectorCount = new Set(
-    workflows.flatMap((workflow) => workflow.required_connectors),
-  ).size;
-  const approvalCount = workflows.reduce(
-    (total, workflow) => total + workflow.approval_required_for.length,
-    0,
-  );
-  const canAttemptReplay = apiBacked && selectedWorkflow.enabled;
-  async function runTestDrive() {
-    setTestDriveState("running");
-    setTestDriveError(null);
+  const gates = buildGates(apiStatus, workflowCatalog, workflow, workflowRunTrace, matchingTrace);
+  const canAttemptLiveStart = Boolean(apiBaseUrl && workflow);
+  const canPlayTrace = steps.some((step) => step.source === "live_trace" || step.state === "complete");
+
+  useEffect(() => {
+    if (!isPlaying || !canPlayTrace) {
+      return;
+    }
+
+    if (activeStepIndex >= steps.length - 1) {
+      const stopTimer = window.setTimeout(() => setIsPlaying(false), 0);
+      return () => window.clearTimeout(stopTimer);
+    }
+
+    const timer = window.setTimeout(
+      () => {
+        setActiveStepIndex((current) => {
+          const next = Math.min(current + 1, steps.length - 1);
+          setSelectedStepId(steps[next]?.id ?? "");
+          return next;
+        });
+      },
+      shouldReduceMotion ? 900 : 1500,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [activeStepIndex, canPlayTrace, isPlaying, shouldReduceMotion, steps]);
+
+  async function startLiveRun() {
+    if (!apiBaseUrl) {
+      setStartAttempt({
+        state: "blocked",
+        message: "No API base URL is configured, so a real workflow-run request cannot be sent.",
+        body: null,
+      });
+      return;
+    }
+
+    setStartAttempt({
+      state: "running",
+      message: "Sending real workflow-run request to the configured API.",
+    });
+
+    const payload = {
+      workflow_id: workflow.id,
+      execution_mode: "live",
+      autonomy_level: tuneState.autonomy,
+      input_payload: compactInput(liveInput),
+      budget: {
+        max_tool_calls: tuneState.maxToolCalls,
+        max_estimated_usd: tuneState.maxUsd.toFixed(2),
+      },
+      require_human_approval: tuneState.requireApproval,
+      include_proposal: tuneState.includeModelPlanning,
+    };
 
     try {
-      const response = await fetch("/test-drive/probe", {
-        cache: "no-store",
+      const response = await fetch("/live-run/start", {
+        method: "POST",
         headers: {
           accept: "application/json",
+          "content-type": "application/json",
         },
+        body: JSON.stringify({
+          api_base_url: apiBaseUrl,
+          payload,
+        }),
       });
+      const body = await readResponseBody(response);
+      const upstreamResult = readUpstreamResult(body);
 
-      if (!response.ok) {
-        throw new Error(`Test drive probe returned HTTP ${response.status}`);
+      if (response.ok && upstreamResult?.upstream_ok === true) {
+        setStartAttempt({
+          state: "success",
+          message: `Live workflow-run request succeeded with upstream HTTP ${upstreamResult.upstream_status}.`,
+          body,
+        });
+      } else if (response.ok && upstreamResult) {
+        setStartAttempt({
+          state: "blocked",
+          message: `Live workflow-run request returned upstream HTTP ${upstreamResult.upstream_status}. This is the actual response from the configured API gate.`,
+          body,
+        });
+      } else {
+        setStartAttempt({
+          state: "blocked",
+          message: `Live workflow-run request returned HTTP ${response.status}. This is the actual response from the configured API gate.`,
+          body,
+        });
       }
-
-      const probe = (await response.json()) as TestDriveProbe;
-      setTestDriveProbe(probe);
-      setTestDriveState("complete");
     } catch (error) {
-      setTestDriveProbe(null);
-      setTestDriveState("failed");
-      setTestDriveError(
-        error instanceof Error ? error.message : "Test drive probe failed",
-      );
+      setStartAttempt({
+        state: "error",
+        message: error instanceof Error ? error.message : "Live workflow-run request failed.",
+        body: null,
+      });
     }
   }
 
+  function toggleTracePlayback() {
+    if (activeStepIndex >= steps.length - 1) {
+      setActiveStepIndex(0);
+      setSelectedStepId(steps[0]?.id ?? "");
+      setIsPlaying(true);
+      return;
+    }
+
+    setIsPlaying((current) => !current);
+  }
+
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">
-            <BrainCircuit size={22} />
+    <main className="agent-lab" style={{ "--accent": selectedUseCase.accent } as CSSProperties}>
+      <header className="lab-topbar">
+        <div className="brand-lockup">
+          <div className="brand-glyph">
+            <Workflow size={20} />
           </div>
           <div>
-            <div>AegisOps</div>
-            <div className="topbar-meta">Agentic Workflow Command Center</div>
+            <strong>AegisOps Live Agent Lab</strong>
+            <span>Real contracts, real API gates, real traces only</span>
           </div>
         </div>
-        <div className="topbar-meta">
-          <span className="status-pill status-live">
-            <span className="dot" />
-            Live testable
-          </span>
-          <span className="status-pill status-muted">
-            <Server size={14} />
-            {apiStatusLabel[apiStatus.label]}
-          </span>
-          <span className="status-pill status-muted">
-            <Database size={14} />
-            {workflowCatalog.source === "api"
-              ? "Live registry"
-              : "Repository registry"}
-          </span>
+        <div className="topbar-gates">
+          {gates.slice(0, 3).map((gate) => (
+            <GatePill gate={gate} key={gate.label} />
+          ))}
         </div>
       </header>
 
-      <div className="command-layout">
-        <aside className="sidebar">
-          <section className="nav-section">
-            <div className="nav-title">Surfaces</div>
-            {navItems.map(({ label, icon: Icon }) => (
-              <button
-                className={`nav-item ${activeNav === label ? "active" : ""}`}
-                key={label}
-                type="button"
-                onClick={() => setActiveNav(label)}
-              >
-                <Icon size={17} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </section>
+      <section className="live-cockpit" aria-label="Live agentic workflow cockpit">
+        <div className="operator-panel">
+          <p className="eyebrow">Use case</p>
+          <h1>{workflow.name}</h1>
+          <p className="workflow-purpose">{selectedUseCase.whyAgentic}</p>
 
-          <section className="nav-section">
-            <div className="nav-title">Execution Modes</div>
-            <div className="mode-stack">
-              {runtimeModes.map((mode) => (
-                <div className="mode-row" key={mode.title}>
-                  <span>{mode.title}</span>
-                  <strong>{mode.cost}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
-
-        <section className="main cockpit">
-          <section className="mission-strip">
-            <div className="mission-copy">
-              <div className="eyebrow">Production-grade agentic AI</div>
-              <h1>Every workflow layer visible, gated, and inspectable.</h1>
-              <p>
-                The command center separates deterministic rules, dynamic
-                policy, AI workflow calls, and agentic tool loops before any
-                live action is allowed.
-              </p>
-            </div>
-            <div className="mission-metrics" aria-label="Architecture metrics">
-              <Metric
-                value={String(workflows.length)}
-                label="workflow configs"
-              />
-              <Metric value={String(enabledCount)} label="connector-ready" />
-              <Metric
-                value={String(connectorCount)}
-                label="connector classes"
-              />
-              <Metric value={String(approvalCount)} label="approval gates" />
-            </div>
-          </section>
-
-          <TestDrivePanel
-            apiStatus={apiStatus}
-            readiness={readiness}
-            workflowCatalog={workflowCatalog}
-            selectedWorkflow={selectedWorkflow}
-            workflowRunTrace={workflowRunTrace}
-            probe={testDriveProbe}
-            state={testDriveState}
-            error={testDriveError}
-            onRun={runTestDrive}
-          />
-
-          <section className="ops-grid">
-            <section className="panel portfolio-panel">
-              <PanelHeader
-                icon={Sparkles}
-                title="Enterprise Workflow Portfolio"
-                badge={workflowCatalog.message}
-              />
-              <div className="portfolio">
-                {workflows.map((workflow, index) => (
-                  <WorkflowCard
-                    key={workflow.id}
-                    workflow={workflow}
-                    index={index}
-                    selected={workflow.id === selectedWorkflow.id}
-                    shouldReduceMotion={shouldReduceMotion}
-                    onSelect={() => setSelectedWorkflowId(workflow.id)}
-                  />
-                ))}
-              </div>
-            </section>
-
-            <section className="panel workflow-inspector">
-              <PanelHeader
-                icon={GitPullRequest}
-                title={selectedWorkflow.name}
-                badge={statusCopy[selectedWorkflow.status]}
-              />
-              <div className="workflow-detail">
-                <ReadinessBlock
-                  workflow={selectedWorkflow}
-                  apiBacked={apiBacked}
-                />
-                <div className="run-control-grid">
-                  <RunButton
-                    icon={PlayCircle}
-                    label="Replay run"
-                    enabled={false}
-                    reason={
-                      canAttemptReplay
-                        ? "Captured real-run source id required"
-                        : (selectedWorkflow.disabled_reason ??
-                          "Registry or connector gate is closed")
-                    }
-                  />
-                  <RunButton
-                    icon={ShieldCheck}
-                    label="Live run"
-                    enabled={false}
-                    reason="Disabled until OPA, database, connectors, and approval queue are live"
-                  />
-                </div>
-              </div>
-            </section>
-          </section>
-
-          <RuntimeSegmentationPanel
-            selectedWorkflow={selectedWorkflow}
-            shouldReduceMotion={shouldReduceMotion}
-          />
-
-          <ExpertStackPanel
-            selectedWorkflow={selectedWorkflow}
-            readiness={readiness}
-            workflowRunTrace={workflowRunTrace}
-          />
-
-          <MultiAgentOrchestration
-            workflows={workflows}
-            selectedWorkflowId={selectedWorkflow.id}
-            shouldReduceMotion={shouldReduceMotion}
-            onSelectWorkflow={setSelectedWorkflowId}
-          />
-
-          <SupportEscalationPanel
-            workflow={workflows.find(
-              (workflow) => workflow.id === "customer_support_escalation",
-            )}
-            selected={selectedWorkflow.id === "customer_support_escalation"}
-            shouldReduceMotion={shouldReduceMotion}
-            onSelectWorkflow={setSelectedWorkflowId}
-          />
-
-          <section className="panel graph-panel">
-            <PanelHeader
-              icon={Network}
-              title="Agent Graph"
-              badge={selectedWorkflow.id}
-            />
-            <div className="graph-shell">
-              <div className="graph-frame">
-                <ReactFlow
-                  nodes={graph.nodes}
-                  edges={graph.edges}
-                  fitView
-                  fitViewOptions={{ padding: 0.24 }}
-                  nodesDraggable={false}
-                  nodesConnectable={false}
-                  elementsSelectable
-                  panOnScroll
-                  proOptions={{ hideAttribution: true }}
-                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+          <div className="use-case-grid" aria-label="Select workflow use case">
+            {useCases.map((useCase) => {
+              const Icon = useCase.icon;
+              const contract = workflowCatalog.workflows.find(
+                (item) => item.id === useCase.workflowId,
+              );
+              return (
+                <button
+                  className={
+                    useCase.workflowId === selectedWorkflowId
+                      ? "use-case-button active"
+                      : "use-case-button"
+                  }
+                  key={useCase.workflowId}
+                  onClick={() => {
+                    const nextWorkflow = workflowCatalog.workflows.find(
+                      (item) => item.id === useCase.workflowId,
+                    );
+                    setSelectedWorkflowId(useCase.workflowId);
+                    setActiveStepIndex(0);
+                    setSelectedStepId("");
+                    setIsPlaying(false);
+                    setLiveInput(useCase.liveInputTemplate);
+                    setTuneState((current) => ({
+                      ...current,
+                      autonomy:
+                        nextWorkflow?.default_autonomy === "autonomous"
+                          ? "approval_required"
+                          : nextWorkflow?.default_autonomy ?? "read_only",
+                    }));
+                    setStartAttempt({
+                      state: "idle",
+                      message: "No live run request has been sent in this browser session.",
+                    });
+                  }}
+                  type="button"
                 >
-                  <Background color="rgba(255,255,255,0.16)" gap={22} />
-                  <Controls showInteractive={false} />
-                </ReactFlow>
-              </div>
-              <aside className="node-inspector">
-                <div className="inspector-kicker">{selectedNode.layer}</div>
-                <h2>{selectedNode.title}</h2>
-                <p>{selectedNode.state}</p>
-                <div className="lens-list compact">
-                  <LensRow label="Policy" value={selectedNode.policy} />
-                  <LensRow
-                    label="Evidence"
-                    value={selectedNode.evidence.join(", ")}
-                  />
-                </div>
-              </aside>
+                  <Icon size={17} />
+                  <span>
+                    <strong>{useCase.shortName}</strong>
+                    <small>{contract?.status ?? "contract"}</small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="run-control-row">
+            <button
+              className="primary-run-button"
+              disabled={!canAttemptLiveStart || startAttempt.state === "running"}
+              onClick={startLiveRun}
+              type="button"
+            >
+              {startAttempt.state === "running" ? <RefreshCw size={18} /> : <Play size={18} />}
+              Start real run
+            </button>
+            <button
+              className="secondary-run-button"
+              disabled={!canPlayTrace}
+              onClick={toggleTracePlayback}
+              type="button"
+            >
+              {isPlaying ? <Pause size={16} /> : <Activity size={16} />}
+              {matchingTrace ? "Play trace" : "Play gates"}
+            </button>
+          </div>
+
+          <LiveAttempt attempt={startAttempt} />
+        </div>
+
+        <div className="visualizer-panel">
+          <div className="visualizer-head">
+            <div>
+              <p className="eyebrow">{matchingTrace ? "Live trace player" : "Live readiness player"}</p>
+              <h2>{activeStep?.title ?? "No runtime steps available"}</h2>
             </div>
-          </section>
+            <div className="step-counter">
+              <Timer size={15} />
+              {Math.min(activeStepIndex + 1, steps.length)} / {steps.length}
+            </div>
+          </div>
+          <div className="flow-shell">
+            <ReactFlow
+              nodes={flow.nodes}
+              edges={flow.edges}
+              fitView
+              fitViewOptions={{ padding: 0.18 }}
+              minZoom={0.45}
+              maxZoom={1.55}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              onNodeClick={(_, node) => {
+                setSelectedStepId(node.id);
+                setActiveStepIndex(Math.max(0, steps.findIndex((step) => step.id === node.id)));
+                setIsPlaying(false);
+              }}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background color="rgba(255,255,255,0.13)" gap={22} />
+              <Controls position="bottom-right" showInteractive={false} />
+            </ReactFlow>
+          </div>
+        </div>
 
-          <ProposalReviewPanel
-            review={proposalReview}
-            traceEval={workflowRunTraceEval}
-          />
+        <aside className="step-inspector">
+          <div className="inspector-top">
+            <div>
+              <p className="eyebrow">Current step</p>
+              <h2>{selectedStep.title}</h2>
+            </div>
+            <StateBadge state={selectedStep.state} />
+          </div>
+          <p className="step-summary">{selectedStep.summary}</p>
+          <InspectorBlock icon={Database} title="Data and context">
+            {selectedStep.data.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </InspectorBlock>
+          <InspectorBlock icon={BrainCircuit} title="Reasoning and control">
+            {selectedStep.reasoning.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </InspectorBlock>
+          <InspectorBlock icon={ShieldCheck} title="Guardrails">
+            {selectedStep.controls.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </InspectorBlock>
+          <div className="source-stamp">
+            Source: <strong>{formatSource(selectedStep.source)}</strong>
+            {selectedStep.timestamp ? <span>{selectedStep.timestamp}</span> : null}
+          </div>
+        </aside>
+      </section>
 
-          <section className="telemetry-grid">
-            <section className="panel chart-panel">
-              <PanelHeader
-                icon={Gauge}
-                title="Portfolio Distribution"
-                badge="from configs"
+      <section className="tuning-and-comparison" aria-label="Workflow tuning and comparison">
+        <div className="tuning-panel">
+          <div className="section-head">
+            <SlidersHorizontal size={18} />
+            <div>
+              <p className="eyebrow">Tune this workflow</p>
+              <h2>Controls sent to the real run request</h2>
+            </div>
+          </div>
+          <div className="tuning-grid">
+            <label>
+              Autonomy
+              <select
+                value={tuneState.autonomy}
+                onChange={(event) =>
+                  setTuneState((current) => ({
+                    ...current,
+                    autonomy: event.target.value as TuneState["autonomy"],
+                  }))
+                }
+              >
+                <option value="read_only">Read only</option>
+                <option value="draft_only">Draft only</option>
+                <option value="approval_required">Approval required</option>
+              </select>
+            </label>
+            <label>
+              Max tool calls
+              <input
+                max={25}
+                min={1}
+                type="number"
+                value={tuneState.maxToolCalls}
+                onChange={(event) =>
+                  setTuneState((current) => ({
+                    ...current,
+                    maxToolCalls: Number(event.target.value),
+                  }))
+                }
               />
-              <div className="chart-frame">
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={domainData}>
-                    <CartesianGrid
-                      stroke="rgba(255,255,255,0.08)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="name"
-                      tickLine={false}
-                      axisLine={false}
-                      stroke="#9aa5b8"
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tickLine={false}
-                      axisLine={false}
-                      stroke="#9aa5b8"
-                    />
-                    <Tooltip
-                      content={<ChartTooltip />}
-                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                    />
-                    <Bar
-                      dataKey="workflows"
-                      fill="#35c2a7"
-                      radius={[6, 6, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            <section className="panel chart-panel">
-              <PanelHeader
-                icon={KeyRound}
-                title="Connector Demand"
-                badge="real integrations"
+            </label>
+            <label>
+              Max USD
+              <input
+                max={1}
+                min={0}
+                step={0.05}
+                type="number"
+                value={tuneState.maxUsd}
+                onChange={(event) =>
+                  setTuneState((current) => ({
+                    ...current,
+                    maxUsd: Number(event.target.value),
+                  }))
+                }
               />
-              <div className="chart-frame">
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={connectorData}>
-                    <CartesianGrid
-                      stroke="rgba(255,255,255,0.08)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="name"
-                      tickLine={false}
-                      axisLine={false}
-                      stroke="#9aa5b8"
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tickLine={false}
-                      axisLine={false}
-                      stroke="#9aa5b8"
-                    />
-                    <Tooltip
-                      content={<ChartTooltip />}
-                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                    />
-                    <Bar
-                      dataKey="workflows"
-                      fill="#78a6ff"
-                      radius={[6, 6, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            <section className="panel evidence-panel">
-              <PanelHeader
-                icon={Database}
-                title="Evidence Board"
-                badge="empty until real runs"
+            </label>
+            <label className="toggle-row">
+              <input
+                checked={tuneState.requireApproval}
+                onChange={(event) =>
+                  setTuneState((current) => ({
+                    ...current,
+                    requireApproval: event.target.checked,
+                  }))
+                }
+                type="checkbox"
               />
-              <div className="evidence-table">
-                {selectedWorkflow.required_connectors.map((connector) => (
-                  <div className="evidence-row" key={connector}>
-                    <span>{connector}</span>
-                    <strong>
-                      {selectedWorkflow.missing_connectors.includes(connector)
-                        ? "Connector gated"
-                        : "Connector ready"}
-                    </strong>
-                    <em>
-                      {matchingScopes(selectedWorkflow, connector).join(", ") ||
-                        "Scope mapping pending"}
-                    </em>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </section>
-
-          <section className="bottom-grid">
-            <section className="panel">
-              <PanelHeader
-                icon={LockKeyhole}
-                title="Policy Lens"
-                badge="OPA first"
+              Require approval for external actions
+            </label>
+            <label className="toggle-row">
+              <input
+                checked={tuneState.includeModelPlanning}
+                onChange={(event) =>
+                  setTuneState((current) => ({
+                    ...current,
+                    includeModelPlanning: event.target.checked,
+                  }))
+                }
+                type="checkbox"
               />
-              <div className="lens-list">
-                <LensRow
-                  label="Run eligibility"
-                  value="workflow status, connector readiness, replay source, budget envelope"
+              Include model planning where supported
+            </label>
+          </div>
+
+          <div className="live-inputs">
+            {Object.entries(liveInput).map(([key, value]) => (
+              <label key={key}>
+                {key}
+                <input
+                  value={value}
+                  onChange={(event) =>
+                    setLiveInput((current) => ({
+                      ...current,
+                      [key]: event.target.value,
+                    }))
+                  }
+                  placeholder={`real ${key}`}
                 />
-                <LensRow
-                  label="Replay allowed"
-                  value={String(
-                    selectedWorkflow.data_policy.replay_allowed_from_real_runs,
-                  )}
-                />
-                <LensRow
-                  label="Fake data"
-                  value={String(selectedWorkflow.data_policy.fake_data_allowed)}
-                />
-                <LensRow
-                  label="Regex extraction"
-                  value={String(
-                    selectedWorkflow.data_policy
-                      .regex_business_extraction_allowed,
-                  )}
-                />
-                <LensRow
-                  label="Approval actions"
-                  value={selectedWorkflow.approval_required_for
-                    .map(humanize)
-                    .join(", ")}
-                />
-              </div>
-            </section>
+              </label>
+            ))}
+          </div>
+        </div>
 
-            <section className="panel">
-              <PanelHeader
-                icon={TimerReset}
-                title="Trace Timeline"
-                badge="not executed"
-              />
-              <div className="timeline">
-                {[
-                  "run_start",
-                  "policy_decision",
-                  "graph_checkpoint",
-                  "tool_call",
-                  "approval_request",
-                ].map((event, index) => (
-                  <div className="timeline-row" key={event}>
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    <strong>{humanize(event)}</strong>
-                    <em>
-                      {index < 2 ? "implemented gate" : "waiting for runtime"}
-                    </em>
-                  </div>
-                ))}
-              </div>
-            </section>
+        <div className="comparison-card">
+          <div className="section-head">
+            <Route size={18} />
+            <div>
+              <p className="eyebrow">Traditional system below the agent</p>
+              <h2>Why a rule engine is not enough here</h2>
+            </div>
+          </div>
+          <div className="comparison-split">
+            <article>
+              <h3>Rule-based path</h3>
+              <p>{selectedUseCase.traditionalLimit}</p>
+              <ul>
+                <li>Good for deterministic thresholds and schema checks.</li>
+                <li>Weak at deciding what evidence to collect next.</li>
+                <li>Does not produce source-grounded reasoning or approval packets.</li>
+              </ul>
+            </article>
+            <article>
+              <h3>Agentic path</h3>
+              <p>{selectedUseCase.whyAgentic}</p>
+              <ul>
+                <li>Plans and adapts across real connectors.</li>
+                <li>Records model, tool, evidence, memory, policy, and approval traces.</li>
+                <li>Stops at OPA and human approval before risky writes.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
 
-            <section className="panel code-panel">
-              <PanelHeader
-                icon={FileCode2}
-                title="Code Lens"
-                badge="workflow yaml"
-              />
-              <pre>{formatWorkflowConfig(selectedWorkflow)}</pre>
-            </section>
-          </section>
-        </section>
-      </div>
+      <section className="contract-depth" aria-label="Production stack depth">
+        <DepthCard
+          icon={Workflow}
+          title="Workflow contract"
+          rows={[
+            ["Status", workflow.status],
+            ["Autonomy", workflow.default_autonomy],
+            ["Source", workflow.source_path],
+          ]}
+        />
+        <DepthCard
+          icon={Search}
+          title="Connectors"
+          rows={[
+            ["Required", workflow.required_connectors.join(", ") || "none"],
+            ["Missing", workflow.missing_connectors.join(", ") || "none"],
+            ["Scopes", workflow.required_scopes.join(", ") || "none"],
+          ]}
+        />
+        <DepthCard
+          icon={ShieldCheck}
+          title="Guardrails"
+          rows={[
+            ["Fake data", workflow.data_policy.fake_data_allowed ? "allowed" : "blocked"],
+            [
+              "Replay",
+              workflow.data_policy.replay_allowed_from_real_runs
+                ? "captured real runs only"
+                : "disabled",
+            ],
+            [
+              "Regex extraction",
+              workflow.data_policy.regex_business_extraction_allowed ? "allowed" : "blocked",
+            ],
+          ]}
+        />
+        <DepthCard
+          icon={ClipboardCheck}
+          title="Approvals"
+          rows={workflow.approval_required_for.map((approval) => ["Required", approval])}
+        />
+      </section>
+
+      <section className="trace-strip" aria-label="Live gates">
+        {gates.map((gate) => (
+          <GatePill gate={gate} key={gate.label} />
+        ))}
+      </section>
     </main>
   );
 }
 
-function TestDrivePanel({
+function buildRuntimeSteps({
   apiStatus,
-  readiness,
   workflowCatalog,
-  selectedWorkflow,
-  workflowRunTrace,
-  probe,
-  state,
-  error,
-  onRun,
+  workflow,
+  trace,
+  traceStatus,
+  evalStatus,
+  startAttempt,
 }: {
   apiStatus: ApiStatus;
-  readiness: ApiReadiness | null;
   workflowCatalog: WorkflowCatalog;
-  selectedWorkflow: WorkflowDetail;
-  workflowRunTrace: WorkflowRunTraceStatus;
-  probe: TestDriveProbe | null;
-  state: TestDriveState;
-  error: string | null;
-  onRun: () => void;
-}) {
-  const registryCounts = probe?.counts ??
-    readiness?.registry_counts ?? {
-      workflows: workflowCatalog.workflows.length,
-      connectors: new Set(
-        workflowCatalog.workflows.flatMap(
-          (workflow) => workflow.required_connectors,
-        ),
-      ).size,
-      tools: 0,
-    };
-  const endpointRows = probe?.endpoints ?? [
+  workflow: WorkflowDetail;
+  trace: WorkflowRunTrace | null;
+  traceStatus: WorkflowRunTraceStatus;
+  evalStatus: WorkflowRunTraceEvalStatus;
+  startAttempt: StartAttempt;
+}): RuntimeStep[] {
+  const steps: RuntimeStep[] = [
     {
-      id: "ready",
-      label: "Readiness",
-      path: "/ready",
-      ok: apiStatus.label === "online",
-      status: apiStatus.label === "online" ? 200 : null,
-      latency_ms: null,
-      count: null,
-      summary:
-        apiStatus.label === "online"
-          ? "server render reached readiness"
-          : apiStatus.message,
-      error: null,
+      id: "contract",
+      title: "Workflow Contract",
+      kind: "contract",
+      state: workflowCatalog.source === "api" ? "complete" : "not_configured",
+      actor: "Registry API",
+      summary: "The UI is reading the real workflow contract before any run can start.",
+      data: [
+        `workflow_id=${workflow.id}`,
+        `status=${workflow.status}`,
+        `source=${workflow.source_path}`,
+      ],
+      reasoning: [
+        "The workflow contract defines required connectors, scopes, autonomy, approvals, and data policy.",
+        "The UI does not infer business rules from free text.",
+      ],
+      controls: [
+        workflow.data_policy.fake_data_allowed ? "Fake data allowed by contract" : "Fake data blocked by contract",
+        workflow.data_policy.regex_business_extraction_allowed
+          ? "Regex extraction allowed by contract"
+          : "Regex business extraction blocked by contract",
+      ],
+      source: workflowCatalog.source === "api" ? "live_api" : "workflow_contract",
     },
     {
-      id: "workflows",
-      label: "Workflows",
-      path: "/workflows",
-      ok: workflowCatalog.source === "api",
-      status: workflowCatalog.source === "api" ? 200 : null,
-      latency_ms: null,
-      count: workflowCatalog.workflows.length,
-      summary: `${workflowCatalog.workflows.length} workflows`,
-      error: null,
-    },
-  ];
-  const probeBaseUrl = probe?.base_url ?? "/api";
-  const workflowGateState = selectedWorkflow.enabled ? "open" : "closed";
-  const traceGateState = workflowRunTrace.label === "loaded" ? "open" : "neutral";
-  const liveRunGateState =
-    readiness?.database_configured &&
-    readiness.policy_configured &&
-    readiness.live_run_admin_gate_configured
-      ? "neutral"
-      : "closed";
-
-  return (
-    <section className="panel test-drive-panel">
-      <PanelHeader
-        icon={PlayCircle}
-        title="Test Drive"
-        badge={state === "complete" ? "live check complete" : "safe read-only"}
-      />
-      <div className="test-drive-grid">
-        <div className="test-drive-hero">
-          <div>
-            <div className="contract-title">One-click public proof</div>
-            <h2>Run the safe registry check</h2>
-            <p>
-              This checks only public read endpoints and keeps live workflow
-              writes, connector actions, model spend, and customer messages
-              closed.
-            </p>
-          </div>
-          <button
-            className="test-drive-button"
-            type="button"
-            disabled={state === "running"}
-            aria-busy={state === "running"}
-            onClick={onRun}
-          >
-            <RefreshCw size={17} className={state === "running" ? "spin" : ""} />
-            {state === "running" ? "Checking" : "Run live check"}
-          </button>
-        </div>
-
-        <div className="test-count-grid" aria-label="Live registry counts">
-          <TestCount value={registryCounts.workflows} label="workflows" />
-          <TestCount value={registryCounts.connectors} label="connectors" />
-          <TestCount value={registryCounts.tools} label="tools" />
-        </div>
-
-        <div className="test-gate-grid">
-          <TestGate
-            label="Public API"
-            state={apiStatus.label === "online" ? "open" : "closed"}
-            detail={apiStatus.message}
-          />
-          <TestGate
-            label="Selected workflow"
-            state={workflowGateState}
-            detail={
-              selectedWorkflow.enabled
-                ? `${selectedWorkflow.name} is connector-ready.`
-                : (selectedWorkflow.disabled_reason ??
-                  `${selectedWorkflow.name} is gated.`)
-            }
-          />
-          <TestGate
-            label="Captured trace"
-            state={traceGateState}
-            detail={workflowRunTrace.message}
-          />
-          <TestGate
-            label="Live execution"
-            state={liveRunGateState}
-            detail="Full runtime requires Docker/Postgres/OPA, connector secrets, and admin live-run key."
-          />
-        </div>
-
-        {error ? <div className="test-error">{error}</div> : null}
-
-        <div className="endpoint-board">
-          {endpointRows.map((endpoint) => (
-            <a
-              className={`endpoint-row endpoint-${endpoint.ok ? "open" : "closed"}`}
-              href={endpointHref(probeBaseUrl, endpoint.path)}
-              key={endpoint.id}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <span className={`review-state ${endpoint.ok ? "open" : "closed"}`} />
-              <div>
-                <strong>{endpoint.label}</strong>
-                <code>{endpoint.path}</code>
-              </div>
-              <em>
-                {endpoint.status ? `HTTP ${endpoint.status}` : "not checked"}
-                {endpoint.latency_ms !== null
-                  ? ` / ${endpoint.latency_ms}ms`
-                  : ""}
-              </em>
-              <small>{endpoint.error ?? endpoint.summary}</small>
-            </a>
-          ))}
-        </div>
-
-        <div className="selected-test-contract">
-          <div>
-            <span>Selected test subject</span>
-            <strong>{selectedWorkflow.name}</strong>
-          </div>
-          <div>
-            <span>Required connectors</span>
-            <strong>{selectedWorkflow.required_connectors.join(", ")}</strong>
-          </div>
-          <div>
-            <span>Closed blockers</span>
-            <strong>
-              {selectedWorkflow.missing_connectors.length > 0
-                ? selectedWorkflow.missing_connectors.join(", ")
-                : "live write adapters remain disabled"}
-            </strong>
-          </div>
-          <div>
-            <span>Approval gates</span>
-            <strong>
-              {selectedWorkflow.approval_required_for.map(humanize).join(", ")}
-            </strong>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TestCount({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="test-count">
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function TestGate({
-  label,
-  state,
-  detail,
-}: {
-  label: string;
-  state: GateState;
-  detail: string;
-}) {
-  return (
-    <div className={`test-gate test-gate-${state}`}>
-      <span className={`review-state ${state}`} />
-      <div>
-        <strong>{label}</strong>
-        <em>{detail}</em>
-      </div>
-    </div>
-  );
-}
-
-function RuntimeSegmentationPanel({
-  selectedWorkflow,
-  shouldReduceMotion,
-}: {
-  selectedWorkflow: WorkflowDetail;
-  shouldReduceMotion: boolean | null;
-}) {
-  return (
-    <section className="panel runtime-panel">
-      <PanelHeader
-        icon={Layers3}
-        title="Agentic vs Rule Engines"
-        badge="autonomy taxonomy"
-      />
-      <div className="runtime-teaching-layout">
-        <div className="runtime-map" aria-label="Execution mode progression">
-          {runtimeModes.map((mode, index) => {
-            const Icon = mode.icon;
-            return (
-              <motion.article
-                className="runtime-map-step"
-                key={mode.title}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
-                animate={
-                  shouldReduceMotion ? undefined : { opacity: 1, y: 0 }
-                }
-                transition={{ delay: index * 0.04, duration: 0.28 }}
-              >
-                <div className="runtime-step-index">
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <Icon size={18} />
-                </div>
-                <div>
-                  <h2>{mode.title}</h2>
-                  <strong>{mode.engine}</strong>
-                  <p>{mode.noviceSignal}</p>
-                </div>
-              </motion.article>
-            );
-          })}
-        </div>
-
-        <div className="runtime-fit-card">
-          <div className="contract-title">Selected Workflow Fit</div>
-          <h2>{selectedWorkflow.name}</h2>
-          <p>
-            {selectedWorkflow.name} uses agentic orchestration only where the
-            work needs state, evidence, tools, or approval. Deterministic and
-            policy layers still own the gates.
-          </p>
-          <div className="runtime-fit-grid">
-            <RuntimeFitRow
-              label="Deterministic"
-              value={selectedWorkflow.required_connectors.join(", ")}
-            />
-            <RuntimeFitRow
-              label="Dynamic Policy"
-              value={selectedWorkflow.approval_required_for
-                .map(humanize)
-                .join(", ")}
-            />
-            <RuntimeFitRow
-              label="AI Workflow"
-              value={selectedWorkflow.patterns.map(humanize).join(", ")}
-            />
-            <RuntimeFitRow
-              label="Autonomy Ceiling"
-              value={humanize(selectedWorkflow.default_autonomy)}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="runtime-grid runtime-grid-expanded">
-        {runtimeModes.map((mode, index) => {
-          const Icon = mode.icon;
-          return (
-            <motion.article
-              className="runtime-card"
-              key={mode.title}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 * index, duration: 0.3 }}
-            >
-              <div className="runtime-index">
-                <Icon size={18} />
-              </div>
-              <div>
-                <h2>{mode.title}</h2>
-                <strong>{mode.engine}</strong>
-                <span>{mode.scope}</span>
-              </div>
-              <div className="runtime-card-lens">
-                <small>Use when</small>
-                <em>{mode.useWhen}</em>
-              </div>
-              <div className="runtime-card-lens">
-                <small>Do not use for</small>
-                <em>{mode.breaksWhen}</em>
-              </div>
-              <div className="runtime-controls">
-                {mode.productionControls.map((control) => (
-                  <span key={control}>{control}</span>
-                ))}
-              </div>
-              <b>{mode.cost}</b>
-            </motion.article>
-          );
-        })}
-      </div>
-
-      <div className="runtime-decision-grid">
-        <DecisionCell
-          icon={FileCode2}
-          label="Fixed Rule Engine"
-          value="Best for stable binary checks, validation, and simple routing."
-        />
-        <DecisionCell
-          icon={Route}
-          label="Dynamic Rule Engine"
-          value="Best when rules depend on tenant, risk, data class, or budget."
-        />
-        <DecisionCell
-          icon={BrainCircuit}
-          label="AI Workflow"
-          value="Best for typed drafting, summarization, ranking, and evaluation."
-        />
-        <DecisionCell
-          icon={Workflow}
-          label="Agentic Workflow"
-          value="Best for ambiguous multi-step work that must adapt after each tool result."
-        />
-      </div>
-    </section>
-  );
-}
-
-function RuntimeFitRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="runtime-fit-row">
-      <span>{label}</span>
-      <strong>{value || "not configured"}</strong>
-    </div>
-  );
-}
-
-function DecisionCell({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="decision-cell">
-      <Icon size={18} />
-      <div>
-        <strong>{label}</strong>
-        <span>{value}</span>
-      </div>
-    </div>
-  );
-}
-
-function ExpertStackPanel({
-  selectedWorkflow,
-  readiness,
-  workflowRunTrace,
-}: {
-  selectedWorkflow: WorkflowDetail;
-  readiness: ApiReadiness | null;
-  workflowRunTrace: WorkflowRunTraceStatus;
-}) {
-  const readinessCopy = readiness
-    ? [
-        readiness.policy_configured ? "OPA configured" : "OPA not configured",
-        readiness.database_configured
-          ? "database configured"
-          : "database not configured",
-        readiness.live_run_admin_gate_configured
-          ? "admin live-run gate configured"
-          : "admin live-run gate not configured",
-      ].join(" / ")
-    : "public web is running without a live API readiness document";
-  const traceCopy =
-    workflowRunTrace.label === "loaded"
-      ? `${humanize(workflowRunTrace.trace.run.workflow_id)} trace loaded`
-      : workflowRunTrace.message;
-
-  return (
-    <section className="panel stack-panel">
-      <PanelHeader
-        icon={Microscope}
-        title="Peel-The-Layers Stack"
-        badge="executive to engineer"
-      />
-      <div className="stack-summary">
-        <div>
-          <span>Workflow</span>
-          <strong>{selectedWorkflow.name}</strong>
-        </div>
-        <div>
-          <span>Readiness</span>
-          <strong>{readinessCopy}</strong>
-        </div>
-        <div>
-          <span>Trace</span>
-          <strong>{traceCopy}</strong>
-        </div>
-      </div>
-
-      <div className="stack-grid">
-        {stackLayers.map((layer) => {
-          const Icon = layer.icon;
-          return (
-            <article className={`stack-layer stack-${layer.status}`} key={layer.title}>
-              <div className="stack-layer-heading">
-                <div className="stack-layer-icon">
-                  <Icon size={18} />
-                </div>
-                <div>
-                  <h2>{layer.title}</h2>
-                  <strong>{layer.choice}</strong>
-                </div>
-              </div>
-              <div className="stack-lens-grid">
-                <StackLens label="Executive" value={layer.executive} />
-                <StackLens label="Architect" value={layer.architect} />
-                <StackLens label="Engineer" value={layer.engineer} />
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function StackLens({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stack-lens">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function SupportEscalationPanel({
-  workflow,
-  selected,
-  shouldReduceMotion,
-  onSelectWorkflow,
-}: {
-  workflow: WorkflowDetail | undefined;
-  selected: boolean;
-  shouldReduceMotion: boolean | null;
-  onSelectWorkflow: (workflowId: string) => void;
-}) {
-  const stages: SupportRuntimeStage[] = [
-    {
-      title: "Ticket Read",
-      icon: MessageSquare,
-      layer: "read tool",
-      tool: "support_ticket_read",
-      artifact: "support ticket hash",
-      policy: "tickets:read only",
-      state: "open",
+      id: "readiness",
+      title: "Runtime Readiness",
+      kind: "readiness",
+      state: isFullRuntimeReady(apiStatus) ? "complete" : "blocked",
+      actor: "FastAPI /ready",
+      summary: "The runtime gate checks database, policy, admin live-run key, and registry readiness.",
+      data: readinessData(apiStatus),
+      reasoning: [
+        "Agentic execution needs durable state, OPA, audit, and budget controls before it can run.",
+        "If any runtime gate is closed, the app must show the block instead of simulating a run.",
+      ],
+      controls: [
+        "Managed Postgres/pgvector required for live workflow state.",
+        "Hosted OPA-compatible policy endpoint required for run and tool authorization.",
+        "Admin live-run key required before live execution.",
+      ],
+      source: apiStatus.label === "online" ? "live_api" : "workflow_contract",
     },
     {
-      title: "Customer Context",
-      icon: UserRound,
-      layer: "read tool",
-      tool: "crm_customer_profile_read",
-      artifact: "redacted CRM metadata",
-      policy: "customers:read only",
-      state: "open",
-    },
-    {
-      title: "Knowledge Search",
-      icon: FileText,
-      layer: "RAG retrieval",
-      tool: "knowledge_base_search",
-      artifact: "cited KB documents",
-      policy: "knowledge:read only",
-      state: "open",
-    },
-    {
-      title: "Draft Contract",
-      icon: BrainCircuit,
-      layer: "structured output",
-      tool: "include_draft=true",
-      artifact: "response_draft.v1",
-      policy: "citations required",
-      state: "neutral",
-    },
-    {
-      title: "Memory Policy",
-      icon: Database,
-      layer: "memory guardrail",
-      tool: "memory_records",
-      artifact: "redacted run memory",
-      policy: "30d run scope",
-      state: "open",
-    },
-    {
-      title: "Approval Decision",
-      icon: ShieldCheck,
-      layer: "OPA + human",
-      tool: "approval decision route",
-      artifact: "approved or rejected row",
-      policy: "no self approval",
-      state: "neutral",
-    },
-    {
-      title: "Send Authorization",
-      icon: KeyRound,
-      layer: "disabled contract",
-      tool: "customer_message_send",
-      artifact: "blocked tool call",
-      policy: "approved draft hash",
-      state: "closed",
-    },
-    {
-      title: "Send Gate",
-      icon: Send,
-      layer: "blocked write",
-      tool: "send adapter unavailable",
-      artifact: "no customer message",
-      policy: "external action disabled",
-      state: "closed",
+      id: "start",
+      title: "Start Real Run",
+      kind: "run",
+      state: startAttemptState(startAttempt),
+      actor: "POST /workflow-runs",
+      summary: startAttempt.message,
+      data: [
+        `attempt_state=${startAttempt.state}`,
+        `workflow_id=${workflow.id}`,
+        `required_connectors=${workflow.required_connectors.join(", ") || "none"}`,
+      ],
+      reasoning: [
+        "The start button sends a real request to the configured API.",
+        "HTTP errors and policy rejects are displayed as live production gates.",
+      ],
+      controls: [
+        "Live runs use the selected autonomy, budget, approval, and input controls.",
+        "No external write action is available without policy and approval.",
+      ],
+      source: "live_api",
     },
   ];
-  const missingConnectors = workflow?.missing_connectors ?? [
-    "support_system",
-    "crm",
-    "knowledge_base",
-  ];
 
-  return (
-    <section className="panel support-panel">
-      <PanelHeader
-        icon={MessageSquare}
-        title="Support Escalation Runtime"
-        badge={workflow ? statusCopy[workflow.status] : "Not in registry"}
-      />
-      <div className="support-runtime">
-        <div className="support-runtime-brief">
-          <div>
-            <div className="contract-title">Route Stack</div>
-            <code>
-              POST /workflow-runs/{"{run_id}"}/customer-support-escalation/context
-            </code>
-            <code>
-              POST /workflow-runs/{"{run_id}"}
-              /customer-support-escalation/approval-review
-            </code>
-            <code>
-              POST /workflow-runs/{"{run_id}"}
-              /customer-support-escalation/approvals/{"{approval_id}"}/decision
-            </code>
-            <code>
-              POST /workflow-runs/{"{run_id}"}
-              /customer-support-escalation/message-send/authorize
-            </code>
-            <code>GET /workflow-runs/{"{run_id}"}/evals/trace</code>
-          </div>
-          <button
-            className="focus-workflow-button"
-            type="button"
-            disabled={!workflow || selected}
-            onClick={() => workflow && onSelectWorkflow(workflow.id)}
-          >
-            {selected ? "Support selected" : "Focus support workflow"}
-          </button>
-        </div>
-
-        <div className="support-stage-grid">
-          {stages.map((stage, index) => {
-            const Icon = stage.icon;
-            return (
-              <motion.div
-                className={`support-stage support-stage-${stage.state}`}
-                key={stage.title}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={
-                  shouldReduceMotion ? undefined : { opacity: 1, y: 0 }
-                }
-                transition={{ delay: index * 0.03, duration: 0.24 }}
-              >
-                <div className="support-stage-icon">
-                  <Icon size={18} />
-                </div>
-                <div>
-                  <strong>{stage.title}</strong>
-                  <span>{stage.layer}</span>
-                </div>
-                <em>{stage.tool}</em>
-                <small>{stage.artifact}</small>
-                <small>{stage.policy}</small>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        <div className="support-contract-grid">
-          <div className="support-contract-card">
-            <span>Connector Gate</span>
-            <strong>
-              {missingConnectors.length === 0
-                ? "support, CRM, and KB configured"
-                : missingConnectors.join(", ")}
-            </strong>
-          </div>
-          <div className="support-contract-card">
-            <span>Evidence Storage</span>
-            <strong>hash-only records with redacted support and CRM metadata</strong>
-          </div>
-          <div className="support-contract-card">
-            <span>Memory Policy</span>
-            <strong>run-scoped, 30-day retention, no raw customer payloads</strong>
-          </div>
-          <div className="support-contract-card">
-            <span>Draft Grounding</span>
-            <strong>response citations must come from KB source URIs</strong>
-          </div>
-          <div className="support-contract-card">
-            <span>Trace Evals</span>
-            <strong>deterministic grounding, redaction, memory, send, and cost checks</strong>
-          </div>
-          <div className="support-contract-card blocked">
-            <span>External Action</span>
-            <strong>customer message, refund, and account change remain disabled</strong>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ProposalReviewPanel({
-  review,
-  traceEval,
-}: {
-  review: ProposalReviewModel;
-  traceEval: WorkflowRunTraceEvalStatus;
-}) {
-  return (
-    <section className="panel proposal-panel">
-      <PanelHeader
-        icon={BrainCircuit}
-        title="Proposal Review"
-        badge={review.badge}
-      />
-      <div className="proposal-review">
-        <div className={`proposal-route route-${review.routeState}`}>
-          <span>Run-scoped route</span>
-          <code>{review.route}</code>
-          <p>{review.routeNote}</p>
-        </div>
-
-        <div className="proposal-readiness">
-          {review.readiness.map((item) => (
-            <div className="review-check" key={item.label}>
-              <span className={`review-state ${item.state}`} />
-              <div>
-                <strong>{item.label}</strong>
-                <em>{item.value}</em>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="proposal-contract">
-          <div className="contract-title">Request Contract</div>
-          {review.requestContract.map((item) => (
-            <ContractRow
-              key={item.label}
-              label={item.label}
-              value={item.value}
-            />
-          ))}
-        </div>
-
-        <div className="proposal-contract output-contract">
-          <div className="contract-title">Planner and Evaluator Output</div>
-          {review.outputContract.map((item) => (
-            <ContractRow
-              key={item.label}
-              label={item.label}
-              value={item.value}
-            />
-          ))}
-        </div>
-
-        <div className="approval-persistence">
-          <div className="contract-title">Approval Review Persistence</div>
-          <code>{review.approvalRoute}</code>
-          {review.approvalPersistence.map((item) => (
-            <ContractRow
-              key={item.label}
-              label={item.label}
-              value={item.value}
-            />
-          ))}
-        </div>
-
-        <TraceReadout readout={review.traceReadout} />
-
-        <TraceEvalPanel traceEval={traceEval} />
-
-        <div className="approval-review">
-          <div className="contract-title">Approval Stops</div>
-          <div className="approval-stop-list">
-            {review.approvalStops.map((stop, index) => (
-              <div className="approval-stop" key={stop}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{humanize(stop)}</strong>
-                <em>
-                  write action blocked until policy and review records approve
-                  it
-                </em>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TraceEvalPanel({
-  traceEval,
-}: {
-  traceEval: WorkflowRunTraceEvalStatus;
-}) {
-  if (traceEval.label !== "loaded") {
-    return (
-      <div className="trace-eval trace-eval-neutral">
-        <div className="trace-readout-header">
-          <div>
-            <div className="contract-title">Executable Eval Results</div>
-            <code>GET /workflow-runs/{"{run_id}"}/evals/trace</code>
-          </div>
-          <span className="trace-badge trace-badge-neutral">
-            {traceEval.label === "not_configured" ? "run id required" : traceEval.label}
-          </span>
-        </div>
-        <p>{traceEval.message}</p>
-      </div>
-    );
+  if (!trace) {
+    steps.push({
+      id: "trace",
+      title: "Attach Real Trace",
+      kind: "output",
+      state: "not_configured",
+      actor: "Trace API",
+      summary: traceStatus.message,
+      data: [
+        "DEMO_WORKFLOW_RUN_ID or DEMO_TRACE_RUN_ID must point to a stored real run.",
+        "The public read-only registry API intentionally does not fabricate trace records.",
+      ],
+      reasoning: [
+        "A step-by-step agent visualization must be backed by persisted run metadata.",
+        "Captured replay is allowed only when the source run is real and labeled replay.",
+      ],
+      controls: [
+        "No mock trace rendering.",
+        "No invented tool calls, evidence, memory, or reasoning steps.",
+      ],
+      source: "workflow_contract",
+    });
+    return steps;
   }
 
-  const statusState = evalStatusToGateState(traceEval.evals.overall_status);
+  steps.push({
+    id: `run-${trace.run.id}`,
+    title: "Run Record",
+    kind: "run",
+    state: trace.run.status === "failed" ? "blocked" : "complete",
+    actor: "Workflow runtime",
+    summary: `Stored ${trace.run.execution_mode} run is ${trace.run.status}.`,
+    data: [
+      `run_id=${trace.run.id}`,
+      `autonomy=${trace.run.autonomy_level}`,
+      `started_at=${trace.run.started_at}`,
+    ],
+    reasoning: [
+      "This run record is the anchor for the graph, tools, memory, approvals, and evals.",
+      "Every following card comes from persisted trace metadata.",
+    ],
+    controls: [
+      trace.run.failure_reason ?? "No failure reason recorded.",
+      "Run state is persisted before graph execution continues.",
+    ],
+    source: "live_trace",
+    timestamp: trace.run.updated_at,
+  });
 
-  return (
-    <div className={`trace-eval trace-eval-${statusState}`}>
-      <div className="trace-readout-header">
-        <div>
-          <div className="contract-title">Executable Eval Results</div>
-          <code>GET /workflow-runs/{"{run_id}"}/evals/trace</code>
-        </div>
-        <span className={`trace-badge trace-badge-${statusState}`}>
-          {traceEval.evals.overall_status} / {Math.round(traceEval.evals.score * 100)}%
-        </span>
-      </div>
-      <p>{traceEval.message}</p>
-      <div className="trace-eval-grid">
-        {traceEval.evals.checks.map((check) => {
-          const state = evalStatusToGateState(check.status);
-          return (
-            <div className={`trace-eval-check eval-${state}`} key={check.id}>
-              <span className={`review-state ${state}`} />
-              <strong>{check.label}</strong>
-              <em>{check.details}</em>
-              <small>{Math.round(check.score * 100)}% score</small>
+  trace.tool_calls.forEach((toolCall) => {
+    steps.push({
+      id: `tool-${toolCall.id}`,
+      title: toolCall.tool_name,
+      kind: "tool",
+      state: toolCall.status.includes("blocked") ? "blocked" : "complete",
+      actor: "Typed tool adapter",
+      summary: `Tool call ${toolCall.status}; risk class ${toolCall.risk_class}.`,
+      data: [
+        `tool_call_id=${toolCall.id}`,
+        `execution_state=${toolCall.execution_state ?? "not recorded"}`,
+        `output_hash=${toolCall.output_hash ?? "not recorded"}`,
+      ],
+      reasoning: [
+        "Tool execution is separate from tool authorization.",
+        "The stored input hash must match before execution is allowed.",
+      ],
+      controls: [
+        `policy_decision_id=${toolCall.policy_decision_id ?? "not recorded"}`,
+        `approval_id=${toolCall.approval_id ?? "none"}`,
+        `latency_ms=${toolCall.latency_ms ?? "not recorded"}`,
+      ],
+      source: "live_trace",
+      timestamp: toolCall.completed_at ?? toolCall.started_at,
+    });
+  });
+
+  trace.evidence_records.forEach((evidence) => {
+    steps.push({
+      id: `evidence-${evidence.id}`,
+      title: evidence.title,
+      kind: "evidence",
+      state: "complete",
+      actor: evidence.source_system,
+      summary: `Evidence record captured from ${evidence.source_system}.`,
+      data: [
+        `kind=${evidence.kind}`,
+        `source_uri=${evidence.source_uri ?? "not recorded"}`,
+        `content_hash=${evidence.content_hash}`,
+      ],
+      reasoning: [
+        "Claims in the workflow must point back to evidence records.",
+        "The UI exposes source metadata without inventing source content.",
+      ],
+      controls: [
+        "Evidence metadata is persisted.",
+        "Sensitive content is referenced by hash and source metadata.",
+      ],
+      source: "live_trace",
+      timestamp: evidence.created_at,
+    });
+  });
+
+  trace.model_calls.forEach((modelCall) => {
+    steps.push({
+      id: `model-${modelCall.id}`,
+      title: modelCall.purpose,
+      kind: "model",
+      state: modelCall.status === "completed" ? "complete" : "blocked",
+      actor: `${modelCall.provider} ${modelCall.model}`,
+      summary: `Structured model call ${modelCall.status}.`,
+      data: [
+        `prompt_version=${modelCall.prompt_version}`,
+        `input_tokens=${modelCall.input_token_count}`,
+        `output_tokens=${modelCall.output_token_count}`,
+      ],
+      reasoning: [
+        "Model calls are ledgered; the model never decides policy.",
+        "Generated artifacts need evals and approval before external writes.",
+      ],
+      controls: [
+        `estimated_cost_usd=${modelCall.estimated_cost_usd}`,
+        `trace_id=${modelCall.trace_id ?? "not recorded"}`,
+        `latency_ms=${modelCall.latency_ms ?? "not recorded"}`,
+      ],
+      source: "live_trace",
+      timestamp: modelCall.completed_at ?? modelCall.started_at,
+    });
+  });
+
+  trace.memory_records.forEach((memory) => {
+    steps.push({
+      id: `memory-${memory.id}`,
+      title: memory.memory_key,
+      kind: "memory",
+      state: "complete",
+      actor: "Memory store",
+      summary: `Memory record stored with ${memory.retention_class} retention.`,
+      data: [
+        `scope=${memory.scope}`,
+        `subject_id=${memory.subject_id ?? "none"}`,
+        `sensitivity=${memory.data_sensitivity}`,
+      ],
+      reasoning: [
+        "Memory is explicit and inspectable.",
+        "Retention and sensitivity are policy-visible metadata.",
+      ],
+      controls: [
+        `source_evidence_id=${memory.source_evidence_id ?? "none"}`,
+        `expires_at=${memory.expires_at ?? "not set"}`,
+      ],
+      source: "live_trace",
+      timestamp: memory.created_at,
+    });
+  });
+
+  trace.approvals.forEach((approval) => {
+    steps.push({
+      id: `approval-${approval.id}`,
+      title: approval.requested_action,
+      kind: "approval",
+      state: approval.status === "approved" ? "complete" : "blocked",
+      actor: "Approval service",
+      summary: `Approval is ${approval.status}; risk class ${approval.risk_class}.`,
+      data: [
+        `approval_id=${approval.id}`,
+        `requested_by=${approval.requested_by}`,
+        `approver_id=${approval.approver_id ?? "not decided"}`,
+      ],
+      reasoning: [
+        "External writes require accountable review.",
+        "Four-eyes and reviewer separation are enforced outside the model.",
+      ],
+      controls: [
+        `policy_decision_id=${approval.policy_decision_id ?? "not recorded"}`,
+        `expires_at=${approval.expires_at ?? "not set"}`,
+      ],
+      source: "live_trace",
+      timestamp: approval.decided_at ?? approval.requested_at,
+    });
+  });
+
+  if (evalStatus.label === "loaded") {
+    evalStatus.evals.checks.forEach((check) => {
+      steps.push({
+        id: `eval-${check.id}`,
+        title: check.label,
+        kind: "eval",
+        state: check.status === "fail" ? "blocked" : "complete",
+        actor: "Trace evaluator",
+        summary: check.details,
+        data: [`score=${check.score}`, `status=${check.status}`],
+        reasoning: [
+          "Evals verify the trace after execution.",
+          "Grounding, safety, and policy coverage are checked from persisted metadata.",
+        ],
+        controls: check.evidence_refs.length > 0 ? check.evidence_refs : ["No evidence refs recorded."],
+        source: "live_trace",
+        timestamp: evalStatus.evals.evaluated_at,
+      });
+    });
+  }
+
+  return steps;
+}
+
+function buildFlow(
+  steps: RuntimeStep[],
+  activeStepIndex: number,
+  selectedStepId: string,
+  accent: string,
+): { nodes: Array<Node<FlowNodeData>>; edges: Edge[] } {
+  const nodes = steps.map((step, index) => {
+    const Icon = stepIcons[step.kind];
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    return {
+      id: step.id,
+      type: "default",
+      position: { x: column * 285, y: row * 162 },
+      data: {
+        title: step.title,
+        label: (
+          <div
+            className={[
+              "flow-node",
+              `flow-node-${step.state}`,
+              index === activeStepIndex ? "flow-node-active" : "",
+              selectedStepId === step.id ? "flow-node-selected" : "",
+            ].join(" ")}
+          >
+            <div className="flow-node-icon">
+              <Icon size={16} />
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TraceReadout({ readout }: { readout: TraceReadoutModel }) {
-  return (
-    <div className={`trace-readout trace-${readout.state}`}>
-      <div className="trace-readout-header">
-        <div>
-          <div className="contract-title">Live Trace State</div>
-          <code>{readout.route}</code>
-        </div>
-        <span className={`trace-badge trace-badge-${readout.state}`}>
-          {readout.badge}
-        </span>
-      </div>
-      <p>{readout.message}</p>
-
-      <div className="trace-outcome-grid">
-        {readout.outcomes.map((outcome) => (
-          <div className={`trace-outcome outcome-${outcome.state}`} key={outcome.label}>
-            <span className={`review-state ${outcome.state}`} />
-            <strong>{outcome.label}</strong>
-            <em>{outcome.value}</em>
+            <div>
+              <strong>{step.title}</strong>
+              <span>{step.actor}</span>
+              <small>{formatSource(step.source)}</small>
+            </div>
           </div>
-        ))}
-      </div>
+        ),
+      },
+      draggable: false,
+      selectable: true,
+      style: {
+        background: "transparent",
+        border: 0,
+        padding: 0,
+        width: 210,
+      },
+    } satisfies Node<FlowNodeData>;
+  });
 
-      <div className="trace-record-strip">
-        {readout.records.map((record) => (
-          <div className="trace-record" key={record.label}>
-            <span>{record.label}</span>
-            <strong>{record.value}</strong>
-          </div>
-        ))}
-      </div>
+  const edges: Edge[] = steps.slice(0, -1).map((step, index) => ({
+    id: `${step.id}-${steps[index + 1]?.id}`,
+    source: step.id,
+    target: steps[index + 1]?.id ?? step.id,
+    animated: index < activeStepIndex,
+    markerEnd: { type: MarkerType.ArrowClosed },
+    style: {
+      stroke: index < activeStepIndex ? accent : "rgba(255,255,255,0.22)",
+      strokeWidth: index < activeStepIndex ? 2.5 : 1.5,
+    },
+  }));
 
-      <div className="trace-events">
-        {readout.events.map((event) => (
-          <div className={`trace-event event-${event.state}`} key={`${event.label}-${event.value}`}>
-            <span>{event.label}</span>
-            <strong>{event.value}</strong>
-          </div>
-        ))}
-      </div>
+  return { nodes, edges };
+}
+
+function buildGates(
+  apiStatus: ApiStatus,
+  workflowCatalog: WorkflowCatalog,
+  workflow: WorkflowDetail,
+  traceStatus: WorkflowRunTraceStatus,
+  matchingTrace: WorkflowRunTrace | null,
+): Gate[] {
+  const readiness = apiStatus.label === "online" ? apiStatus.readiness : null;
+
+  return [
+    {
+      label: "Catalog",
+      value: workflowCatalog.source === "api" ? `${workflowCatalog.workflows.length} live` : "mirror",
+      state: workflowCatalog.source === "api" ? "open" : "neutral",
+    },
+    {
+      label: "Connectors",
+      value: workflow.enabled ? "ready" : workflow.missing_connectors.join(", ") || "not ready",
+      state: workflow.enabled ? "open" : "closed",
+    },
+    {
+      label: "Database",
+      value: readiness?.database_configured ? "configured" : "pending",
+      state: readiness?.database_configured ? "open" : "closed",
+    },
+    {
+      label: "Policy",
+      value: readiness?.policy_configured ? "OPA ready" : "OPA pending",
+      state: readiness?.policy_configured ? "open" : "closed",
+    },
+    {
+      label: "Live key",
+      value: readiness?.live_run_admin_gate_configured ? "configured" : "blocked",
+      state: readiness?.live_run_admin_gate_configured ? "neutral" : "closed",
+    },
+    {
+      label: "Trace",
+      value: matchingTrace ? matchingTrace.run.status : traceStatus.message,
+      state: matchingTrace ? "open" : "neutral",
+    },
+  ];
+}
+
+function isFullRuntimeReady(apiStatus: ApiStatus) {
+  return (
+    apiStatus.label === "online" &&
+    apiStatus.readiness.database_configured &&
+    apiStatus.readiness.policy_configured &&
+    apiStatus.readiness.live_run_admin_gate_configured
+  );
+}
+
+function readinessData(apiStatus: ApiStatus) {
+  if (apiStatus.label !== "online") {
+    return [apiStatus.message];
+  }
+
+  return [
+    `mode=${apiStatus.readiness.mode}`,
+    `database_configured=${apiStatus.readiness.database_configured}`,
+    `policy_configured=${apiStatus.readiness.policy_configured}`,
+    `live_run_admin_gate_configured=${apiStatus.readiness.live_run_admin_gate_configured}`,
+    `registry_counts=${JSON.stringify(apiStatus.readiness.registry_counts)}`,
+  ];
+}
+
+function startAttemptState(startAttempt: StartAttempt): RuntimeStepState {
+  if (startAttempt.state === "success") {
+    return "complete";
+  }
+
+  if (startAttempt.state === "running") {
+    return "running";
+  }
+
+  if (startAttempt.state === "blocked" || startAttempt.state === "error") {
+    return "blocked";
+  }
+
+  return "pending";
+}
+
+function LiveAttempt({ attempt }: { attempt: StartAttempt }) {
+  const body =
+    attempt.state === "success" ||
+    attempt.state === "blocked" ||
+    attempt.state === "error"
+      ? attempt.body
+      : undefined;
+
+  return (
+    <div className={`live-attempt live-attempt-${attempt.state}`}>
+      <strong>{attempt.state === "idle" ? "Live run status" : attempt.state}</strong>
+      <p>{attempt.message}</p>
+      {body !== undefined ? (
+        <pre>{formatUnknown(body)}</pre>
+      ) : null}
     </div>
   );
 }
 
-function ContractRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="contract-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function WorkflowCard({
-  workflow,
-  index,
-  selected,
-  shouldReduceMotion,
-  onSelect,
-}: {
-  workflow: WorkflowDetail;
-  index: number;
-  selected: boolean;
-  shouldReduceMotion: boolean | null;
-  onSelect: () => void;
-}) {
-  const Icon = statusIcon[workflow.status];
-  return (
-    <motion.button
-      className={`workflow-card ${selected ? "selected" : ""}`}
-      type="button"
-      onClick={onSelect}
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-      transition={{ delay: 0.03 * index, duration: 0.28 }}
-      whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-    >
-      <div className="workflow-title">
-        <Icon size={18} />
-        <span>{workflow.name}</span>
-      </div>
-      <div className="workflow-copy">
-        {humanize(workflow.domain)} ·{" "}
-        {workflow.patterns.map(humanize).join(" / ")}
-      </div>
-      <div className={`workflow-stage stage-${workflow.status}`}>
-        {workflow.enabled ? "enabled" : statusCopy[workflow.status]}
-      </div>
-    </motion.button>
-  );
-}
-
-function ReadinessBlock({
-  workflow,
-  apiBacked,
-}: {
-  workflow: WorkflowDetail;
-  apiBacked: boolean;
-}) {
-  return (
-    <div className="readiness-grid">
-      <ReadinessItem
-        label="Registry"
-        value={apiBacked ? "API backed" : "Repository backed"}
-        state={apiBacked}
-      />
-      <ReadinessItem
-        label="Workflow"
-        value={statusCopy[workflow.status]}
-        state={workflow.status === "ready"}
-      />
-      <ReadinessItem
-        label="Connectors"
-        value={
-          workflow.missing_connectors.length === 0
-            ? "Configured"
-            : workflow.missing_connectors.join(", ")
-        }
-        state={workflow.missing_connectors.length === 0}
-      />
-      <ReadinessItem
-        label="Autonomy"
-        value={humanize(workflow.default_autonomy)}
-        state={workflow.default_autonomy !== "autonomous"}
-      />
-    </div>
-  );
-}
-
-function ReadinessItem({
-  label,
-  value,
-  state,
-}: {
-  label: string;
-  value: string;
-  state: boolean;
-}) {
-  return (
-    <div className="readiness-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <em className={state ? "gate-open" : "gate-closed"}>
-        {state ? "open" : "closed"}
-      </em>
-    </div>
-  );
-}
-
-function RunButton({
-  icon: Icon,
-  label,
-  enabled,
-  reason,
-}: {
-  icon: LucideIcon;
-  label: string;
-  enabled: boolean;
-  reason: string;
-}) {
-  return (
-    <button className="run-button" type="button" disabled={!enabled}>
-      <span>
-        <Icon size={17} />
-        {label}
-      </span>
-      <em>{reason}</em>
-    </button>
-  );
-}
-
-function Metric({ value, label }: { value: string; label: string }) {
-  return (
-    <motion.div className="metric" whileHover={{ y: -3 }}>
-      <div className="metric-value">{value}</div>
-      <div className="metric-label">{label}</div>
-    </motion.div>
-  );
-}
-
-function PanelHeader({
+function InspectorBlock({
   icon: Icon,
   title,
-  badge,
+  children,
 }: {
   icon: LucideIcon;
   title: string;
-  badge: string;
+  children: ReactNode;
 }) {
   return (
-    <div className="panel-header">
-      <div className="panel-title">
-        <Icon size={18} />
-        {title}
+    <div className="inspector-block">
+      <div className="inspector-block-title">
+        <Icon size={15} />
+        <strong>{title}</strong>
       </div>
-      <span className="badge">{badge}</span>
+      <ul>{children}</ul>
     </div>
   );
 }
 
-function LensRow({ label, value }: { label: string; value: string }) {
+function StateBadge({ state }: { state: RuntimeStepState }) {
+  const Icon =
+    state === "complete" ? CheckCircle2 : state === "blocked" ? XCircle : state === "running" ? Activity : AlertTriangle;
   return (
-    <div className="lens-row">
-      <span className="lens-label">{label}</span>
-      <span className="lens-value">{value}</span>
-    </div>
+    <span className={`state-badge state-${state}`}>
+      <Icon size={14} />
+      {state.replace("_", " ")}
+    </span>
   );
 }
 
-function ChartTooltip({
-  active,
-  payload,
-  label,
+function DepthCard({
+  icon: Icon,
+  title,
+  rows,
 }: {
-  active?: boolean;
-  payload?: Array<{ value?: number; name?: string }>;
-  label?: string;
+  icon: LucideIcon;
+  title: string;
+  rows: Array<[string, string]>;
 }) {
-  if (!active || !payload?.length) {
+  return (
+    <article className="depth-card">
+      <div className="depth-card-head">
+        <Icon size={18} />
+        <h3>{title}</h3>
+      </div>
+      {rows.length > 0 ? (
+        <div className="depth-rows">
+          {rows.map(([label, value], index) => (
+            <div className="depth-row" key={`${label}-${value}-${index}`}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p>No contract rows defined.</p>
+      )}
+    </article>
+  );
+}
+
+function GatePill({ gate }: { gate: Gate }) {
+  const Icon =
+    gate.state === "open" ? CheckCircle2 : gate.state === "closed" ? AlertTriangle : Activity;
+
+  return (
+    <span className={`gate-pill gate-${gate.state}`}>
+      <Icon size={14} />
+      <strong>{gate.label}</strong>
+      <span>{gate.value}</span>
+    </span>
+  );
+}
+
+function compactInput(input: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value.trim().length > 0),
+  );
+}
+
+async function readResponseBody(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  return response.text();
+}
+
+function formatSource(source: RuntimeStep["source"]) {
+  if (source === "live_trace") {
+    return "live trace";
+  }
+
+  if (source === "live_api") {
+    return "live API";
+  }
+
+  return "workflow contract";
+}
+
+function formatUnknown(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function readUpstreamResult(
+  value: unknown,
+): { upstream_ok: boolean; upstream_status: number } | null {
+  if (!value || typeof value !== "object") {
     return null;
   }
 
-  return (
-    <div className="chart-tooltip">
-      <strong>{label}</strong>
-      {payload.map((item) => (
-        <span key={item.name}>
-          {item.name}: {item.value}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function createWorkflowGraph(workflow: WorkflowDetail): {
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
-  inspectors: GraphInspector[];
-} {
-  const inspectors: GraphInspector[] = [
-    {
-      id: "source",
-      title: "Real Source Intake",
-      layer: "deterministic",
-      state: `Requires ${workflow.required_connectors.join(", ")} before any run can start.`,
-      evidence: workflow.required_scopes,
-      policy:
-        "Connector readiness is checked before OPA and before persistence.",
-    },
-    {
-      id: "policy",
-      title: "Run Eligibility",
-      layer: "dynamic policy",
-      state:
-        "OPA decides allow, deny, or approval-required for the run-start gate.",
-      evidence: [
-        "aegisops.run_eligibility",
-        "budget envelope",
-        "replay source",
-      ],
-      policy: "No model decides whether the run is allowed.",
-    },
-    {
-      id: "graph",
-      title: "LangGraph Runtime",
-      layer: "AI workflow",
-      state: `Configured patterns: ${workflow.patterns.map(humanize).join(", ")}.`,
-      evidence: workflow.visual_surfaces,
-      policy: "Graph execution waits until durable run creation succeeds.",
-    },
-    {
-      id: "proposal",
-      title: "Proposal and Evaluator",
-      layer: "structured AI review",
-      state:
-        workflow.id === "engineering_issue_to_pr"
-          ? "OpenAI Responses emits typed patch-plan and evaluation contracts when include_proposal=true."
-          : "Workflow-specific proposal and evaluator contracts are planned from the registry patterns.",
-      evidence:
-        workflow.id === "engineering_issue_to_pr"
-          ? ["IssueToPrProposal", "IssueToPrEvaluation", "model_calls"]
-          : workflow.patterns,
-      policy:
-        "Planner output cannot enable writes; approval_required remains true.",
-    },
-    {
-      id: "tools",
-      title: "Typed Tool Plane",
-      layer: "agentic",
-      state:
-        "MCP contracts will bind every tool call to schemas, scopes, and risk classes.",
-      evidence: workflow.required_connectors,
-      policy:
-        "Each tool call will require tool-access policy before execution.",
-    },
-    {
-      id: "memory",
-      title: "Memory and Evidence",
-      layer: "data plane",
-      state:
-        "Postgres and pgvector store checkpoints, evidence, memory records, and trace links.",
-      evidence: ["workflow_runs", "evidence_records", "memory_records"],
-      policy: "Memory writes require sensitivity and retention checks.",
-    },
-    {
-      id: "approval",
-      title: "Human Approval",
-      layer: "governance",
-      state: `${workflow.approval_required_for.length} workflow actions require approval.`,
-      evidence: workflow.approval_required_for,
-      policy: "Sensitive writes are approval-gated by default.",
-    },
-  ];
-
-  const nodePositions = [
-    ["source", 0, 158],
-    ["policy", 170, 80],
-    ["graph", 340, 158],
-    ["proposal", 520, 80],
-    ["tools", 700, 80],
-    ["memory", 520, 236],
-    ["approval", 880, 158],
-  ] as const;
-
-  return {
-    inspectors,
-    nodes: nodePositions.map(([id, x, y]) => {
-      const inspector = inspectors.find((item) => item.id === id);
-      return {
-        id,
-        type: "default",
-        position: { x, y },
-        data: {
-          label: (
-            <GraphNodeLabel
-              active={workflow.enabled}
-              title={inspector?.title ?? id}
-              layer={inspector?.layer ?? ""}
-            />
-          ),
-          title: inspector?.title ?? id,
-          layer: inspector?.layer ?? "",
-          state: inspector?.state ?? "",
-          evidence: inspector?.evidence ?? [],
-          policy: inspector?.policy ?? "",
-        },
-        className: `flow-node flow-${id}`,
-      };
-    }),
-    edges: [
-      edge("source", "policy"),
-      edge("policy", "graph"),
-      edge("graph", "proposal"),
-      edge("graph", "memory"),
-      edge("proposal", "tools"),
-      edge("proposal", "approval"),
-      edge("tools", "approval"),
-      edge("memory", "approval"),
-    ],
-  };
-}
-
-function GraphNodeLabel({
-  active,
-  title,
-  layer,
-}: {
-  active: boolean;
-  title: string;
-  layer: string;
-}) {
-  return (
-    <div className="graph-node-label">
-      <span className={active ? "node-dot node-open" : "node-dot"} />
-      <strong>{title}</strong>
-      <em>{layer}</em>
-    </div>
-  );
-}
-
-function edge(source: string, target: string): WorkflowEdge {
-  return {
-    id: `${source}-${target}`,
-    source,
-    target,
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: "#7f8da4",
-    },
-    style: {
-      stroke: "#7f8da4",
-      strokeWidth: 1.5,
-    },
-  };
-}
-
-function createDomainChart(workflows: WorkflowDetail[]) {
-  return [
-    ...countBy(
-      workflows.map((workflow) => humanize(workflow.domain)),
-    ).entries(),
-  ]
-    .map(([name, workflowsCount]) => ({ name, workflows: workflowsCount }))
-    .sort((a, b) => b.workflows - a.workflows)
-    .slice(0, 6);
-}
-
-function createConnectorChart(workflows: WorkflowDetail[]) {
-  return [
-    ...countBy(
-      workflows.flatMap((workflow) => workflow.required_connectors),
-    ).entries(),
-  ]
-    .map(([name, workflowsCount]) => ({ name, workflows: workflowsCount }))
-    .sort((a, b) => b.workflows - a.workflows)
-    .slice(0, 6);
-}
-
-function createProposalReview(
-  workflow: WorkflowDetail,
-  apiBacked: boolean,
-  readiness: ApiReadiness | null,
-  workflowRunTrace: WorkflowRunTraceStatus,
-): ProposalReviewModel {
-  const traceReadout = createTraceReadout(workflow, workflowRunTrace);
-
-  if (workflow.id !== "engineering_issue_to_pr") {
-    return {
-      badge: "workflow contract planned",
-      route: "workflow-specific run route pending",
-      routeState: "neutral",
-      routeNote: `${workflow.name} is present in the production registry, with runtime implementation still gated by the build plan.`,
-      readiness: [
-        {
-          label: "Registry source",
-          value: apiBacked ? "live API registry" : "repository mirror",
-          state: apiBacked ? "open" : "neutral",
-        },
-        {
-          label: "Workflow status",
-          value: statusCopy[workflow.status],
-          state: workflow.status === "ready" ? "open" : "neutral",
-        },
-        {
-          label: "Connector readiness",
-          value:
-            workflow.missing_connectors.length === 0
-              ? "all configured"
-              : workflow.missing_connectors.join(", "),
-          state: workflow.missing_connectors.length === 0 ? "open" : "closed",
-        },
-        {
-          label: "Live-run admin gate",
-          value: readiness
-            ? readiness.live_run_admin_gate_configured
-              ? "configured"
-              : "not configured"
-            : "ready check unavailable",
-          state: readiness
-            ? readiness.live_run_admin_gate_configured
-              ? "open"
-              : "closed"
-            : "neutral",
-        },
-        {
-          label: "Autonomy ceiling",
-          value: humanize(workflow.default_autonomy),
-          state: workflow.default_autonomy === "autonomous" ? "closed" : "open",
-        },
-      ],
-      requestContract: [
-        {
-          label: "Required connectors",
-          value: workflow.required_connectors.join(", "),
-        },
-        {
-          label: "Required scopes",
-          value: workflow.required_scopes.join(", "),
-        },
-        {
-          label: "Patterns",
-          value: workflow.patterns.map(humanize).join(", "),
-        },
-        {
-          label: "Replay policy",
-          value: String(workflow.data_policy.replay_allowed_from_real_runs),
-        },
-      ],
-      outputContract: [
-        {
-          label: "Visual surfaces",
-          value: workflow.visual_surfaces.map(humanize).join(", "),
-        },
-        {
-          label: "Fake data allowed",
-          value: String(workflow.data_policy.fake_data_allowed),
-        },
-        {
-          label: "Regex business extraction",
-          value: String(workflow.data_policy.regex_business_extraction_allowed),
-        },
-        {
-          label: "Approval actions",
-          value: workflow.approval_required_for.map(humanize).join(", "),
-        },
-      ],
-      approvalRoute: "workflow-specific approval route pending",
-      approvalPersistence: [
-        {
-          label: "Approval table",
-          value: "approvals",
-        },
-        {
-          label: "Decision route",
-          value: "workflow-specific decision route pending",
-        },
-        {
-          label: "Status",
-          value: "pending until reviewer decision is implemented",
-        },
-        {
-          label: "Write behavior",
-          value: "tool execution remains disabled",
-        },
-      ],
-      approvalStops: workflow.approval_required_for,
-      traceReadout,
-    };
-  }
-
-  const plannerConfigured =
-    readiness?.engineering_issue_to_pr_planner_configured ?? false;
-  const plannerModel =
-    readiness?.openai_planner_model ??
-    "OPENAI_REASONING_MODEL or OPENAI_DEFAULT_MODEL";
-
-  return {
-    badge: plannerConfigured ? "planner configured" : "planner gated",
-    route: "POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence",
-    routeState: apiBacked ? "open" : "neutral",
-    routeNote:
-      "Set include_proposal=true after a stored workflow run exists; the route returns typed proposal and evaluation payloads, not branch or PR writes.",
-    readiness: [
-      {
-        label: "Registry source",
-        value: apiBacked ? "live API registry" : "repository mirror",
-        state: apiBacked ? "open" : "neutral",
-      },
-      {
-        label: "OPA policy",
-        value: readiness
-          ? readiness.policy_configured
-            ? "configured"
-            : "not configured"
-          : "ready check unavailable",
-        state: readiness
-          ? readiness.policy_configured
-            ? "open"
-            : "closed"
-          : "neutral",
-      },
-      {
-        label: "Database",
-        value: readiness
-          ? readiness.database_configured
-            ? "configured"
-            : "not configured"
-          : "ready check unavailable",
-        state: readiness
-          ? readiness.database_configured
-            ? "open"
-            : "closed"
-          : "neutral",
-      },
-      {
-        label: "Live-run admin gate",
-        value: readiness
-          ? readiness.live_run_admin_gate_configured
-            ? "configured"
-            : "not configured"
-          : "ready check unavailable",
-        state: readiness
-          ? readiness.live_run_admin_gate_configured
-            ? "open"
-            : "closed"
-          : "neutral",
-      },
-      {
-        label: "OpenAI planner",
-        value: plannerConfigured
-          ? plannerModel
-          : "OPENAI_API_KEY plus explicit model required",
-        state: plannerConfigured ? "open" : "closed",
-      },
-      {
-        label: "Write actions",
-        value: "disabled; approval-review route only creates pending records",
-        state: "closed",
-      },
-    ],
-    requestContract: [
-      {
-        label: "Issue locator",
-        value: "issue_url or repository plus issue_number",
-      },
-      { label: "Context paths", value: "up to 10 relative repository paths" },
-      { label: "Planner switch", value: "include_proposal: true" },
-      {
-        label: "Audit context",
-        value: "actor_id and trace_id optional but persisted when supplied",
-      },
-    ],
-    outputContract: [
-      {
-        label: "Patch proposal",
-        value:
-          "summary, problem_statement, planned_changes[], source_evidence_uris[]",
-      },
-      {
-        label: "Test plan",
-        value: "command, purpose, risk_covered for each step",
-      },
-      {
-        label: "Evaluator",
-        value:
-          "grounded, requires_more_context, risk_level, findings[], blocking_issues[]",
-      },
-      {
-        label: "Model audit",
-        value: "model_calls rows for patch plan and plan evaluation",
-      },
-      {
-        label: "Write guard",
-        value: "approval_required=true and write_actions_enabled=false",
-      },
-    ],
-    approvalRoute:
-      "POST /workflow-runs/{run_id}/engineering-issue-to-pr/approval-review",
-    approvalPersistence: [
-      {
-        label: "Storage",
-        value: "approvals rows with pending status and write risk class",
-      },
-      {
-        label: "Payload",
-        value: "proposal, evaluation, action metadata, evidence URIs",
-      },
-      {
-        label: "Audit",
-        value: "approval.requested, approval.approved, approval.rejected",
-      },
-      {
-        label: "Decision route",
-        value:
-          "POST /workflow-runs/{run_id}/engineering-issue-to-pr/approvals/{approval_id}/decision",
-      },
-      {
-        label: "PR gate",
-        value:
-          "POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/authorize",
-      },
-      {
-        label: "Preview",
-        value:
-          "POST /workflow-runs/{run_id}/engineering-issue-to-pr/pr-draft/preview",
-      },
-      {
-        label: "Trace readout",
-        value: "GET /workflow-runs/{run_id}/trace",
-      },
-      {
-        label: "Execution",
-        value: "dry_run_preview_created_no_write_execution",
-      },
-    ],
-    approvalStops: workflow.approval_required_for,
-    traceReadout,
-  };
-}
-
-function createTraceReadout(
-  workflow: WorkflowDetail,
-  workflowRunTrace: WorkflowRunTraceStatus,
-): TraceReadoutModel {
-  const route = "GET /workflow-runs/{run_id}/trace";
-
-  if (workflowRunTrace.label === "not_configured") {
-    return {
-      badge: "run id required",
-      route,
-      state: "neutral",
-      runId: "not configured",
-      message: workflowRunTrace.message,
-      outcomes: [
-        {
-          label: "Approval decision",
-          value: "waiting for a real stored run id",
-          state: "neutral",
-        },
-        {
-          label: "PR authorization",
-          value: "no tool authorization read without a trace",
-          state: "neutral",
-        },
-        {
-          label: "Preview evidence",
-          value: "no dry-run preview read without a trace",
-          state: "neutral",
-        },
-      ],
-      records: emptyTraceRecords(),
-      events: [
-        {
-          label: "Configuration",
-          value: "DEMO_WORKFLOW_RUN_ID or DEMO_TRACE_RUN_ID",
-          state: "neutral",
-        },
-      ],
-    };
-  }
-
-  if (workflowRunTrace.label !== "loaded") {
-    return {
-      badge:
-        workflowRunTrace.label === "not_found" ? "run not found" : "offline",
-      route,
-      state: "closed",
-      runId: workflowRunTrace.configuredRunId,
-      message: workflowRunTrace.message,
-      outcomes: [
-        {
-          label: "Approval decision",
-          value: "trace endpoint did not return records",
-          state: "closed",
-        },
-        {
-          label: "PR authorization",
-          value: "authorization state unavailable",
-          state: "closed",
-        },
-        {
-          label: "Preview evidence",
-          value: "preview evidence unavailable",
-          state: "closed",
-        },
-      ],
-      records: emptyTraceRecords(),
-      events: [
-        {
-          label: "Trace fetch",
-          value: workflowRunTrace.message,
-          state: "closed",
-        },
-      ],
-    };
-  }
-
-  const trace = workflowRunTrace.trace;
-  const records = createTraceRecordSummary(trace);
-
-  if (trace.run.workflow_id !== workflow.id) {
-    return {
-      badge: "different workflow",
-      route,
-      state: "neutral",
-      runId: workflowRunTrace.configuredRunId,
-      message: `Configured run belongs to ${humanize(trace.run.workflow_id)}. Select that workflow or configure a run for ${workflow.name}.`,
-      outcomes: [
-        {
-          label: "Approval decision",
-          value: "loaded for another workflow",
-          state: "neutral",
-        },
-        {
-          label: "PR authorization",
-          value: "loaded for another workflow",
-          state: "neutral",
-        },
-        {
-          label: "Preview evidence",
-          value: "loaded for another workflow",
-          state: "neutral",
-        },
-      ],
-      records,
-      events: createTraceEvents(trace),
-    };
-  }
-
-  const outcomes = [
-    summarizeApprovalOutcome(trace),
-    summarizePrAuthorizationOutcome(trace),
-    summarizePreviewOutcome(trace),
-  ];
-
-  return {
-    badge: "live metadata",
-    route,
-    state: "open",
-    runId: workflowRunTrace.configuredRunId,
-    message: `${humanize(trace.run.workflow_id)} run ${shortId(trace.run.id)} is ${humanize(trace.run.status)} in ${humanize(trace.run.execution_mode)} mode.`,
-    outcomes,
-    records,
-    events: createTraceEvents(trace),
-  };
-}
-
-function summarizeApprovalOutcome(trace: WorkflowRunTrace) {
-  const approved = trace.approvals.filter((approval) => approval.status === "approved");
-  const rejected = trace.approvals.filter((approval) => approval.status === "rejected");
-  const pending = trace.approvals.filter((approval) => approval.status === "pending");
-
-  if (rejected.length > 0) {
-    return {
-      label: "Approval decision",
-      value: `${rejected.length} rejected approval record${pluralize(rejected.length)}`,
-      state: "closed" as const,
-    };
-  }
-
-  if (approved.length > 0) {
-    return {
-      label: "Approval decision",
-      value: `${approved.length} approved approval record${pluralize(approved.length)}`,
-      state: "open" as const,
-    };
-  }
-
-  if (pending.length > 0) {
-    return {
-      label: "Approval decision",
-      value: `${pending.length} pending approval record${pluralize(pending.length)}`,
-      state: "neutral" as const,
-    };
-  }
-
-  return {
-    label: "Approval decision",
-    value: "no approval records in this run",
-    state: "neutral" as const,
-  };
-}
-
-function summarizePrAuthorizationOutcome(trace: WorkflowRunTrace) {
-  const prToolCalls = trace.tool_calls.filter(
-    (toolCall) => toolCall.tool_name === "github_pull_request_draft",
-  );
-  const blocked = prToolCalls.filter(
-    (toolCall) =>
-      toolCall.status.includes("blocked") ||
-      toolCall.execution_state?.includes("blocked") ||
-      Boolean(toolCall.error_message),
-  );
-  const authorized = prToolCalls.filter(
-    (toolCall) => toolCall.execution_state === "authorized_not_executed",
-  );
-
-  if (blocked.length > 0) {
-    return {
-      label: "PR authorization",
-      value: `${blocked.length} blocked before execution`,
-      state: "closed" as const,
-    };
-  }
-
-  if (authorized.length > 0) {
-    return {
-      label: "PR authorization",
-      value: `${authorized.length} authorized, not executed`,
-      state: "open" as const,
-    };
-  }
-
-  if (prToolCalls.length > 0) {
-    return {
-      label: "PR authorization",
-      value: prToolCalls.map((toolCall) => humanize(toolCall.status)).join(", "),
-      state: "neutral" as const,
-    };
-  }
-
-  return {
-    label: "PR authorization",
-    value: "no PR draft authorization calls",
-    state: "neutral" as const,
-  };
-}
-
-function summarizePreviewOutcome(trace: WorkflowRunTrace) {
-  const previewEvidence = trace.evidence_records.filter(
-    (record) =>
-      record.metadata.schema_version === "engineering_issue_to_pr.pr_preview.v1",
-  );
-  const previewAuditEvents = trace.audit_events.filter(
-    (event) => event.event_type === "pr_draft.preview_created",
-  );
-  const previewCount = previewEvidence.length + previewAuditEvents.length;
-
-  if (previewCount > 0) {
-    return {
-      label: "Preview evidence",
-      value: `${previewEvidence.length} hash-only preview evidence record${pluralize(previewEvidence.length)}`,
-      state: "open" as const,
-    };
-  }
-
-  return {
-    label: "Preview evidence",
-    value: "no dry-run preview evidence in this run",
-    state: "neutral" as const,
-  };
-}
-
-function createTraceRecordSummary(trace: WorkflowRunTrace) {
-  return [
-    {
-      label: "Run",
-      value: `${humanize(trace.run.status)} / ${humanize(trace.run.autonomy_level)}`,
-    },
-    { label: "Approvals", value: String(trace.approvals.length) },
-    { label: "Tool calls", value: String(trace.tool_calls.length) },
-    {
-      label: "Model calls",
-      value: `${trace.model_calls.length} / ${formatEstimatedCost(trace)}`,
-    },
-    { label: "Evidence", value: String(trace.evidence_records.length) },
-    { label: "Memory", value: String(trace.memory_records.length) },
-    { label: "Audit events", value: String(trace.audit_events.length) },
-  ];
-}
-
-function emptyTraceRecords() {
-  return [
-    { label: "Run", value: "not loaded" },
-    { label: "Approvals", value: "0" },
-    { label: "Tool calls", value: "0" },
-    { label: "Model calls", value: "0 / $0.0000" },
-    { label: "Evidence", value: "0" },
-    { label: "Memory", value: "0" },
-    { label: "Audit events", value: "0" },
-  ];
-}
-
-function createTraceEvents(trace: WorkflowRunTrace) {
-  const approvalEvents = trace.approvals.slice(-2).map((approval) => ({
-    label: humanize(approval.requested_action),
-    value: `${humanize(approval.status)} approval ${shortId(approval.id)}`,
-    state: traceStateFromStatus(approval.status),
-  }));
-  const toolEvents = trace.tool_calls.slice(-2).map((toolCall) => ({
-    label: humanize(toolCall.tool_name),
-    value: humanize(toolCall.execution_state ?? toolCall.status),
-    state: traceStateFromStatus(toolCall.execution_state ?? toolCall.status),
-  }));
-  const evidenceEvents = trace.evidence_records.slice(-2).map((record) => ({
-    label: record.title,
-    value: `${humanize(record.kind)} ${shortHash(record.content_hash)}`,
-    state: "open" as const,
-  }));
-  const auditEvents = trace.audit_events.slice(-2).map((event) => ({
-    label: humanize(event.event_type),
-    value: humanize(event.action),
-    state: traceStateFromStatus(event.event_type),
-  }));
-
-  const events = [
-    ...approvalEvents,
-    ...toolEvents,
-    ...evidenceEvents,
-    ...auditEvents,
-  ].slice(-6);
-
-  if (events.length === 0) {
-    return [
-      {
-        label: "No trace records",
-        value: "stored run has no approval, tool, evidence, or audit metadata yet",
-        state: "neutral" as const,
-      },
-    ];
-  }
-
-  return events;
-}
-
-function traceStateFromStatus(value: string): GateState {
+  const record = value as Record<string, unknown>;
   if (
-    value.includes("approved") ||
-    value.includes("authorized") ||
-    value.includes("created") ||
-    value.includes("succeeded")
+    typeof record.upstream_ok === "boolean" &&
+    typeof record.upstream_status === "number"
   ) {
-    return "open";
+    return {
+      upstream_ok: record.upstream_ok,
+      upstream_status: record.upstream_status,
+    };
   }
 
-  if (
-    value.includes("blocked") ||
-    value.includes("rejected") ||
-    value.includes("failed") ||
-    value.includes("error")
-  ) {
-    return "closed";
-  }
-
-  return "neutral";
-}
-
-function evalStatusToGateState(value: "pass" | "warn" | "fail"): GateState {
-  if (value === "pass") {
-    return "open";
-  }
-
-  if (value === "fail") {
-    return "closed";
-  }
-
-  return "neutral";
-}
-
-function formatEstimatedCost(trace: WorkflowRunTrace) {
-  const total = trace.model_calls.reduce((sum, call) => {
-    const value = Number(call.estimated_cost_usd);
-    return Number.isFinite(value) ? sum + value : sum;
-  }, 0);
-  return `$${total.toFixed(4)}`;
-}
-
-function shortId(value: string) {
-  return value.slice(0, 8);
-}
-
-function shortHash(value: string) {
-  return value ? value.slice(0, 10) : "no hash";
-}
-
-function pluralize(count: number) {
-  return count === 1 ? "" : "s";
-}
-
-function countBy(values: string[]) {
-  const counts = new Map<string, number>();
-  for (const value of values) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-  return counts;
-}
-
-function matchingScopes(workflow: WorkflowDetail, connector: string) {
-  const prefix = connector.split("_")[0] ?? connector;
-  return workflow.required_scopes.filter((scope) => scope.startsWith(prefix));
-}
-
-function endpointHref(baseUrl: string, path: string) {
-  const normalizedBaseUrl = baseUrl.endsWith("/")
-    ? baseUrl.slice(0, -1)
-    : baseUrl;
-  return `${normalizedBaseUrl}${path}`;
-}
-
-function formatWorkflowConfig(workflow: WorkflowDetail) {
-  return [
-    `id: ${workflow.id}`,
-    `name: ${workflow.name}`,
-    `domain: ${workflow.domain}`,
-    `status: ${workflow.status}`,
-    "enabled_when:",
-    "  connectors:",
-    ...workflow.required_connectors.map((connector) => `    - ${connector}`),
-    "  required_scopes:",
-    ...workflow.required_scopes.map((scope) => `    - ${scope}`),
-    "patterns:",
-    ...workflow.patterns.map((pattern) => `  - ${pattern}`),
-    "data_policy:",
-    `  fake_data_allowed: ${workflow.data_policy.fake_data_allowed}`,
-    `  replay_allowed_from_real_runs: ${workflow.data_policy.replay_allowed_from_real_runs}`,
-    `  regex_business_extraction_allowed: ${workflow.data_policy.regex_business_extraction_allowed}`,
-    `default_autonomy: ${workflow.default_autonomy}`,
-    "approval_required_for:",
-    ...workflow.approval_required_for.map((action) => `  - ${action}`),
-    "visual_surfaces:",
-    ...workflow.visual_surfaces.map((surface) => `  - ${surface}`),
-  ].join("\n");
-}
-
-function humanize(value: string) {
-  return value
-    .split("_")
-    .map((word) =>
-      word.length > 0 ? `${word[0].toUpperCase()}${word.slice(1)}` : word,
-    )
-    .join(" ");
+  return null;
 }

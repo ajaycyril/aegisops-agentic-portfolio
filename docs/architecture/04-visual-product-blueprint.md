@@ -3,7 +3,19 @@
 AegisOps must be visual-heavy enough for a non-technical executive and inspectable enough for
 a principal engineer.
 
-## Main Navigation
+## Main Experience
+
+The first screen must be the workflow cockpit, not a documentation dashboard. The user should
+select one of four to five enterprise use cases, press a real run-start control, and see a
+shared step-by-step graph that is backed by live workflow contracts, live runtime gates, or
+persisted real trace records. When the full runtime is not configured, the UI must show the
+exact blocked gate instead of rendering fabricated tool calls, evidence, model reasoning, or
+memory.
+
+Immediately below the agent workflow, show the traditional rule-based path for the same use
+case and explain why the agentic implementation is justified.
+
+## Navigation And Lenses
 
 | Section                   | Purpose                                                           |
 | ------------------------- | ----------------------------------------------------------------- |

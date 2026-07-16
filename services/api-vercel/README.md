@@ -10,8 +10,9 @@ It is intentionally smaller than `services/api`:
 - does not connect to Postgres, OPA, OpenAI, LangGraph, or live enterprise systems;
 - does not expose workflow-run, approval, tool execution, model, memory, or write routes.
 
-The full stateful agent runtime remains in `services/api` and should be deployed as a Docker
-service with Postgres, OPA, connector secrets, approval gates, spend controls, and migrations.
+The full stateful agent runtime remains in `services/api` and should be deployed as a cloud API
+service with managed Postgres, hosted OPA-compatible policy, connector secrets, approval gates,
+spend controls, and migrations. Local Docker is not required for the live path.
 
 ## Config Snapshot
 

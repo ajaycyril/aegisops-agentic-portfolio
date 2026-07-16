@@ -8,7 +8,8 @@ policy-gated run-start API.
 - Node.js 24 or newer.
 - pnpm 10.15.1 or compatible.
 - Python 3.12 or newer.
-- Docker Desktop for local Postgres, Redis, and OPA.
+- Managed Postgres/pgvector and a hosted OPA-compatible policy endpoint for live runtime
+  verification.
 
 ## Install
 
@@ -38,6 +39,13 @@ For local frontend-to-backend health checks, keep:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+For live runtime verification, point the local API process at cloud services:
+
+```bash
+DATABASE_URL=<managed-postgres-url>
+OPA_BASE_URL=<policy-url>
 ```
 
 OpenAI keys are not required for health checks, workflow registry reads, or run-start
@@ -76,13 +84,19 @@ The same budget values are enforced during runtime graph and tool routes when OP
 If persisted model cost, elapsed run time, or prospective tool-call count exceeds the run budget,
 the API fails the run and records a `budget.blocked` audit event before continuing.
 
-## Run Local Infrastructure
+## Runtime Infrastructure
+
+This project does not require local Docker. Use managed Postgres/pgvector and a hosted
+OPA-compatible policy endpoint for live verification. The optional local emulator remains for
+contributors who already have Docker, but it is not part of the required path.
+
+Optional emulator command:
 
 ```bash
 make infra-up
 ```
 
-This starts:
+This starts, when Docker is available:
 
 - Postgres with pgvector.
 - Redis.
@@ -96,11 +110,11 @@ make infra-down
 
 ## Run Migrations
 
-After `make infra-up`, apply the governance schema:
+After `DATABASE_URL` points at managed Postgres, apply the governance schema:
 
 ```bash
 cd services/api
-.venv/bin/alembic upgrade head
+DATABASE_URL=<managed-postgres-url> .venv/bin/alembic upgrade head
 ```
 
 To inspect migration SQL without a running database:

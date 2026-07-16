@@ -50,6 +50,8 @@ Replay mode is allowed only for captured real runs and must be labeled as replay
 - Use OpenTelemetry plus LangSmith/Langfuse-compatible tracing.
 - Use Pydantic models as source-of-truth API/runtime contracts.
 - Keep optional heavy eval/observability stacks out of the default install path unless needed.
+- Treat the runtime as cloud-only for verification and demos. Local Docker is not a project
+  prerequisite; any container file is only a cloud build artifact or optional emulator.
 
 ## Execution Protocol
 
@@ -95,6 +97,7 @@ latency, memory access, evidence sources, and approval status when applicable.
 The repository has completed the architecture baseline, foundation runtime, governance/data
 layer, workflow registry/run-start gate, and visual command center shell.
 
-Next major milestone: continue the typed tool and connector substrate with connector auth
-registry and real connector adapters behind the policy-checked tool authorization boundary.
-See `PROJECT_PLAN.md`, Phase 5.
+Next major milestone: complete the cloud-only runtime path with managed Postgres/pgvector,
+a hosted OPA-compatible policy endpoint, deployed full API runtime, connector secrets, and
+admin-gated real-run validation. Then continue the typed tool and connector substrate behind
+the policy-checked authorization boundary. See `PROJECT_PLAN.md`.

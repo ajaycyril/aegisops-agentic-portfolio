@@ -19,10 +19,12 @@ The platform must show:
 
 ## Current Status
 
-Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level, with
-live Docker/Postgres/OPA verification still pending on a machine with Docker available.
+Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level. Live
+verification now follows a cloud-only path: managed Postgres/pgvector, a hosted
+OPA-compatible policy endpoint, deployed full API runtime, connector secrets, and an
+admin-gated real-run validation.
 
-The repo has architecture docs, dependency manifests, workflow registry configs, local infra
+The repo has architecture docs, dependency manifests, workflow registry configs, cloud-first infra
 scaffolding, ADRs, CI scaffolding, a minimal API health skeleton, a deployed web shell,
 database migrations, governance tables, OPA policy scaffolding, an audit writer, typed
 workflow registry/read endpoints, a policy-gated workflow run-start API, and a registry-aware
@@ -37,9 +39,10 @@ nodes now exist with typed patch-plan, test-plan, and evaluation contracts, but 
 actions are enabled. A model-backed OpenAI Responses API planner adapter now records
 `model_calls` and can be invoked from the run-scoped Engineering route with
 `include_proposal=true` when OpenAI credentials and an explicit model are configured. The
-visual command center now surfaces the proposal/evaluation contract, planner readiness,
-model-call audit path, approval-review persistence contract, and approval stop-points without
-showing fake run output or enabling branch/PR writes. A run-scoped Engineering approval-review
+visual command center has been refactored into a live-contract-first cockpit: five priority
+use cases share one workflow player, one real run-start bridge, trace-backed step inspection,
+runtime readiness gates, tuning controls, and an immediate rule-engine comparison. It does not
+render fabricated tool calls, evidence, memory, or model reasoning. A run-scoped Engineering approval-review
 route creates pending `approvals` rows for proposed branch/PR actions, records audit events,
 and moves runs to `waiting_for_approval` without executing GitHub writes. A second run-scoped
 decision route now approves or rejects those pending records through OPA, enforces a four-eyes
@@ -98,8 +101,8 @@ Current production web deployment:
 | ----- | ------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------- |
 | 0     | Architecture baseline                | Complete                                     | Docs, stack decisions, workflow portfolio, scaffold                                 |
 | 1     | Foundation runtime                   | Complete                                     | Installable web/API skeleton with health checks                                     |
-| 2     | Governance and data layer            | Implemented, Docker verification pending     | Postgres, migrations, policy checks, audit model                                    |
-| 3     | Workflow registry and run lifecycle  | Implemented, live infra verification pending | Config-driven workflow catalog and run API                                          |
+| 2     | Governance and data layer            | Implemented, cloud verification pending      | Postgres, migrations, policy checks, audit model                                    |
+| 3     | Workflow registry and run lifecycle  | Implemented, cloud verification pending      | Config-driven workflow catalog and run API                                          |
 | 4     | Visual command center shell          | Implemented                                  | Portfolio UI, graph canvas, multi-agent canvas, review, trace/evidence placeholders |
 | 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub and HTTP JSON read adapters                              |
 | 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
@@ -121,7 +124,7 @@ Completed artifacts:
 - `docs/adrs/*`
 - `configs/workflows/*`
 - `configs/policies/policy-map.yaml`
-- `infra/docker-compose.yml`
+- `infra/docker-compose.yml` as an optional local emulator, not a project prerequisite
 - `services/api/pyproject.toml`
 - `apps/web/package.json`
 - `pnpm-lock.yaml`
@@ -186,8 +189,8 @@ services/api/.venv/bin/pytest
 
 ## Phase 2: Governance and Data Layer
 
-Status: Implemented. Live Docker/Postgres migration verification is pending because Docker was
-not available in the current local environment.
+Status: Implemented. Live cloud Postgres migration verification is pending until a managed
+Postgres/pgvector database is provisioned. Local Docker is not a project prerequisite.
 
 Completed artifacts:
 
@@ -219,8 +222,9 @@ Tasks:
 
 Acceptance criteria:
 
-- `docker compose -f infra/docker-compose.yml up -d` starts Postgres, Redis, and OPA.
-- Migrations apply locally.
+- Managed Postgres/pgvector URL is configured.
+- Migrations apply against the managed database.
+- A hosted OPA-compatible policy endpoint loads the repository Rego packages.
 - Policy checks are callable from API code.
 - Audit events can be written and queried.
 - No policy decision is delegated to the model.
@@ -228,7 +232,8 @@ Acceptance criteria:
 Validation commands:
 
 ```bash
-make infra-up
+cd services/api && DATABASE_URL=<managed-postgres-url> .venv/bin/alembic upgrade head
+OPA_BASE_URL=<policy-url> services/api/.venv/bin/pytest services/api/tests
 services/api/.venv/bin/alembic upgrade head
 services/api/.venv/bin/pytest services/api/tests
 services/api/.venv/bin/ruff check services/api
@@ -244,24 +249,28 @@ cd services/api && .venv/bin/mypy .
 cd services/api && .venv/bin/alembic upgrade head --sql
 ```
 
-Not run: `make infra-up` and live `alembic upgrade head`, because Docker is not installed.
+Not run: live cloud `alembic upgrade head` and hosted OPA policy loading, because managed
+services are not yet provisioned.
 
-## Phase 2 Follow-Up: Live Infra Verification
+## Phase 2 Follow-Up: Cloud Infra Verification
 
-Goal: verify Phase 2 against local containers before starting durable run APIs.
+Goal: verify Phase 2 against managed cloud services before starting durable live run APIs.
 
 Tasks:
 
-1. Install/start Docker Desktop.
-2. Run `make infra-up`.
-3. Run `cd services/api && .venv/bin/alembic upgrade head`.
-4. Confirm OPA loads `policies/aegisops/*.rego`.
-5. Run `services/api/.venv/bin/pytest services/api/tests`.
+1. Provision managed Postgres with pgvector enabled.
+2. Set `DATABASE_URL` for the full API runtime and one-off migration shell.
+3. Run `cd services/api && .venv/bin/alembic upgrade head` against the managed database.
+4. Deploy a hosted OPA-compatible policy endpoint with `policies/aegisops/*.rego` loaded.
+5. Set `OPA_BASE_URL`, budget limits, `CONFIGURED_CONNECTORS`, and connector gateway secrets
+   in the cloud API host.
+6. Verify `GET /ready` reports database and policy configured.
+7. Run `services/api/.venv/bin/pytest services/api/tests`.
 
 ## Phase 3: Workflow Registry and Run Lifecycle
 
-Status: Implemented. Live Postgres/OPA verification is pending because Docker and the OPA CLI
-were not available in the current local environment.
+Status: Implemented. Live Postgres/OPA verification is pending until the managed database and
+hosted policy endpoint are provisioned.
 
 Completed artifacts:
 
@@ -313,13 +322,15 @@ services/api/.venv/bin/ruff check services/api
 cd services/api && .venv/bin/mypy .
 ```
 
-Not run: live Postgres migration and live OPA policy loading/evaluation, because Docker and
-the OPA CLI are not installed in the current environment.
+Not run: live Postgres migration and live OPA policy loading/evaluation, because managed cloud
+services are not yet provisioned.
 
 Current next task:
 
-1. Run live Phase 2/3 infrastructure verification on a machine with Docker.
-2. Continue Phase 5 with connector auth registry and real connector adapters behind the
+1. Provision managed Postgres/pgvector and hosted OPA-compatible policy service.
+2. Deploy the full API runtime with `DATABASE_URL`, `OPA_BASE_URL`, budgets, connector
+   readiness, and admin live-run key configured.
+3. Continue Phase 5 with connector auth registry and real connector adapters behind the
    policy-checked tool authorization boundary.
 
 ## Phase 4: Visual Command Center Shell
@@ -331,22 +342,21 @@ Completed artifacts:
 - Registry-aware web catalog loader in `apps/web/lib/api.ts`.
 - Repository workflow catalog mirror in `apps/web/lib/workflows.ts` used only when the live
   API registry is not configured or reachable.
-- Interactive command center in `apps/web/components/command-center.tsx`.
-- Selectable enterprise workflow portfolio.
-- Safe disabled run-start controls for replay and live mode.
-- React Flow graph canvas with config-driven workflow nodes.
-- Evidence Board empty state derived from required connectors and scopes.
-- Policy Lens derived from workflow data policy, OPA run-start rules, and approval actions.
-- Trace Timeline empty state showing implemented run-start gates and runtime-pending events.
-- Code Lens rendering the selected workflow YAML contract.
-- Proposal Review surface showing run route, readiness gates, typed planner/evaluator output
-  contracts, model-call audit path, and approval stop-points.
-- Agentic-vs-rule-engine taxonomy showing deterministic rules, dynamic policy, AI workflow,
-  and agentic orchestration as separate execution modes with cost, controls, and use-fit.
-- Peel-the-layers stack panel mapping production layers to executive, architect, and engineer
-  views over the selected workflow.
-- Multi-Agent Orchestration surface for Production Incident Investigator, with custom React
-  Flow supervisor, specialist worker, evaluator, RCA, and approval nodes.
+- Live-contract-first command center in `apps/web/components/command-center.tsx`.
+- Five priority use cases: incident response, customer support, engineering Issue-to-PR,
+  supplier risk, and finance invoice exception.
+- Shared React Flow workflow player built from real workflow contracts and persisted real trace
+  metadata when `DEMO_WORKFLOW_RUN_ID`/`DEMO_TRACE_RUN_ID` is configured.
+- Real `POST /live-run/start` bridge that forwards run-start requests to the configured full
+  API and shows the actual upstream status/body as the run gate.
+- Step inspector for contract, readiness, run-start, tool, evidence, model, memory, approval,
+  and eval metadata from live API or live trace sources.
+- Workflow tuning controls for autonomy, tool budget, spend cap, approval requirement, model
+  planning flag, and use-case-specific input payload fields.
+- Immediate traditional-system comparison under the agent player explaining why a rule engine
+  is insufficient for the selected use case.
+- Contract depth panels for connectors, scopes, data policy, approval requirements, and source
+  config path.
 - Favicon and mobile-first responsive styling.
 
 Goal: Build the UI surface before deep workflow implementation.
@@ -357,25 +367,22 @@ Tasks:
 2. Done: add Portfolio page listing workflow modules from the API with repository mirror
    fallback when no backend is deployed.
 3. Done: add Command Center page for a selected workflow.
-4. Done: add React Flow graph canvas with static config-driven nodes.
-5. Done: add Evidence Board empty state.
-6. Done: add Policy Lens empty state.
-7. Done: add Trace Timeline empty state.
-8. Done: add Code Lens read-only panes for YAML config and policy metadata.
-9. Done: add visual status for connector readiness, replay availability, and live-run
-   eligibility.
-10. Done: add Proposal Review surface and graph node for planner/evaluator contracts.
-11. Done: add multi-agent incident orchestration visual contract with specialist handoff
-    inspection.
+4. Done: replace static section-heavy UI with a first-viewport live workflow cockpit.
+5. Done: add React Flow workflow player driven by contracts and real trace metadata.
+6. Done: add real run-start bridge to the configured full API.
+7. Done: add runtime gate, step inspector, tuning controls, and rule-engine comparison.
+8. Done: add contract depth panels for connectors, data policy, approvals, and source paths.
 
 Acceptance criteria:
 
-- A CEO can understand what each workflow does.
-- A novice can understand why some steps are rules, some are dynamic policy, some are model
-  calls, and only some are truly agentic.
-- A CTO can see the platform layers.
-- An engineer can inspect the config and contracts.
-- The UI does not imply fake data is available.
+- A CEO can understand what the selected agent is trying to accomplish from the first viewport.
+- A novice can watch the same workflow shape across multiple use cases and compare it directly
+  with a traditional rule-based system.
+- A CTO can see runtime gates, connector readiness, policy, memory, approvals, and deployment
+  state without scrolling through unrelated sections.
+- An engineer can inspect config-derived contracts, trace-derived steps, upstream run-start
+  responses, and tuning payloads.
+- The UI does not imply fake data, fake traces, fake tool calls, or fake reasoning are available.
 
 Validated in current environment:
 
@@ -385,9 +392,9 @@ pnpm --filter @aegisops/web typecheck
 pnpm --filter @aegisops/web build
 ```
 
-Browser smoke checks were run with Playwright against `http://localhost:3000` at 1440 px and
-390 px widths. Both passed with no console errors, no horizontal overflow, no clipped text,
-all seven primary graph nodes rendered, and all nine multi-agent orchestration nodes rendered.
+Browser smoke checks were run with Playwright/Chrome against `http://localhost:3000` at 1440 px
+and 390 px widths. Both passed with no error overlays. The real run-start button was clicked
+and returned the actual upstream 404 gate from the read-only public API with no console errors.
 
 ## Phase 5: Tool and Connector Substrate
 
@@ -716,8 +723,9 @@ A feature is done only when:
 
 ## Current Next Task
 
-Run live Phase 2/3 infrastructure verification on a Docker-capable machine, then capture a real
-sandbox run for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging, incident-update,
-customer-message, refund, account-change, branch, or pull-request write execution.
+Run live Phase 2/3 infrastructure verification against managed cloud Postgres/pgvector,
+hosted OPA-compatible policy, and the deployed full API runtime, then capture a real sandbox
+run for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging, incident-update, customer-message,
+refund, account-change, branch, or pull-request write execution.
 When changing workflow, connector, or tool YAML contracts, run `pnpm vercel-api:sync-config`
 and `pnpm vercel-api:check-config` before the next Vercel deployment.

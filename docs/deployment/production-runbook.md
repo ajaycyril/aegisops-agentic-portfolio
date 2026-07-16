@@ -9,10 +9,18 @@ Provider free-tier availability changes over time; verify current quotas before 
 | --- | --- | --- |
 | Web | Vercel project `aegisops-agentic-portfolio` | `DEMO_TRACE_RUN_ID` only after a captured real run exists |
 | Public registry API | Vercel Services app at `/api` from `services/api-vercel` | Not used for live runs |
-| API | Docker web service from `services/api/Dockerfile` | database, OPA, budgets, connector env vars |
+| API | Cloud API service from `services/api` | database, OPA, budgets, connector env vars |
 | Database | Managed Postgres with pgvector | Alembic head applied |
-| Policy | OPA service or sidecar | `policies/aegisops/*.rego` loaded |
+| Policy | Hosted OPA-compatible service | `policies/aegisops/*.rego` loaded |
 | Connectors | Read-only HTTP JSON gateways or GitHub App | connector env vars and scopes configured |
+
+## Cloud-Only Operating Rule
+
+Do not block on local Docker. The production path uses managed cloud infrastructure: Vercel for
+the visual portal and public read-only registry API, managed Postgres/pgvector for durable
+state, a hosted OPA-compatible policy endpoint for Rego decisions, and a deployed full API
+runtime for stateful workflow routes. Any container file in the repo is a cloud build artifact
+or optional emulator, not a local prerequisite.
 
 ## Web Deployment
 
@@ -78,8 +86,10 @@ NEXT_PUBLIC_API_BASE_URL=https://aegisops-agentic-portfolio.vercel.app/api pnpm 
 
 ## API Deployment
 
-The API container is defined in `services/api/Dockerfile`. `render.yaml` is a deploy-ready
-blueprint for a Docker web service candidate.
+The full API runtime lives in `services/api`. Deploy it to a managed cloud runtime such as a
+Python web service, managed container build, or Vercel service once package size and runtime
+constraints are satisfied. `services/api/Dockerfile` and `render.yaml` remain optional cloud
+build/deployment artifacts; no local Docker workflow is required.
 
 Safe defaults:
 
@@ -135,15 +145,15 @@ Run migrations against the production database before enabling the API for real 
 
 ```bash
 cd services/api
-.venv/bin/alembic upgrade head
+DATABASE_URL=<managed-postgres-url> .venv/bin/alembic upgrade head
 ```
 
-For hosted jobs, run the same command from the API image or a one-off shell with
-`DATABASE_URL` configured.
+For hosted jobs, run the same command from the API host or a one-off shell with
+`DATABASE_URL` configured. This does not require local Docker.
 
 ## Policy
 
-OPA must load the repository policy packages:
+The hosted OPA-compatible policy endpoint must load the repository policy packages:
 
 ```text
 policies/aegisops/run_eligibility.rego
@@ -155,6 +165,16 @@ policies/aegisops/data_sensitivity.rego
 
 If `OPA_BASE_URL` is not configured, `/ready` reports `policy_configured=false` and mutating
 runtime routes remain unavailable.
+
+## Cloud Verification Order
+
+1. Provision managed Postgres with pgvector enabled.
+2. Run Alembic to head against `DATABASE_URL`.
+3. Deploy the hosted OPA-compatible policy endpoint and verify the `aegisops.*` packages load.
+4. Deploy the full API with `DATABASE_URL`, `OPA_BASE_URL`, budget caps,
+   `CONFIGURED_CONNECTORS`, connector gateway secrets, and `LIVE_RUN_ADMIN_KEY`.
+5. Verify `/health`, `/ready`, `/connectors`, `/workflows`, and a policy-denied negative path.
+6. Keep `LIVE_WORKFLOW_RUNS_ENABLED=false` until an admin explicitly validates a sandbox run.
 
 ## Real-Run Trace Demo
 
