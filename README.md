@@ -63,6 +63,8 @@ This repository currently defines:
   evidence metadata, and audit events.
 - Captured-real-run replay fixture schema and loader for the same Engineering evidence route.
   The repo documents fixture placement but does not ship fabricated replay payloads.
+- `aegisops-demo-seed` utility for resetting and seeding public demo traces from externally
+  supplied captured-real-run replay manifests only.
 - Optional Engineering Issue-to-PR proposal/evaluator graph nodes with typed patch-plan,
   test-plan, and evaluation contracts. They require an injected planner and do not enable
   branch or pull-request writes.

@@ -631,7 +631,7 @@ Tasks:
    UI eval-result display over real configured run ids.
 6. Done: add admin-only live-run gate.
 7. Done: add per-run budget enforcement.
-8. Add demo reset and seed from captured real traces only.
+8. Done: add demo reset and seed from captured real traces only.
 
 Acceptance criteria:
 

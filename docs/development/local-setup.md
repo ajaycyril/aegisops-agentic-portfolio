@@ -202,6 +202,17 @@ Replay fixtures resolve from `configs/replays/engineering_issue_to_pr/` by defau
 `REPLAY_FIXTURE_DIR` when set. Do not add invented fixture data; fixtures must declare
 `provenance: captured_real_run`.
 
+To seed local demo trace rows from captured replay fixtures:
+
+```bash
+cd services/api
+.venv/bin/python -m aegisops_api.demo_seed /secure/path/demo-seed-manifest.json
+```
+
+The manifest must use schema `aegisops.demo_seed_manifest.v1` and provenance
+`captured_real_run_manifest`. The utility can reset previous demo-seeded replay runs for the same
+source ids, then persists replay trace/evidence rows without live connector calls.
+
 Set `include_proposal=true` on the evidence route to run the OpenAI-backed proposal/evaluator
 planner. This requires `OPENAI_API_KEY` plus `OPENAI_REASONING_MODEL` or
 `OPENAI_DEFAULT_MODEL`. The planner writes `model_calls` audit records and returns typed

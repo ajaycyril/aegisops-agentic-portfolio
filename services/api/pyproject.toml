@@ -37,6 +37,9 @@ dependencies = [
   "uvicorn[standard]>=0.51.0"
 ]
 
+[project.scripts]
+aegisops-demo-seed = "aegisops_api.demo_seed:main"
+
 [project.optional-dependencies]
 dev = [
   "mypy>=1.19.1",

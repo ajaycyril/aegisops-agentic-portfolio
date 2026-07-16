@@ -120,6 +120,36 @@ Only use captured real runs. Do not seed invented business payloads.
 6. Set `DEMO_TRACE_RUN_ID` in Vercel to the stored run id.
 7. Redeploy the web app and verify the trace/eval panels show live metadata.
 
+## Demo Reset And Seed
+
+Use the API package CLI only with external captured replay fixtures:
+
+```bash
+cd services/api
+.venv/bin/python -m aegisops_api.demo_seed /secure/path/demo-seed-manifest.json
+```
+
+Manifest shape:
+
+```json
+{
+  "schema_version": "aegisops.demo_seed_manifest.v1",
+  "provenance": "captured_real_run_manifest",
+  "reset_existing_seeded_runs": true,
+  "runs": [
+    {
+      "workflow_id": "engineering_issue_to_pr",
+      "source_run_id": "captured-real-run-id"
+    }
+  ]
+}
+```
+
+The CLI validates each replay fixture’s `provenance: captured_real_run`, resets only prior
+demo-seeded replay runs for the same source ids, creates replay-labeled `workflow_runs`, and
+persists trace/evidence metadata through the existing replay runtime. It does not create fake
+business records and does not call live connectors.
+
 ## Deployment Gates
 
 - `GET /health` returns `200`.
