@@ -543,24 +543,63 @@ h1 {
   opacity: 0.72;
 }
 
-.runtime-grid {
+.runtime-teaching-layout {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  padding: 18px;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.58fr);
+  align-items: start;
+  gap: 14px;
+  padding: 18px 18px 0;
+  min-width: 0;
 }
 
-.runtime-card {
+.runtime-map {
+  position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 12px;
-  min-height: 166px;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.runtime-map::before {
+  content: "";
+  position: absolute;
+  top: 29px;
+  right: 8%;
+  left: 8%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(53, 194, 167, 0.7),
+    rgba(120, 166, 255, 0.62),
+    rgba(244, 201, 93, 0.64)
+  );
+  opacity: 0.55;
+}
+
+.runtime-map-step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  min-height: 216px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent),
+    rgba(10, 14, 21, 0.94);
   border-radius: 8px;
 }
 
+.runtime-step-index {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.runtime-step-index span,
 .runtime-index {
   display: grid;
   place-items: center;
@@ -574,38 +613,293 @@ h1 {
   font-weight: 800;
 }
 
-.runtime-card h2 {
+.runtime-step-index svg {
+  color: #dce8ff;
+}
+
+.runtime-map-step h2,
+.runtime-fit-card h2,
+.runtime-card h2,
+.stack-layer h2 {
   margin-bottom: 5px;
   font-size: 17px;
   line-height: 1.18;
   letter-spacing: 0;
 }
 
+.runtime-map-step strong,
+.runtime-map-step p,
+.runtime-fit-card strong,
+.runtime-fit-card p,
 .runtime-card strong,
 .runtime-card span,
-.runtime-card em {
+.runtime-card em,
+.runtime-card small,
+.runtime-card b {
   display: block;
   overflow-wrap: anywhere;
 }
 
-.runtime-card strong {
+.runtime-map-step strong,
+.runtime-card strong,
+.runtime-fit-row strong {
   color: #e9eef8;
   font-size: 13px;
 }
 
+.runtime-map-step p,
+.runtime-fit-card p,
 .runtime-card span {
-  margin-top: 8px;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.42;
 }
 
-.runtime-card em {
-  grid-column: 2;
+.runtime-fit-card {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(53, 194, 167, 0.18);
+  background:
+    linear-gradient(135deg, rgba(53, 194, 167, 0.07), rgba(120, 166, 255, 0.045)),
+    rgba(255, 255, 255, 0.035);
+  border-radius: 8px;
+}
+
+.runtime-fit-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.runtime-fit-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.38fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 9, 13, 0.28);
+  border-radius: 8px;
+}
+
+.runtime-fit-row span,
+.runtime-card small,
+.stack-summary span,
+.stack-lens span {
+  color: #dce3ef;
+  font-size: 12px;
+}
+
+.runtime-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px;
+}
+
+.runtime-grid-expanded {
+  padding-top: 14px;
+}
+
+.runtime-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 292px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.runtime-card-lens {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background: rgba(7, 9, 13, 0.24);
+  border-radius: 8px;
+}
+
+.runtime-card-lens em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.runtime-controls {
+  display: flex;
+  grid-column: 1 / -1;
+  align-content: flex-start;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.runtime-controls span {
+  margin-top: 0;
+  border: 1px solid rgba(120, 166, 255, 0.18);
+  background: rgba(120, 166, 255, 0.055);
+  color: #dce8ff;
+  border-radius: 999px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.runtime-card b {
+  grid-column: 1 / -1;
   align-self: end;
   color: var(--amber);
   font-size: 12px;
-  font-style: normal;
+}
+
+.runtime-decision-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 18px 18px;
+}
+
+.decision-cell {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid rgba(244, 201, 93, 0.18);
+  background: rgba(244, 201, 93, 0.045);
+  border-radius: 8px;
+}
+
+.decision-cell svg {
+  color: var(--amber);
+}
+
+.decision-cell strong,
+.decision-cell span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.decision-cell strong {
+  color: #f0f4fb;
+  font-size: 13px;
+}
+
+.decision-cell span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.stack-summary {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.46fr) minmax(0, 1fr) minmax(220px, 0.56fr);
+  gap: 10px;
+  padding: 18px 18px 0;
+}
+
+.stack-summary div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(53, 194, 167, 0.16);
+  background: rgba(53, 194, 167, 0.045);
+  border-radius: 8px;
+}
+
+.stack-summary strong {
+  display: block;
+  margin-top: 6px;
+  color: #f0f4fb;
+  font-size: 13px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.stack-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px;
+}
+
+.stack-layer {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 246px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.stack-open {
+  border-color: rgba(53, 194, 167, 0.2);
+}
+
+.stack-neutral {
+  border-color: rgba(120, 166, 255, 0.18);
+}
+
+.stack-layer-heading {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.stack-layer-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(53, 194, 167, 0.24);
+  background: rgba(53, 194, 167, 0.08);
+  color: var(--teal);
+  border-radius: 8px;
+}
+
+.stack-neutral .stack-layer-icon {
+  border-color: rgba(120, 166, 255, 0.24);
+  background: rgba(120, 166, 255, 0.075);
+  color: var(--blue);
+}
+
+.stack-layer-heading strong {
+  display: block;
+  color: #dce8ff;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.stack-lens-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.stack-lens {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(7, 9, 13, 0.24);
+  border-radius: 8px;
+}
+
+.stack-lens strong {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .graph-shell {
@@ -1820,8 +2114,10 @@ h1 {
   .telemetry-grid,
   .bottom-grid,
   .multi-agent-brief,
+  .runtime-teaching-layout,
   .multi-agent-shell,
   .graph-shell,
+  .stack-summary,
   .proposal-review {
     grid-template-columns: 1fr;
   }
@@ -1870,6 +2166,12 @@ h1 {
   }
 
   .runtime-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .runtime-map,
+  .runtime-decision-grid,
+  .stack-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1983,8 +2285,15 @@ h1 {
 
   .mission-metrics,
   .portfolio,
-  .runtime-grid {
+  .runtime-grid,
+  .runtime-map,
+  .runtime-decision-grid,
+  .stack-grid {
     grid-template-columns: 1fr;
+  }
+
+  .runtime-map::before {
+    display: none;
   }
 
   .metric {
@@ -2062,7 +2371,11 @@ h1 {
 
   .portfolio,
   .workflow-detail,
+  .runtime-teaching-layout,
   .runtime-grid,
+  .runtime-decision-grid,
+  .stack-summary,
+  .stack-grid,
   .proposal-review,
   .support-runtime,
   .evidence-table,
@@ -2084,6 +2397,12 @@ h1 {
   }
 
   .readiness-item {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-fit-row,
+  .decision-cell,
+  .stack-layer-heading {
     grid-template-columns: 1fr;
   }
 

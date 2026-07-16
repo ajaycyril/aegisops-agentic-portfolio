@@ -41,6 +41,12 @@ This repository currently defines:
 - Registry-aware visual command center with portfolio selection, execution segmentation,
   React Flow graph, evidence board, policy lens, trace timeline, code lens, and safe disabled
   run-start controls.
+- Agentic-vs-rule-engine visual taxonomy that separates fixed deterministic checks, dynamic
+  OPA policy, structured AI workflow calls, and true LangGraph/MCP agentic execution with
+  costs, controls, failure modes, and selected-workflow fit.
+- Peel-the-layers stack panel that presents the selected workflow at executive, architect, and
+  engineer depth across orchestration, tools, memory, guardrails, policy, observability, evals,
+  and deployment.
 - Typed tool contract registry with GitHub, SQL read, document retrieval, and observability
   tool definitions exposed through read-only API endpoints.
 - MCP tool contract server skeleton and `POST /tool-calls/authorize` boundary for

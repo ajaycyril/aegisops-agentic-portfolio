@@ -9,6 +9,7 @@ a principal engineer.
 | ------------------------- | ----------------------------------------------------------------- |
 | Portfolio                 | Enterprise workflow library                                       |
 | Command Center            | Active workflow run and executive summary                         |
+| Autonomy Taxonomy         | Fixed rules vs dynamic policy vs AI workflow vs agentic execution |
 | Multi-Agent Orchestration | Supervisor-worker coordination, handoffs, evidence reconciliation |
 | Agent Graph               | Interactive LangGraph execution graph                             |
 | Evidence Board            | Real sources, logs, documents, citations, API results             |
@@ -19,6 +20,21 @@ a principal engineer.
 | Eval Dashboard            | Regression, safety, grounding, and quality checks                 |
 | Deployment Panel          | Health, env vars, CI, migrations, connector status                |
 | Code Lens                 | Graph code, schemas, configs, policies, tests                     |
+
+## Autonomy Taxonomy
+
+The portal must not imply that every automated step is agentic. It should show four separate
+execution modes:
+
+| Mode           | Use For                                               | Production Controls                         |
+| -------------- | ----------------------------------------------------- | ------------------------------------------- |
+| Fixed rules    | Stable validation, readiness, schema, and state gates | Typed schemas, tests, deterministic checks  |
+| Dynamic policy | Contextual allow/block/approval decisions             | OPA/Rego, policy fixtures, audit decisions  |
+| AI workflow    | Bounded model transforms and structured evaluations   | Structured outputs, model ledger, evals     |
+| Agentic        | Stateful planning, tool use, adaptation, handoffs     | LangGraph, MCP, checkpoints, human review   |
+
+Every workflow view should show which parts are deterministic, which parts are policy-driven,
+which parts call a model, and which parts are truly agentic.
 
 ## Peel-The-Layers Interaction
 

@@ -3,11 +3,14 @@
 import {
   Activity,
   AlertTriangle,
+  Bot,
   Boxes,
   BrainCircuit,
   CheckCircle2,
+  ClipboardCheck,
   CircleDot,
   Code2,
+  GitFork,
   Database,
   FileCode2,
   FileText,
@@ -17,8 +20,12 @@ import {
   Layers3,
   LockKeyhole,
   MessageSquare,
+  Microscope,
   Network,
   PlayCircle,
+  Puzzle,
+  Route,
+  Scale,
   Send,
   Server,
   ShieldCheck,
@@ -157,6 +164,28 @@ type SupportRuntimeStage = {
   state: GateState;
 };
 
+type RuntimeMode = {
+  title: string;
+  icon: LucideIcon;
+  engine: string;
+  cost: string;
+  scope: string;
+  useWhen: string;
+  breaksWhen: string;
+  productionControls: string[];
+  noviceSignal: string;
+};
+
+type StackLayer = {
+  title: string;
+  icon: LucideIcon;
+  choice: string;
+  status: GateState;
+  executive: string;
+  architect: string;
+  engineer: string;
+};
+
 const navItems: NavItem[] = [
   { label: "Portfolio", icon: Boxes },
   { label: "Command", icon: Gauge },
@@ -192,29 +221,133 @@ const apiStatusLabel = {
 const runtimeModes = [
   {
     title: "Rule-based",
+    icon: FileCode2,
     engine: "Typed deterministic gates",
     cost: "$0 model cost",
     scope: "Schema validation, status checks, connector readiness",
+    useWhen: "The decision path is stable, explicit, and low ambiguity.",
+    breaksWhen: "The work needs judgment, evidence tradeoffs, or changing context.",
+    productionControls: ["Pydantic schemas", "fixed state checks", "unit tests"],
+    noviceSignal: "Same input produces the same output every time.",
   },
   {
     title: "Dynamic policy",
+    icon: Scale,
     engine: "OPA/Rego",
     cost: "$0 model cost",
     scope: "Run eligibility, budget, tool access, approval routing",
+    useWhen: "Rules change by tenant, role, risk class, budget, or data sensitivity.",
+    breaksWhen: "Policy alone cannot find evidence, plan work, or draft an answer.",
+    productionControls: ["policy fixtures", "approval matrix", "audit decisions"],
+    noviceSignal: "The same request can be allowed, blocked, or escalated by context.",
   },
   {
     title: "AI workflow",
+    icon: Bot,
     engine: "Responses API",
     cost: "metered",
     scope: "Structured model calls, retrieval summaries, evaluator passes",
+    useWhen: "A model should transform grounded context into a typed draft or verdict.",
+    breaksWhen: "The task needs iterative tool use, state, retries, or handoffs.",
+    productionControls: ["structured outputs", "model_calls ledger", "eval rubrics"],
+    noviceSignal: "The model produces a bounded artifact, but it is not steering the whole run.",
   },
   {
     title: "Agentic",
+    icon: Workflow,
     engine: "LangGraph + MCP",
     cost: "bounded",
     scope: "Stateful planning, typed tools, interrupts, memory, replay",
+    useWhen: "The system must plan, gather evidence, call tools, adapt, and stop for review.",
+    breaksWhen: "A simple rule or one model call solves the task with less risk.",
+    productionControls: ["checkpoints", "typed tools", "guardrails", "human interrupts"],
+    noviceSignal: "The workflow changes its next step based on what it discovers.",
   },
-];
+] satisfies RuntimeMode[];
+
+const stackLayers = [
+  {
+    title: "Orchestration",
+    icon: GitFork,
+    choice: "LangGraph",
+    status: "open",
+    executive: "Turns messy work into visible stages, stop-points, and outcomes.",
+    architect: "Stateful graph runtime with checkpoints, interrupts, and replay contracts.",
+    engineer: "Workflow modules under services/api/src/aegisops_api/workflows.",
+  },
+  {
+    title: "Model Control",
+    icon: BrainCircuit,
+    choice: "OpenAI Responses API",
+    status: "open",
+    executive: "Uses AI where judgment or drafting is valuable, not everywhere.",
+    architect: "Structured planner and evaluator calls with model-call telemetry.",
+    engineer: "Planner adapters persist prompt version, tokens, trace ID, latency, and cost.",
+  },
+  {
+    title: "Specialist Agents",
+    icon: Bot,
+    choice: "OpenAI Agents SDK ready",
+    status: "neutral",
+    executive: "Supports specialist workers for incidents, support, and research.",
+    architect: "Reserved for handoffs, sessions, tracing, and guardrails where useful.",
+    engineer: "Runtime contracts separate specialist agents from deterministic gates.",
+  },
+  {
+    title: "Tool Boundary",
+    icon: Puzzle,
+    choice: "MCP + typed adapters",
+    status: "open",
+    executive: "No mystery tools; every external action has a schema and scope.",
+    architect: "Tool registry, connector registry, input hashes, and risk classes.",
+    engineer: "configs/tools plus policy-checked /tool-calls/authorize and execute.",
+  },
+  {
+    title: "Governance",
+    icon: ShieldCheck,
+    choice: "OPA/Rego",
+    status: "open",
+    executive: "AI does not decide whether risky actions are allowed.",
+    architect: "Run eligibility, tool access, budgets, and approvals are policy decisions.",
+    engineer: "Rego packages and JSON fixtures live under policies and configs/policies.",
+  },
+  {
+    title: "Memory",
+    icon: Database,
+    choice: "Postgres + pgvector",
+    status: "open",
+    executive: "Memory is explicit, retained by policy, and visible in trace.",
+    architect: "App state, memory records, evidence, audit, checkpoints, and retrieval.",
+    engineer: "SQLAlchemy models and Alembic migrations define durable contracts.",
+  },
+  {
+    title: "Observability",
+    icon: Activity,
+    choice: "OpenTelemetry-compatible",
+    status: "neutral",
+    executive: "Every run can be inspected after the fact.",
+    architect: "Trace timeline covers model calls, tool calls, approvals, evidence, and cost.",
+    engineer: "GET /workflow-runs/{run_id}/trace feeds the web trace reader.",
+  },
+  {
+    title: "Evals",
+    icon: ClipboardCheck,
+    choice: "Trace evals + rubric contracts",
+    status: "open",
+    executive: "The demo can prove grounding, safety, and spend controls.",
+    architect: "Deterministic checks plus rubric contracts for generated artifacts.",
+    engineer: "GET /workflow-runs/{run_id}/evals/trace and pytest eval coverage.",
+  },
+  {
+    title: "Deployment",
+    icon: Server,
+    choice: "Vercel web + API runbook",
+    status: "neutral",
+    executive: "The portal is public while live execution stays admin-gated.",
+    architect: "Free-tier web deployment with API/container deployment path.",
+    engineer: "Vercel app, services/api/Dockerfile, render.yaml, deployment docs.",
+  },
+] satisfies StackLayer[];
 
 export function CommandCenter({
   apiStatus,
@@ -417,36 +550,16 @@ export function CommandCenter({
             </section>
           </section>
 
-          <section className="panel runtime-panel">
-            <PanelHeader
-              icon={Layers3}
-              title="Execution Segmentation"
-              badge="clear boundaries"
-            />
-            <div className="runtime-grid">
-              {runtimeModes.map((mode, index) => (
-                <motion.article
-                  className="runtime-card"
-                  key={mode.title}
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                  animate={
-                    shouldReduceMotion ? undefined : { opacity: 1, y: 0 }
-                  }
-                  transition={{ delay: 0.04 * index, duration: 0.3 }}
-                >
-                  <div className="runtime-index">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                  <div>
-                    <h2>{mode.title}</h2>
-                    <strong>{mode.engine}</strong>
-                    <span>{mode.scope}</span>
-                  </div>
-                  <em>{mode.cost}</em>
-                </motion.article>
-              ))}
-            </div>
-          </section>
+          <RuntimeSegmentationPanel
+            selectedWorkflow={selectedWorkflow}
+            shouldReduceMotion={shouldReduceMotion}
+          />
+
+          <ExpertStackPanel
+            selectedWorkflow={selectedWorkflow}
+            readiness={readiness}
+            workflowRunTrace={workflowRunTrace}
+          />
 
           <MultiAgentOrchestration
             workflows={workflows}
@@ -687,6 +800,255 @@ export function CommandCenter({
         </section>
       </div>
     </main>
+  );
+}
+
+function RuntimeSegmentationPanel({
+  selectedWorkflow,
+  shouldReduceMotion,
+}: {
+  selectedWorkflow: WorkflowDetail;
+  shouldReduceMotion: boolean | null;
+}) {
+  return (
+    <section className="panel runtime-panel">
+      <PanelHeader
+        icon={Layers3}
+        title="Agentic vs Rule Engines"
+        badge="autonomy taxonomy"
+      />
+      <div className="runtime-teaching-layout">
+        <div className="runtime-map" aria-label="Execution mode progression">
+          {runtimeModes.map((mode, index) => {
+            const Icon = mode.icon;
+            return (
+              <motion.article
+                className="runtime-map-step"
+                key={mode.title}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
+                animate={
+                  shouldReduceMotion ? undefined : { opacity: 1, y: 0 }
+                }
+                transition={{ delay: index * 0.04, duration: 0.28 }}
+              >
+                <div className="runtime-step-index">
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <Icon size={18} />
+                </div>
+                <div>
+                  <h2>{mode.title}</h2>
+                  <strong>{mode.engine}</strong>
+                  <p>{mode.noviceSignal}</p>
+                </div>
+              </motion.article>
+            );
+          })}
+        </div>
+
+        <div className="runtime-fit-card">
+          <div className="contract-title">Selected Workflow Fit</div>
+          <h2>{selectedWorkflow.name}</h2>
+          <p>
+            {selectedWorkflow.name} uses agentic orchestration only where the
+            work needs state, evidence, tools, or approval. Deterministic and
+            policy layers still own the gates.
+          </p>
+          <div className="runtime-fit-grid">
+            <RuntimeFitRow
+              label="Deterministic"
+              value={selectedWorkflow.required_connectors.join(", ")}
+            />
+            <RuntimeFitRow
+              label="Dynamic Policy"
+              value={selectedWorkflow.approval_required_for
+                .map(humanize)
+                .join(", ")}
+            />
+            <RuntimeFitRow
+              label="AI Workflow"
+              value={selectedWorkflow.patterns.map(humanize).join(", ")}
+            />
+            <RuntimeFitRow
+              label="Autonomy Ceiling"
+              value={humanize(selectedWorkflow.default_autonomy)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="runtime-grid runtime-grid-expanded">
+        {runtimeModes.map((mode, index) => {
+          const Icon = mode.icon;
+          return (
+            <motion.article
+              className="runtime-card"
+              key={mode.title}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+              animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 * index, duration: 0.3 }}
+            >
+              <div className="runtime-index">
+                <Icon size={18} />
+              </div>
+              <div>
+                <h2>{mode.title}</h2>
+                <strong>{mode.engine}</strong>
+                <span>{mode.scope}</span>
+              </div>
+              <div className="runtime-card-lens">
+                <small>Use when</small>
+                <em>{mode.useWhen}</em>
+              </div>
+              <div className="runtime-card-lens">
+                <small>Do not use for</small>
+                <em>{mode.breaksWhen}</em>
+              </div>
+              <div className="runtime-controls">
+                {mode.productionControls.map((control) => (
+                  <span key={control}>{control}</span>
+                ))}
+              </div>
+              <b>{mode.cost}</b>
+            </motion.article>
+          );
+        })}
+      </div>
+
+      <div className="runtime-decision-grid">
+        <DecisionCell
+          icon={FileCode2}
+          label="Fixed Rule Engine"
+          value="Best for stable binary checks, validation, and simple routing."
+        />
+        <DecisionCell
+          icon={Route}
+          label="Dynamic Rule Engine"
+          value="Best when rules depend on tenant, risk, data class, or budget."
+        />
+        <DecisionCell
+          icon={BrainCircuit}
+          label="AI Workflow"
+          value="Best for typed drafting, summarization, ranking, and evaluation."
+        />
+        <DecisionCell
+          icon={Workflow}
+          label="Agentic Workflow"
+          value="Best for ambiguous multi-step work that must adapt after each tool result."
+        />
+      </div>
+    </section>
+  );
+}
+
+function RuntimeFitRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="runtime-fit-row">
+      <span>{label}</span>
+      <strong>{value || "not configured"}</strong>
+    </div>
+  );
+}
+
+function DecisionCell({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="decision-cell">
+      <Icon size={18} />
+      <div>
+        <strong>{label}</strong>
+        <span>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function ExpertStackPanel({
+  selectedWorkflow,
+  readiness,
+  workflowRunTrace,
+}: {
+  selectedWorkflow: WorkflowDetail;
+  readiness: ApiReadiness | null;
+  workflowRunTrace: WorkflowRunTraceStatus;
+}) {
+  const readinessCopy = readiness
+    ? [
+        readiness.policy_configured ? "OPA configured" : "OPA not configured",
+        readiness.database_configured
+          ? "database configured"
+          : "database not configured",
+        readiness.live_run_admin_gate_configured
+          ? "admin live-run gate configured"
+          : "admin live-run gate not configured",
+      ].join(" / ")
+    : "public web is running without a live API readiness document";
+  const traceCopy =
+    workflowRunTrace.label === "loaded"
+      ? `${humanize(workflowRunTrace.trace.run.workflow_id)} trace loaded`
+      : workflowRunTrace.message;
+
+  return (
+    <section className="panel stack-panel">
+      <PanelHeader
+        icon={Microscope}
+        title="Peel-The-Layers Stack"
+        badge="executive to engineer"
+      />
+      <div className="stack-summary">
+        <div>
+          <span>Workflow</span>
+          <strong>{selectedWorkflow.name}</strong>
+        </div>
+        <div>
+          <span>Readiness</span>
+          <strong>{readinessCopy}</strong>
+        </div>
+        <div>
+          <span>Trace</span>
+          <strong>{traceCopy}</strong>
+        </div>
+      </div>
+
+      <div className="stack-grid">
+        {stackLayers.map((layer) => {
+          const Icon = layer.icon;
+          return (
+            <article className={`stack-layer stack-${layer.status}`} key={layer.title}>
+              <div className="stack-layer-heading">
+                <div className="stack-layer-icon">
+                  <Icon size={18} />
+                </div>
+                <div>
+                  <h2>{layer.title}</h2>
+                  <strong>{layer.choice}</strong>
+                </div>
+              </div>
+              <div className="stack-lens-grid">
+                <StackLens label="Executive" value={layer.executive} />
+                <StackLens label="Architect" value={layer.architect} />
+                <StackLens label="Engineer" value={layer.engineer} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function StackLens({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="stack-lens">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 

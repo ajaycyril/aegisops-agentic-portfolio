@@ -74,7 +74,12 @@ persistence, an internal cited response draft contract, a pending approval-revie
 customer messages, OPA-checked customer-message approval decisions, run-scoped redacted memory
 policy records, and blocked send authorization while customer-visible send actions remain
 disabled. Phase 9 has started with executable trace evals and UI eval-result display over real
-persisted run traces.
+persisted run traces. The command center now includes a novice-friendly autonomy taxonomy
+that separates fixed deterministic gates, dynamic OPA policy, structured AI workflows, and
+true LangGraph/MCP agentic execution with cost, controls, failure modes, and selected-workflow
+fit. It also includes a peel-the-layers stack panel that maps executive, architect, and
+engineer views to the actual orchestration, model, tool, governance, memory, observability,
+eval, and deployment layers.
 
 Current production web deployment:
 
@@ -329,6 +334,10 @@ Completed artifacts:
 - Code Lens rendering the selected workflow YAML contract.
 - Proposal Review surface showing run route, readiness gates, typed planner/evaluator output
   contracts, model-call audit path, and approval stop-points.
+- Agentic-vs-rule-engine taxonomy showing deterministic rules, dynamic policy, AI workflow,
+  and agentic orchestration as separate execution modes with cost, controls, and use-fit.
+- Peel-the-layers stack panel mapping production layers to executive, architect, and engineer
+  views over the selected workflow.
 - Multi-Agent Orchestration surface for Production Incident Investigator, with custom React
   Flow supervisor, specialist worker, evaluator, RCA, and approval nodes.
 - Favicon and mobile-first responsive styling.
@@ -355,6 +364,8 @@ Tasks:
 Acceptance criteria:
 
 - A CEO can understand what each workflow does.
+- A novice can understand why some steps are rules, some are dynamic policy, some are model
+  calls, and only some are truly agentic.
 - A CTO can see the platform layers.
 - An engineer can inspect the config and contracts.
 - The UI does not imply fake data is available.
@@ -652,7 +663,8 @@ Tasks:
 3. Done: add production env var documentation.
 4. Done: add database migration deployment steps.
 5. Done: add health, readiness, connector status, trace, and eval panels.
-6. Done: add final visual polish for command center screens.
+6. Done: add final visual polish for command center screens, including the autonomy taxonomy
+   and peel-the-layers stack depth panels.
 7. Done: add portfolio walkthrough script.
 8. Done: add README deployment guide.
 
