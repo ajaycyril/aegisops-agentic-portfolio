@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
+from aegisops_api.budget import BudgetPolicyEvaluator, enforce_run_budget
 from aegisops_api.db.models import Approval, EvidenceRecord, ToolCall, WorkflowRun, utc_now
 from aegisops_api.policy import OpaClient, PolicyDecision
 from aegisops_api.tools import (
@@ -299,6 +300,7 @@ async def collect_engineering_issue_context(
     tool_runtime: IssueToPrToolRuntime | None = None,
     planner: IssueToPrPlanner | None = None,
     replay_fixture_dir: Path | None = None,
+    budget_evaluator: BudgetPolicyEvaluator | None = None,
 ) -> IssueToPrRunResponse:
     run = session.get(WorkflowRun, run_id)
     if run is None:
@@ -317,6 +319,14 @@ async def collect_engineering_issue_context(
             ),
             http_status=503,
         )
+    await enforce_run_budget(
+        run=run,
+        session=session,
+        budget_evaluator=budget_evaluator,
+        action="workflow_graph.collect_issue_context",
+        actor_id=request.actor_id,
+        trace_id=request.trace_id,
+    )
 
     try:
         run.status = "running"
@@ -350,6 +360,7 @@ async def collect_engineering_issue_context(
                 policy_evaluator=policy_evaluator,
                 adapter_registry=adapter_registry,
                 available_connectors=available_connectors,
+                budget_evaluator=budget_evaluator,
             )
             graph = create_engineering_issue_to_pr_graph(
                 IssueToPrGraphDependencies(
@@ -702,6 +713,7 @@ async def authorize_issue_to_pr_draft_pr(
     tool_registry: ToolRegistry,
     policy_evaluator: ToolPolicyEvaluator,
     available_connectors: set[str],
+    budget_evaluator: BudgetPolicyEvaluator | None = None,
 ) -> IssueToPrPrDraftAuthorizationResponse:
     run = session.get(WorkflowRun, run_id)
     if run is None:
@@ -728,6 +740,7 @@ async def authorize_issue_to_pr_draft_pr(
         session=session,
         policy_evaluator=policy_evaluator,
         available_connectors=available_connectors,
+        budget_evaluator=budget_evaluator,
     )
     return IssueToPrPrDraftAuthorizationResponse(
         run_id=run.id,

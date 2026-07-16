@@ -9,6 +9,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from aegisops_api.budget import BudgetPolicyEvaluator
 from aegisops_api.tools import (
     ToolCallAuthorizationRequest,
     ToolCallAuthorizationResponse,
@@ -104,6 +105,7 @@ class PolicyBackedSupportToolRuntime:
     policy_evaluator: ToolPolicyEvaluator
     adapter_registry: ToolAdapterRegistry
     available_connectors: set[str]
+    budget_evaluator: BudgetPolicyEvaluator | None = None
 
     async def authorize_tool_call(
         self,
@@ -116,6 +118,7 @@ class PolicyBackedSupportToolRuntime:
             session=self.session,
             policy_evaluator=self.policy_evaluator,
             available_connectors=self.available_connectors,
+            budget_evaluator=self.budget_evaluator,
         )
 
     async def execute_tool_call(
@@ -129,6 +132,7 @@ class PolicyBackedSupportToolRuntime:
             tool_registry=self.tool_registry,
             session=self.session,
             adapter_registry=self.adapter_registry,
+            budget_evaluator=self.budget_evaluator,
         )
 
 

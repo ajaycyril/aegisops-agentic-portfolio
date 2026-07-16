@@ -630,13 +630,14 @@ Tasks:
    Customer Support response drafts. Done for executable deterministic trace eval runners and
    UI eval-result display over real configured run ids.
 6. Done: add admin-only live-run gate.
-7. Add per-run budget enforcement.
+7. Done: add per-run budget enforcement.
 8. Add demo reset and seed from captured real traces only.
 
 Acceptance criteria:
 
 - Public demo can run from captured real traces with no live API spend.
 - Live runs require admin configuration.
+- Runtime routes stop when persisted run usage exceeds the configured budget envelope.
 - Eval results are visible in the UI.
 - Replay mode is clearly labeled.
 

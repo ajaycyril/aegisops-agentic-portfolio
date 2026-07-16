@@ -57,6 +57,11 @@ Live workflow-run start requests must include `x-aegisops-live-run-key` with tha
 secret. If live runs are enabled without the key, the API returns a configuration error before
 workflow lookup, policy evaluation, or persistence.
 
+Runtime graph and tool routes also evaluate `aegisops.budget` against persisted usage before
+continuing. Keep `MAX_AGENT_RUN_SECONDS`, `MAX_AGENT_TOOL_CALLS`, and
+`MAX_AGENT_ESTIMATED_USD` low for the public demo; exceeded budgets fail the run and emit a
+`budget.blocked` audit event instead of continuing spend.
+
 Optional model configuration for Engineering proposal/evaluator runs:
 
 ```text

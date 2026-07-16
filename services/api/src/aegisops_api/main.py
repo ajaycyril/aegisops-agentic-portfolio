@@ -8,6 +8,11 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from aegisops_api import __version__
+from aegisops_api.budget import (
+    BudgetEnforcementError,
+    BudgetPolicyEvaluator,
+    OpaBudgetPolicyEvaluator,
+)
 from aegisops_api.config import Settings, get_settings
 from aegisops_api.connectors import ConnectorDetail, ConnectorNotFoundError, ConnectorSummary
 from aegisops_api.connectors.registry import get_connector_registry
@@ -164,6 +169,20 @@ async def get_approval_policy_evaluator(
         await opa_client.aclose()
 
 
+async def get_budget_policy_evaluator(
+    settings: SettingsDependency,
+) -> AsyncGenerator[BudgetPolicyEvaluator | None, None]:
+    if settings.opa_base_url is None:
+        yield None
+        return
+
+    opa_client = OpaClient(str(settings.opa_base_url))
+    try:
+        yield OpaBudgetPolicyEvaluator(opa_client)
+    finally:
+        await opa_client.aclose()
+
+
 def get_tool_adapter_registry() -> ToolAdapterRegistry:
     return create_default_tool_adapter_registry()
 
@@ -278,6 +297,10 @@ async def authorize_tool_call_endpoint(
     request: ToolCallAuthorizationRequest,
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+    budget_evaluator: Annotated[
+        BudgetPolicyEvaluator | None,
+        Depends(get_budget_policy_evaluator),
+    ],
 ) -> ToolCallAuthorizationResponse:
     try:
         return await authorize_tool_call(
@@ -287,12 +310,18 @@ async def authorize_tool_call_endpoint(
             session=session,
             policy_evaluator=policy_evaluator,
             available_connectors=get_available_connectors(),
+            budget_evaluator=budget_evaluator,
         )
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail="workflow not found") from exc
     except ToolNotFoundError as exc:
         raise HTTPException(status_code=404, detail="tool not found") from exc
     except ToolExecutionRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except BudgetEnforcementError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
@@ -311,6 +340,10 @@ async def execute_tool_call_endpoint(
     request: ToolCallExecutionRequest,
     session: Annotated[Session, Depends(get_database_session)],
     adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+    budget_evaluator: Annotated[
+        BudgetPolicyEvaluator | None,
+        Depends(get_budget_policy_evaluator),
+    ],
 ) -> ToolCallExecutionResponse:
     try:
         return await execute_authorized_tool_call(
@@ -319,10 +352,16 @@ async def execute_tool_call_endpoint(
             tool_registry=get_tool_registry(),
             session=session,
             adapter_registry=adapter_registry,
+            budget_evaluator=budget_evaluator,
         )
     except ToolNotFoundError as exc:
         raise HTTPException(status_code=404, detail="tool not found") from exc
     except ToolExecutionRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except BudgetEnforcementError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
@@ -423,6 +462,10 @@ async def collect_engineering_issue_to_pr_evidence(
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
     adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+    budget_evaluator: Annotated[
+        BudgetPolicyEvaluator | None,
+        Depends(get_budget_policy_evaluator),
+    ],
     settings: SettingsDependency,
 ) -> IssueToPrRunResponse:
     try:
@@ -444,6 +487,7 @@ async def collect_engineering_issue_to_pr_evidence(
             adapter_registry=adapter_registry,
             available_connectors=get_available_connectors(),
             planner=planner,
+            budget_evaluator=budget_evaluator,
         )
     except IssueToPrRunRejectedError as exc:
         raise HTTPException(
@@ -456,6 +500,11 @@ async def collect_engineering_issue_to_pr_evidence(
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
     except (ToolExecutionRejectedError, ToolAdapterExecutionError) as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except BudgetEnforcementError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
@@ -475,6 +524,10 @@ async def collect_customer_support_escalation_context(
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
     adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+    budget_evaluator: Annotated[
+        BudgetPolicyEvaluator | None,
+        Depends(get_budget_policy_evaluator),
+    ],
 ) -> SupportEscalationResponse:
     try:
         return await collect_support_escalation_context(
@@ -486,6 +539,7 @@ async def collect_customer_support_escalation_context(
             policy_evaluator=policy_evaluator,
             adapter_registry=adapter_registry,
             available_connectors=get_available_connectors(),
+            budget_evaluator=budget_evaluator,
         )
     except SupportEscalationRejectedError as exc:
         raise HTTPException(
@@ -493,6 +547,11 @@ async def collect_customer_support_escalation_context(
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
     except (ToolExecutionRejectedError, ToolAdapterExecutionError) as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except BudgetEnforcementError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
@@ -703,6 +762,10 @@ async def authorize_engineering_issue_to_pr_draft_pr(
     request: IssueToPrPrDraftAuthorizationRequest,
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
+    budget_evaluator: Annotated[
+        BudgetPolicyEvaluator | None,
+        Depends(get_budget_policy_evaluator),
+    ],
 ) -> IssueToPrPrDraftAuthorizationResponse:
     try:
         return await authorize_issue_to_pr_draft_pr(
@@ -713,6 +776,7 @@ async def authorize_engineering_issue_to_pr_draft_pr(
             tool_registry=get_tool_registry(),
             policy_evaluator=policy_evaluator,
             available_connectors=get_available_connectors(),
+            budget_evaluator=budget_evaluator,
         )
     except IssueToPrRunRejectedError as exc:
         raise HTTPException(
@@ -722,6 +786,11 @@ async def authorize_engineering_issue_to_pr_draft_pr(
     except (WorkflowNotFoundError, ToolNotFoundError) as exc:
         raise HTTPException(status_code=404, detail="workflow or tool not found") from exc
     except ToolExecutionRejectedError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except BudgetEnforcementError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},
@@ -765,6 +834,10 @@ async def collect_incident_response_evidence(
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[ToolPolicyEvaluator, Depends(get_tool_policy_evaluator)],
     adapter_registry: Annotated[ToolAdapterRegistry, Depends(get_tool_adapter_registry)],
+    budget_evaluator: Annotated[
+        BudgetPolicyEvaluator | None,
+        Depends(get_budget_policy_evaluator),
+    ],
 ) -> IncidentInvestigationResponse:
     try:
         return await collect_incident_evidence(
@@ -776,6 +849,7 @@ async def collect_incident_response_evidence(
             policy_evaluator=policy_evaluator,
             adapter_registry=adapter_registry,
             available_connectors=get_available_connectors(),
+            budget_evaluator=budget_evaluator,
         )
     except IncidentInvestigationRejectedError as exc:
         raise HTTPException(
@@ -788,6 +862,11 @@ async def collect_incident_response_evidence(
             detail={"reason_code": exc.reason_code, "message": exc.message},
         ) from exc
     except (ToolExecutionRejectedError, ToolAdapterExecutionError) as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"reason_code": exc.reason_code, "message": exc.message},
+        ) from exc
+    except BudgetEnforcementError as exc:
         raise HTTPException(
             status_code=exc.http_status,
             detail={"reason_code": exc.reason_code, "message": exc.message},

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
+from aegisops_api.budget import BudgetPolicyEvaluator, enforce_run_budget
 from aegisops_api.db.models import (
     Approval,
     EvidenceRecord,
@@ -229,6 +230,7 @@ async def collect_support_escalation_context(
     adapter_registry: ToolAdapterRegistry,
     available_connectors: set[str],
     tool_runtime: SupportEscalationToolRuntime | None = None,
+    budget_evaluator: BudgetPolicyEvaluator | None = None,
 ) -> SupportEscalationResponse:
     run = session.get(WorkflowRun, run_id)
     if run is None:
@@ -238,6 +240,14 @@ async def collect_support_escalation_context(
             http_status=404,
         )
     ensure_run_can_collect_support_context(run)
+    await enforce_run_budget(
+        run=run,
+        session=session,
+        budget_evaluator=budget_evaluator,
+        action="workflow_graph.collect_support_context",
+        actor_id=request.actor_id,
+        trace_id=request.trace_id,
+    )
     graph_input = build_graph_input_from_run(run, request)
 
     try:
@@ -271,6 +281,7 @@ async def collect_support_escalation_context(
             policy_evaluator=policy_evaluator,
             adapter_registry=adapter_registry,
             available_connectors=available_connectors,
+            budget_evaluator=budget_evaluator,
         )
         graph = create_customer_support_escalation_graph(
             SupportEscalationGraphDependencies(tool_runtime=runtime)

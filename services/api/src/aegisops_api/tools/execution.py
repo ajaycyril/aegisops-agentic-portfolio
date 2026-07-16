@@ -11,7 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
-from aegisops_api.db.models import Approval, ToolCall, utc_now
+from aegisops_api.budget import BudgetPolicyEvaluator, enforce_run_budget
+from aegisops_api.db.models import Approval, ToolCall, WorkflowRun, utc_now
 from aegisops_api.policy import OpaClient, PolicyDecision
 from aegisops_api.tools.adapters import ToolAdapterExecutionError, ToolAdapterRegistry
 from aegisops_api.tools.registry import ToolDetail, ToolRegistry
@@ -102,6 +103,7 @@ async def authorize_tool_call(
     session: Session,
     policy_evaluator: ToolPolicyEvaluator,
     available_connectors: set[str],
+    budget_evaluator: BudgetPolicyEvaluator | None = None,
 ) -> ToolCallAuthorizationResponse:
     workflow = workflow_registry.get_workflow(
         request.workflow_id,
@@ -110,6 +112,17 @@ async def authorize_tool_call(
     tool = tool_registry.get_tool(request.tool_id, available_connectors=available_connectors)
     ensure_tool_call_can_be_considered(request, workflow, tool)
     validate_tool_input(request.input_payload, tool)
+    if budget_evaluator is not None:
+        run = get_workflow_run_for_tool_request(session, request)
+        await enforce_run_budget(
+            run=run,
+            session=session,
+            budget_evaluator=budget_evaluator,
+            requested_tool_calls=1,
+            action="tool_call.authorize",
+            actor_id=request.actor_id,
+            trace_id=request.trace_id,
+        )
     approval_status = get_approval_status(session, request)
     policy_input = build_tool_policy_input(
         request=request,
@@ -199,6 +212,7 @@ async def execute_authorized_tool_call(
     tool_registry: ToolRegistry,
     session: Session,
     adapter_registry: ToolAdapterRegistry,
+    budget_evaluator: BudgetPolicyEvaluator | None = None,
 ) -> ToolCallExecutionResponse:
     tool_call = session.get(ToolCall, tool_call_id)
     if tool_call is None:
@@ -229,6 +243,23 @@ async def execute_authorized_tool_call(
 
     tool = tool_registry.get_tool(tool_id, available_connectors={connector})
     validate_tool_input(request.input_payload, tool)
+    if budget_evaluator is not None:
+        run = session.get(WorkflowRun, tool_call.run_id)
+        if run is None:
+            raise ToolExecutionRejectedError(
+                reason_code="workflow_run_not_found",
+                message="Workflow run was not found.",
+                http_status=404,
+            )
+        await enforce_run_budget(
+            run=run,
+            session=session,
+            budget_evaluator=budget_evaluator,
+            requested_tool_calls=0,
+            action="tool_call.execute",
+            actor_id=request.actor_id,
+            trace_id=request.trace_id or tool_call.trace_id,
+        )
 
     started_at = perf_counter()
     try:
@@ -393,6 +424,25 @@ def get_approval_status(session: Session, request: ToolCallAuthorizationRequest)
             message="Approval record is not approved.",
         )
     return "approved"
+
+
+def get_workflow_run_for_tool_request(
+    session: Session,
+    request: ToolCallAuthorizationRequest,
+) -> WorkflowRun:
+    run = session.get(WorkflowRun, request.run_id)
+    if run is None:
+        raise ToolExecutionRejectedError(
+            reason_code="workflow_run_not_found",
+            message="Workflow run was not found.",
+            http_status=404,
+        )
+    if run.workflow_id != request.workflow_id:
+        raise ToolExecutionRejectedError(
+            reason_code="workflow_run_mismatch",
+            message="Workflow run does not belong to the requested workflow.",
+        )
+    return run
 
 
 def build_tool_policy_input(

@@ -15,6 +15,12 @@ Production agentic systems need safety outside the prompt.
 | Budget | Max runtime, model spend, tool calls, retries |
 | Data control | Source metadata, retention rules, PII handling |
 
+Budget checks are enforced both at run start and at runtime. Before graph evidence collection,
+tool authorization, or tool execution continues, the API builds a budget payload from persisted
+`model_calls`, `tool_calls`, elapsed run time, and the stored `workflow_runs.budget`, then
+evaluates `aegisops.budget` outside the model. A denied budget decision marks the run failed and
+writes a `budget.blocked` audit event.
+
 ## Approval Defaults
 
 Human approval is required for:

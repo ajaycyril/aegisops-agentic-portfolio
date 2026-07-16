@@ -35,6 +35,9 @@ This repository currently defines:
 - Typed `POST /workflow-runs` start gate with connector readiness, replay/live mode, budget
   envelope, admin-only live-run preflight, OPA run eligibility, durable run records, registry
   snapshots, and audit events.
+- Per-run budget enforcement that evaluates persisted model cost, tool-call count, elapsed
+  runtime, and prospective tool calls through OPA before runtime graph or tool execution work
+  continues.
 - Registry-aware visual command center with portfolio selection, execution segmentation,
   React Flow graph, evidence board, policy lens, trace timeline, code lens, and safe disabled
   run-start controls.

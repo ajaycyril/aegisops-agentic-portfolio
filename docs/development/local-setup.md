@@ -72,6 +72,10 @@ intentionally enabled for a sandbox, set `LIVE_RUN_ADMIN_KEY` and send the same 
 `x-aegisops-live-run-key` request header. Replay mode still requires a captured real-run source
 id.
 
+The same budget values are enforced during runtime graph and tool routes when OPA is configured.
+If persisted model cost, elapsed run time, or prospective tool-call count exceeds the run budget,
+the API fails the run and records a `budget.blocked` audit event before continuing.
+
 ## Run Local Infrastructure
 
 ```bash

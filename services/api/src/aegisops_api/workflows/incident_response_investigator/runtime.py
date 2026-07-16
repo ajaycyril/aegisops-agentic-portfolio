@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from aegisops_api.audit import AuditEventInput, write_audit_event
+from aegisops_api.budget import BudgetPolicyEvaluator, enforce_run_budget
 from aegisops_api.db.models import Approval, EvidenceRecord, WorkflowRun, utc_now
 from aegisops_api.tools import ToolPolicyEvaluator
 from aegisops_api.tools.adapters import ToolAdapterRegistry
@@ -245,6 +246,7 @@ async def collect_incident_evidence(
     available_connectors: set[str],
     tool_runtime: IncidentInvestigationToolRuntime | None = None,
     replay_fixture_dir: Path | None = None,
+    budget_evaluator: BudgetPolicyEvaluator | None = None,
 ) -> IncidentInvestigationResponse:
     run = session.get(WorkflowRun, run_id)
     if run is None:
@@ -254,6 +256,14 @@ async def collect_incident_evidence(
             http_status=404,
         )
     ensure_run_can_collect_incident_evidence(run)
+    await enforce_run_budget(
+        run=run,
+        session=session,
+        budget_evaluator=budget_evaluator,
+        action="workflow_graph.collect_incident_evidence",
+        actor_id=request.actor_id,
+        trace_id=request.trace_id,
+    )
 
     graph_state: IncidentInvestigationState | None = None
     graph_input: IncidentInvestigationInput | None = None
@@ -313,6 +323,7 @@ async def collect_incident_evidence(
                 policy_evaluator=policy_evaluator,
                 adapter_registry=adapter_registry,
                 available_connectors=available_connectors,
+                budget_evaluator=budget_evaluator,
             )
             graph = create_incident_investigation_graph(
                 IncidentInvestigationGraphDependencies(tool_runtime=runtime)
