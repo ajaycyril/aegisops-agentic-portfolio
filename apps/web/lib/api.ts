@@ -250,6 +250,49 @@ export type WorkflowRunTraceEvalStatus =
       evals: WorkflowRunTraceEval;
     };
 
+const toolRiskClassSchema = z.enum([
+  "read",
+  "draft",
+  "write",
+  "external_message",
+  "financial",
+  "access_change",
+]);
+
+const toolStatusSchema = z.enum(["contract_ready", "planned", "disabled"]);
+
+const toolSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  connector: z.string(),
+  mcp_server: z.string(),
+  status: toolStatusSchema,
+  risk_class: toolRiskClassSchema,
+  enabled: z.boolean(),
+  disabled_reason: z.string().nullable(),
+  required_scopes: z.array(z.string()),
+  allowed_workflows: z.array(z.string()),
+  requires_approval: z.boolean(),
+});
+
+const toolDetailSchema = toolSummarySchema.extend({
+  description: z.string(),
+  input_schema: jsonObjectSchema,
+  output_schema: jsonObjectSchema,
+  source_path: z.string(),
+});
+
+const toolSummaryListSchema = z.array(toolSummarySchema);
+
+export type ToolDetail = z.infer<typeof toolDetailSchema>;
+
+export type ToolCatalog = {
+  source: "api" | "unavailable";
+  live: boolean;
+  message: string;
+  tools: ToolDetail[];
+};
+
 type RequestHeaders = {
   get(name: string): string | null;
 };
@@ -586,6 +629,60 @@ export async function getWorkflowCatalog(
   }
 }
 
+export async function getToolCatalog(
+  apiBaseUrl?: string | null,
+): Promise<ToolCatalog> {
+  const baseUrl = apiBaseUrl ?? getApiBaseUrl();
+
+  if (!baseUrl) {
+    return unavailableToolCatalog("API URL is not configured for this deployment.");
+  }
+
+  const normalizedBaseUrl = stripTrailingSlash(baseUrl);
+
+  try {
+    const summaryResponse = await fetch(`${normalizedBaseUrl}/tools`, {
+      cache: "no-store",
+      headers: {
+        accept: "application/json",
+      },
+    });
+
+    if (!summaryResponse.ok) {
+      return unavailableToolCatalog(
+        `Tool registry returned HTTP ${summaryResponse.status}.`,
+      );
+    }
+
+    const summaries = toolSummaryListSchema.parse(await summaryResponse.json());
+    const details = await Promise.all(
+      summaries.map(async (tool) => {
+        const detailResponse = await fetch(`${normalizedBaseUrl}/tools/${tool.id}`, {
+          cache: "no-store",
+          headers: {
+            accept: "application/json",
+          },
+        });
+
+        if (!detailResponse.ok) {
+          throw new Error(`Tool detail returned HTTP ${detailResponse.status}.`);
+        }
+
+        return toolDetailSchema.parse(await detailResponse.json());
+      }),
+    );
+
+    return {
+      source: "api",
+      live: true,
+      message: "Tool registry API is the active tool contract source.",
+      tools: details,
+    };
+  } catch {
+    return unavailableToolCatalog("Tool registry API could not be reached.");
+  }
+}
+
 function getRequestOrigin(requestHeaders?: RequestHeaders | null) {
   if (!requestHeaders) {
     return null;
@@ -613,5 +710,14 @@ function repositoryMirrorCatalog(message: string): WorkflowCatalog {
     live: false,
     message,
     workflows: localWorkflowCatalog satisfies WorkflowDetail[],
+  };
+}
+
+function unavailableToolCatalog(message: string): ToolCatalog {
+  return {
+    source: "unavailable",
+    live: false,
+    message,
+    tools: [],
   };
 }

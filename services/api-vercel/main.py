@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self, cast
+from urllib import error as urlerror
+from urllib import request as urlrequest
 
 import yaml
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -14,6 +18,7 @@ CONFIG_DIR = ROOT_DIR / "configs"
 
 WorkflowStatus = Literal["planned", "ready", "gated", "disabled"]
 AutonomyLevel = Literal["read_only", "draft_only", "approval_required", "autonomous"]
+ExecutionMode = Literal["replay", "live"]
 ConnectorStatus = Literal["contract_ready", "planned", "disabled"]
 ConnectorAuthType = Literal[
     "api_key",
@@ -74,6 +79,18 @@ class WorkflowDetail(WorkflowSummary):
     approval_required_for: list[str]
     visual_surfaces: list[str]
     source_path: str
+
+
+class WorkflowRunStartRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    workflow_id: str
+    execution_mode: ExecutionMode = "live"
+    autonomy_level: AutonomyLevel | None = None
+    input_payload: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] | None = None
+    require_human_approval: bool | None = None
+    include_proposal: bool | None = None
 
 
 class DataBoundaries(BaseModel):
@@ -247,6 +264,72 @@ async def get_workflow(workflow_id: str) -> WorkflowDetail:
     raise HTTPException(status_code=404, detail="workflow not found")
 
 
+@app.post("/workflow-runs", tags=["runtime"])
+async def create_workflow_run(request: WorkflowRunStartRequest) -> JSONResponse:
+    workflow = find_workflow(request.workflow_id)
+    if workflow is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "status": "blocked",
+                "reason_code": "workflow_contract_not_found",
+                "detail": "The requested workflow is not present in the deployed registry snapshot.",
+                "request": workflow_run_request_summary(request),
+            },
+        )
+
+    runtime_base_url = os.environ.get("FULL_RUNTIME_API_BASE_URL")
+    proxy_enabled = env_flag("PUBLIC_LIVE_RUN_PROXY_ENABLED")
+
+    if runtime_base_url and proxy_enabled:
+        upstream_status, upstream_body = forward_workflow_run(runtime_base_url, request)
+        return JSONResponse(
+            status_code=upstream_status,
+            content={
+                "status": "forwarded",
+                "reason_code": "full_runtime_response",
+                "detail": "The request was forwarded to the configured full runtime API.",
+                "upstream_status": upstream_status,
+                "upstream_body": upstream_body,
+            },
+        )
+
+    connectors = configured_connectors()
+    summary = workflow_summary(workflow, connectors)
+    missing_runtime = runtime_gate_requirements(runtime_base_url, proxy_enabled)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "status": "blocked",
+            "reason_code": "full_runtime_not_configured",
+            "detail": (
+                "This public Vercel API is a registry gateway. It cannot create workflow "
+                "runs until the stateful full runtime is deployed and explicitly connected."
+            ),
+            "request": workflow_run_request_summary(request),
+            "workflow": summary.model_dump(mode="json"),
+            "runtime_gate": {
+                "public_registry_api": True,
+                "full_runtime_api_configured": bool(runtime_base_url),
+                "public_live_run_proxy_enabled": proxy_enabled,
+                "workflow_connector_ready": summary.enabled,
+                "database_required": True,
+                "policy_required": True,
+                "admin_live_run_key_required": True,
+            },
+            "missing_runtime": missing_runtime,
+            "next_required": [
+                "Deploy services/api as the full cloud runtime.",
+                "Provision managed Postgres with pgvector and run Alembic migrations.",
+                "Deploy the hosted OPA-compatible policy endpoint.",
+                "Configure connector secrets and admin live-run key on the full runtime.",
+                "Set FULL_RUNTIME_API_BASE_URL on the public gateway.",
+                "Enable PUBLIC_LIVE_RUN_PROXY_ENABLED only after spend controls are verified.",
+            ],
+        },
+    )
+
+
 @app.get("/connectors", response_model=list[ConnectorSummary], tags=["connectors"])
 async def list_connectors() -> list[ConnectorSummary]:
     configured = configured_connectors()
@@ -315,6 +398,13 @@ def workflow_summary(workflow: WorkflowConfig, connectors: set[str]) -> Workflow
     )
 
 
+def find_workflow(workflow_id: str) -> WorkflowConfig | None:
+    for workflow in workflow_configs():
+        if workflow.id == workflow_id:
+            return workflow
+    return None
+
+
 def connector_summary(connector: ConnectorConfig, configured: set[str]) -> ConnectorSummary:
     deployment_enabled = connector.id in configured
     missing_env_vars = [
@@ -375,6 +465,86 @@ def configured_connectors() -> set[str]:
         for connector in os.environ.get("CONFIGURED_CONNECTORS", "").split(",")
         if connector.strip()
     }
+
+
+def env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def workflow_run_request_summary(request: WorkflowRunStartRequest) -> dict[str, Any]:
+    return {
+        "workflow_id": request.workflow_id,
+        "execution_mode": request.execution_mode,
+        "autonomy_level": request.autonomy_level,
+        "input_keys": sorted(request.input_payload.keys()),
+        "budget_configured": request.budget is not None,
+        "require_human_approval": request.require_human_approval,
+        "include_proposal": request.include_proposal,
+    }
+
+
+def runtime_gate_requirements(runtime_base_url: str | None, proxy_enabled: bool) -> list[str]:
+    missing = []
+    if not runtime_base_url:
+        missing.append("FULL_RUNTIME_API_BASE_URL")
+    if not proxy_enabled:
+        missing.append("PUBLIC_LIVE_RUN_PROXY_ENABLED")
+    missing.extend(
+        [
+            "managed Postgres/pgvector on the full runtime",
+            "hosted OPA-compatible policy endpoint on the full runtime",
+            "connector secrets on the full runtime",
+            "LIVE_RUN_ADMIN_KEY on the full runtime",
+        ]
+    )
+    return missing
+
+
+def forward_workflow_run(
+    runtime_base_url: str,
+    request: WorkflowRunStartRequest,
+) -> tuple[int, Any]:
+    payload = json.dumps(request.model_dump(mode="json", exclude_none=True)).encode("utf-8")
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+    }
+    live_run_key = os.environ.get("FULL_RUNTIME_LIVE_RUN_ADMIN_KEY") or os.environ.get(
+        "LIVE_RUN_ADMIN_KEY"
+    )
+    if live_run_key:
+        headers["x-aegisops-live-run-key"] = live_run_key
+
+    upstream_request = urlrequest.Request(
+        f"{strip_trailing_slash(runtime_base_url)}/workflow-runs",
+        data=payload,
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with urlrequest.urlopen(upstream_request, timeout=20) as response:
+            return response.status, parse_http_body(
+                response.read(),
+                response.headers.get("content-type", ""),
+            )
+    except urlerror.HTTPError as exc:
+        return exc.code, parse_http_body(exc.read(), exc.headers.get("content-type", ""))
+    except urlerror.URLError as exc:
+        return status.HTTP_502_BAD_GATEWAY, {
+            "error": "full_runtime_unreachable",
+            "detail": str(exc.reason),
+        }
+
+
+def parse_http_body(body: bytes, content_type: str) -> Any:
+    if "application/json" in content_type:
+        return json.loads(body.decode("utf-8"))
+    return body.decode("utf-8")
+
+
+def strip_trailing_slash(value: str) -> str:
+    return value[:-1] if value.endswith("/") else value
 
 
 class ConfigSnapshotError(RuntimeError):

@@ -1,0 +1,46 @@
+id: purchase_order_read
+name: Purchase Order Read
+description: Read purchase order terms, tolerances, approvals, and delivery references for invoice matching.
+connector: accounting_system
+mcp_server: aegisops.accounting
+status: planned
+risk_class: read
+required_scopes:
+  - invoices:read
+  - vendors:read
+allowed_workflows:
+  - finance_invoice_exception
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - purchase_order_id
+  properties:
+    purchase_order_id:
+      type: string
+      minLength: 1
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - purchase_order
+  properties:
+    purchase_order:
+      type: object
+      additionalProperties: true
+      required:
+        - purchase_order_id
+        - vendor_id
+        - approved_amount
+        - source_uri
+      properties:
+        purchase_order_id:
+          type: string
+        vendor_id:
+          type: string
+        approved_amount:
+          type: number
+        tolerance_percent:
+          type: number
+        source_uri:
+          type: string

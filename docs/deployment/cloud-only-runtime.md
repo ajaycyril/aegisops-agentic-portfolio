@@ -22,11 +22,16 @@ public portal safe while the stateful runtime is provisioned behind managed cont
 4. Optional Redis-compatible cache or Upstash Redis for rate limiting and runtime throttles.
 5. Read-only connector gateways or GitHub App credentials for real sandbox runs.
 
+Supabase is the preferred free-tier-friendly Postgres target when available. AegisOps connects
+to it through the standard `DATABASE_URL` used by SQLAlchemy, Alembic, LangGraph checkpoints,
+audit tables, memory records, and pgvector. Do not expose Supabase service-role keys to the
+browser.
+
 ## Environment Contract
 
 ```text
 APP_ENV=production
-DATABASE_URL=<managed-postgres-url>
+DATABASE_URL=<supabase-or-managed-postgres-url>
 OPA_BASE_URL=<policy-url>
 CONFIGURED_CONNECTORS=github,observability,deployments,support_system,crm,knowledge_base
 REQUIRE_HUMAN_APPROVAL=true
@@ -36,6 +41,17 @@ MAX_AGENT_RUN_SECONDS=300
 MAX_AGENT_TOOL_CALLS=25
 MAX_AGENT_ESTIMATED_USD=1.00
 ```
+
+Public gateway variables:
+
+```text
+FULL_RUNTIME_API_BASE_URL=<deployed-services-api-url>
+PUBLIC_LIVE_RUN_PROXY_ENABLED=false
+FULL_RUNTIME_LIVE_RUN_ADMIN_KEY=<same-secret-as-full-runtime-live-run-key>
+```
+
+Keep `PUBLIC_LIVE_RUN_PROXY_ENABLED=false` until `/ready` on the full runtime reports database,
+policy, connector, approval, and admin live-run gates configured.
 
 Optional model variables stay disabled until a real sandbox workflow needs proposal or
 evaluation generation:
@@ -54,6 +70,9 @@ OPENAI_REASONING_MODEL=<optional-explicit-model>
    cd services/api
    DATABASE_URL=<managed-postgres-url> .venv/bin/alembic upgrade head
    ```
+
+   For Supabase, use the pooled Postgres URL with the `postgresql+psycopg://` scheme and
+   provider-required SSL query parameters.
 
 2. Verify policy loading by calling the hosted OPA-compatible endpoint for the
    `aegisops.run_eligibility`, `aegisops.tool_access`, `aegisops.approvals`,

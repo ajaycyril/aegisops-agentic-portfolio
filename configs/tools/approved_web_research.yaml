@@ -1,0 +1,54 @@
+id: approved_web_research
+name: Approved Web Research
+description: Search approved public web sources and return cited snippets for enterprise research workflows.
+connector: web_research
+mcp_server: aegisops.research
+status: planned
+risk_class: read
+required_scopes:
+  - research:read
+allowed_workflows:
+  - supply_chain_supplier_risk
+  - sales_rfp_agent
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - query
+  properties:
+    query:
+      type: string
+      minLength: 1
+    source_policy:
+      type: string
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 10
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - results
+  properties:
+    results:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - title
+          - url
+          - snippet
+          - retrieved_at
+        properties:
+          title:
+            type: string
+          url:
+            type: string
+            format: uri
+          snippet:
+            type: string
+          retrieved_at:
+            type: string
+            format: date-time

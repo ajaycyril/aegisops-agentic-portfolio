@@ -7,7 +7,8 @@ auth_type: public_dataset
 required_env_vars: []
 supported_scopes:
   - research:read
-tool_ids: []
+tool_ids:
+  - sanctions_screening_read
 workflow_ids:
   - supply_chain_supplier_risk
 data_boundaries:

@@ -9,7 +9,8 @@ required_env_vars:
 supported_scopes:
   - procurement:read
   - suppliers:read
-tool_ids: []
+tool_ids:
+  - supplier_profile_read
 workflow_ids:
   - supply_chain_supplier_risk
 data_boundaries:

@@ -10,7 +10,9 @@ supported_scopes:
   - invoices:read
   - vendors:read
   - approvals:write
-tool_ids: []
+tool_ids:
+  - invoice_read
+  - purchase_order_read
 workflow_ids:
   - finance_invoice_exception
 data_boundaries:

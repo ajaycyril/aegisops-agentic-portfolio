@@ -1,0 +1,52 @@
+id: supplier_profile_read
+name: Supplier Profile Read
+description: Read supplier profile, procurement exposure, criticality, and current risk attributes.
+connector: supplier_system
+mcp_server: aegisops.supplier
+status: planned
+risk_class: read
+required_scopes:
+  - suppliers:read
+  - procurement:read
+allowed_workflows:
+  - supply_chain_supplier_risk
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - supplier_id
+  properties:
+    supplier_id:
+      type: string
+      minLength: 1
+    include_contracts:
+      type: boolean
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - supplier
+  properties:
+    supplier:
+      type: object
+      additionalProperties: true
+      required:
+        - supplier_id
+        - name
+        - criticality
+        - source_uri
+      properties:
+        supplier_id:
+          type: string
+        name:
+          type: string
+        criticality:
+          type: string
+        source_uri:
+          type: string
+        spend_exposure:
+          type: number
+        regions:
+          type: array
+          items:
+            type: string

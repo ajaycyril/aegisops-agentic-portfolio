@@ -40,6 +40,8 @@ import {
 
 import type {
   ApiStatus,
+  ToolCatalog,
+  ToolDetail,
   WorkflowRunTrace,
   WorkflowRunTraceEvalStatus,
   WorkflowRunTraceStatus,
@@ -49,6 +51,7 @@ import type { WorkflowCatalog, WorkflowDetail } from "@/lib/workflows";
 type CommandCenterProps = {
   apiBaseUrl: string | null;
   apiStatus: ApiStatus;
+  toolCatalog: ToolCatalog;
   workflowCatalog: WorkflowCatalog;
   workflowRunTrace: WorkflowRunTraceStatus;
   workflowRunTraceEval: WorkflowRunTraceEvalStatus;
@@ -62,6 +65,8 @@ type UseCaseDefinition = {
   liveInputTemplate: Record<string, string>;
   whyAgentic: string;
   traditionalLimit: string;
+  agenticLoop: string[];
+  rulePath: string[];
 };
 
 type RuntimeStepKind =
@@ -135,6 +140,18 @@ const preferredUseCases: UseCaseDefinition[] = [
       "Incident diagnosis needs adaptive investigation across logs, deployments, code ownership, hypotheses, policy, and approvals.",
     traditionalLimit:
       "A rule engine can page on thresholds, but it cannot decide which evidence is missing or reconcile competing causes.",
+    agenticLoop: [
+      "Supervisor plans investigation branches.",
+      "Specialist tools read logs, deployments, and code.",
+      "Evidence is reconciled into hypotheses.",
+      "OPA blocks rollback, paging, and updates until approval.",
+    ],
+    rulePath: [
+      "Metric crosses threshold.",
+      "Static alert fires.",
+      "Ticket or page is created.",
+      "Human manually opens every system.",
+    ],
   },
   {
     workflowId: "customer_support_escalation",
@@ -150,6 +167,18 @@ const preferredUseCases: UseCaseDefinition[] = [
       "Support escalation needs ticket context, CRM state, knowledge retrieval, redacted memory, and approval before customer-visible output.",
     traditionalLimit:
       "Rules can route by priority or keyword, but cannot produce a grounded response with citations and risk-aware stop points.",
+    agenticLoop: [
+      "Read ticket and customer context.",
+      "Retrieve approved knowledge citations.",
+      "Draft a structured response with unsupported claims marked.",
+      "Block customer send until approval.",
+    ],
+    rulePath: [
+      "Match keyword or priority.",
+      "Apply queue routing rule.",
+      "Offer a canned macro.",
+      "Human manually checks CRM and KB.",
+    ],
   },
   {
     workflowId: "engineering_issue_to_pr",
@@ -165,6 +194,18 @@ const preferredUseCases: UseCaseDefinition[] = [
       "Issue-to-PR work requires reading issue context, inspecting code, planning a patch, evaluating test coverage, and stopping before writes.",
     traditionalLimit:
       "Rules can label or assign an issue, but cannot inspect a repo and produce an evaluated implementation plan.",
+    agenticLoop: [
+      "Read issue and repo files through GitHub tools.",
+      "Plan a patch and tests with structured outputs.",
+      "Evaluate grounding and blast radius.",
+      "Require approval before branch or PR creation.",
+    ],
+    rulePath: [
+      "Match label or owner rule.",
+      "Assign the issue.",
+      "Maybe post a canned comment.",
+      "Human reads files and writes the fix.",
+    ],
   },
   {
     workflowId: "supply_chain_supplier_risk",
@@ -180,6 +221,18 @@ const preferredUseCases: UseCaseDefinition[] = [
       "Supplier risk needs source-grounded research, sanctions context, procurement impact, and policy-gated status changes.",
     traditionalLimit:
       "Rules can flag a score, but they cannot collect new evidence and explain tradeoffs for a renewal decision.",
+    agenticLoop: [
+      "Read supplier and procurement context.",
+      "Collect sanctions and approved research sources.",
+      "Separate confirmed signals from weak signals.",
+      "Route supplier status changes through policy approval.",
+    ],
+    rulePath: [
+      "Supplier risk score crosses threshold.",
+      "Flag renewal.",
+      "Notify procurement queue.",
+      "Human researches sources manually.",
+    ],
   },
   {
     workflowId: "finance_invoice_exception",
@@ -195,6 +248,18 @@ const preferredUseCases: UseCaseDefinition[] = [
       "Invoice exceptions need document evidence, policy routing, audit packets, and approval before payment or vendor communication.",
     traditionalLimit:
       "Rules can block amount mismatches, but they cannot classify the cause with document-backed reasoning.",
+    agenticLoop: [
+      "Read invoice, PO, vendor, and delivery evidence.",
+      "Classify exception type with cited documents.",
+      "Route approval by amount and vendor risk.",
+      "Block payment or vendor message until approval.",
+    ],
+    rulePath: [
+      "Compare invoice amount with PO tolerance.",
+      "Flag mismatch.",
+      "Hold payment.",
+      "Human reads documents and asks vendor.",
+    ],
   },
 ];
 
@@ -223,6 +288,7 @@ const defaultTuneState: TuneState = {
 export function CommandCenter({
   apiBaseUrl,
   apiStatus,
+  toolCatalog,
   workflowCatalog,
   workflowRunTrace,
   workflowRunTraceEval,
@@ -249,6 +315,13 @@ export function CommandCenter({
   const workflow =
     workflowCatalog.workflows.find((item) => item.id === selectedUseCase.workflowId) ??
     workflowCatalog.workflows[0];
+  const workflowTools = useMemo(
+    () =>
+      toolCatalog.tools.filter((tool) =>
+        tool.allowed_workflows.includes(workflow.id),
+      ),
+    [toolCatalog.tools, workflow.id],
+  );
   const matchingTrace =
     workflowRunTrace.label === "loaded" && workflowRunTrace.trace.run.workflow_id === workflow.id
       ? workflowRunTrace.trace
@@ -258,6 +331,9 @@ export function CommandCenter({
     () =>
       buildRuntimeSteps({
         apiStatus,
+        selectedUseCase,
+        toolCatalog,
+        tools: workflowTools,
         workflowCatalog,
         workflow,
         trace: matchingTrace,
@@ -267,6 +343,9 @@ export function CommandCenter({
       }),
     [
       apiStatus,
+      selectedUseCase,
+      toolCatalog,
+      workflowTools,
       workflowCatalog,
       workflow,
       matchingTrace,
@@ -483,7 +562,7 @@ export function CommandCenter({
               type="button"
             >
               {isPlaying ? <Pause size={16} /> : <Activity size={16} />}
-              {matchingTrace ? "Play trace" : "Play gates"}
+              {matchingTrace ? "Play trace" : "Play contract"}
             </button>
           </div>
 
@@ -493,7 +572,7 @@ export function CommandCenter({
         <div className="visualizer-panel">
           <div className="visualizer-head">
             <div>
-              <p className="eyebrow">{matchingTrace ? "Live trace player" : "Live readiness player"}</p>
+              <p className="eyebrow">{matchingTrace ? "Live trace player" : "Configured agent path"}</p>
               <h2>{activeStep?.title ?? "No runtime steps available"}</h2>
             </div>
             <div className="step-counter">
@@ -672,18 +751,18 @@ export function CommandCenter({
               <h3>Rule-based path</h3>
               <p>{selectedUseCase.traditionalLimit}</p>
               <ul>
-                <li>Good for deterministic thresholds and schema checks.</li>
-                <li>Weak at deciding what evidence to collect next.</li>
-                <li>Does not produce source-grounded reasoning or approval packets.</li>
+                {selectedUseCase.rulePath.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
               </ul>
             </article>
             <article>
               <h3>Agentic path</h3>
               <p>{selectedUseCase.whyAgentic}</p>
               <ul>
-                <li>Plans and adapts across real connectors.</li>
-                <li>Records model, tool, evidence, memory, policy, and approval traces.</li>
-                <li>Stops at OPA and human approval before risky writes.</li>
+                {selectedUseCase.agenticLoop.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
               </ul>
             </article>
           </div>
@@ -702,11 +781,11 @@ export function CommandCenter({
         />
         <DepthCard
           icon={Search}
-          title="Connectors"
+          title="Tool calls"
           rows={[
-            ["Required", workflow.required_connectors.join(", ") || "none"],
+            ["Registered", workflowTools.map((tool) => tool.id).join(", ") || "none yet"],
+            ["Connectors", workflow.required_connectors.join(", ") || "none"],
             ["Missing", workflow.missing_connectors.join(", ") || "none"],
-            ["Scopes", workflow.required_scopes.join(", ") || "none"],
           ]}
         />
         <DepthCard
@@ -744,6 +823,9 @@ export function CommandCenter({
 
 function buildRuntimeSteps({
   apiStatus,
+  selectedUseCase,
+  toolCatalog,
+  tools,
   workflowCatalog,
   workflow,
   trace,
@@ -752,6 +834,9 @@ function buildRuntimeSteps({
   startAttempt,
 }: {
   apiStatus: ApiStatus;
+  selectedUseCase: UseCaseDefinition;
+  toolCatalog: ToolCatalog;
+  tools: ToolDetail[];
   workflowCatalog: WorkflowCatalog;
   workflow: WorkflowDetail;
   trace: WorkflowRunTrace | null;
@@ -828,27 +913,16 @@ function buildRuntimeSteps({
   ];
 
   if (!trace) {
-    steps.push({
-      id: "trace",
-      title: "Attach Real Trace",
-      kind: "output",
-      state: "not_configured",
-      actor: "Trace API",
-      summary: traceStatus.message,
-      data: [
-        "DEMO_WORKFLOW_RUN_ID or DEMO_TRACE_RUN_ID must point to a stored real run.",
-        "The public read-only registry API intentionally does not fabricate trace records.",
-      ],
-      reasoning: [
-        "A step-by-step agent visualization must be backed by persisted run metadata.",
-        "Captured replay is allowed only when the source run is real and labeled replay.",
-      ],
-      controls: [
-        "No mock trace rendering.",
-        "No invented tool calls, evidence, memory, or reasoning steps.",
-      ],
-      source: "workflow_contract",
-    });
+    steps.push(
+      ...contractAgentSteps({
+        apiStatus,
+        selectedUseCase,
+        toolCatalog,
+        tools,
+        workflow,
+        traceStatus,
+      }),
+    );
     return steps;
   }
 
@@ -1030,6 +1104,224 @@ function buildRuntimeSteps({
   }
 
   return steps;
+}
+
+function contractAgentSteps({
+  apiStatus,
+  selectedUseCase,
+  toolCatalog,
+  tools,
+  workflow,
+  traceStatus,
+}: {
+  apiStatus: ApiStatus;
+  selectedUseCase: UseCaseDefinition;
+  toolCatalog: ToolCatalog;
+  tools: ToolDetail[];
+  workflow: WorkflowDetail;
+  traceStatus: WorkflowRunTraceStatus;
+}): RuntimeStep[] {
+  const source: RuntimeStep["source"] =
+    toolCatalog.source === "api" ? "live_api" : "workflow_contract";
+  const runtimeReady = isFullRuntimeReady(apiStatus);
+  const graphSteps: RuntimeStep[] = [
+    {
+      id: `${workflow.id}-langgraph-plan`,
+      title: "LangGraph Plan",
+      kind: "run",
+      state: "complete",
+      actor: "LangGraph StateGraph",
+      summary: "The workflow is modeled as a stateful graph, not a linear script.",
+      data: [
+        `patterns=${workflow.patterns.join(", ")}`,
+        `default_autonomy=${workflow.default_autonomy}`,
+        "execution_library=langgraph",
+        "visualization_library=@xyflow/react",
+      ],
+      reasoning: selectedUseCase.agenticLoop,
+      controls: [
+        "Pydantic runtime contracts define node inputs and outputs.",
+        "Graph execution is checkpoint-ready through Postgres/pgvector storage.",
+        "The graph can pause at approval nodes instead of autonomously writing.",
+      ],
+      source,
+    },
+  ];
+
+  if (tools.length > 0) {
+    graphSteps.push(
+      ...tools.map((tool) => ({
+        id: `${workflow.id}-tool-${tool.id}`,
+        title: tool.name,
+        kind: "tool" as const,
+        state: tool.enabled ? "complete" as const : "not_configured" as const,
+        actor: tool.mcp_server,
+        summary: tool.description,
+        data: [
+          `tool_id=${tool.id}`,
+          `connector=${tool.connector}`,
+          `risk_class=${tool.risk_class}`,
+          `scopes=${tool.required_scopes.join(", ")}`,
+          `source=${tool.source_path}`,
+        ],
+        reasoning: [
+          "This is a registered MCP-shaped tool contract for the selected workflow.",
+          "The agent can choose this tool only after workflow, connector, schema, and policy checks pass.",
+          `Input schema: ${schemaSummary(tool.input_schema)}`,
+          `Output schema: ${schemaSummary(tool.output_schema)}`,
+        ],
+        controls: [
+          tool.requires_approval
+            ? "Approval required before execution."
+            : "Read or draft tool; still policy-authorized before execution.",
+          tool.disabled_reason ?? "Tool is contract-ready for this workflow.",
+          "OPA tool_access must allow the call before the adapter executes.",
+        ],
+        source,
+      })),
+    );
+  } else {
+    graphSteps.push({
+      id: `${workflow.id}-tool-gap`,
+      title: "Tool Contract Gap",
+      kind: "tool",
+      state: "blocked",
+      actor: "Tool registry",
+      summary: "No registered tool contract is currently mapped to this workflow.",
+      data: [
+        `required_connectors=${workflow.required_connectors.join(", ")}`,
+        `tool_registry=${toolCatalog.message}`,
+      ],
+      reasoning: [
+        "The UI will not invent tool calls just to make the graph look busy.",
+        "This workflow needs typed tool contracts before it can execute agentically.",
+      ],
+      controls: [
+        "Add MCP tool contracts under configs/tools.",
+        "Map each tool to allowed_workflows and connector scopes.",
+      ],
+      source,
+    });
+  }
+
+  graphSteps.push(
+    {
+      id: `${workflow.id}-evidence`,
+      title: "Evidence Board",
+      kind: "evidence",
+      state: tools.length > 0 ? "pending" : "blocked",
+      actor: "Evidence store",
+      summary: "Tool outputs become evidence records with source metadata and hashes.",
+      data: [
+        `visual_surfaces=${workflow.visual_surfaces.join(", ") || "none"}`,
+        "evidence_records require source_system, source_uri, content_hash, and metadata.",
+      ],
+      reasoning: [
+        "The agent cannot make claims from memory alone.",
+        "Every final recommendation must point to tool output or persisted evidence.",
+      ],
+      controls: [
+        "No fabricated evidence rows.",
+        "Sensitive content is retained by policy and exposed through metadata.",
+      ],
+      source: "workflow_contract",
+    },
+    {
+      id: `${workflow.id}-model-eval`,
+      title: "Structured Reasoning + Eval",
+      kind: "model",
+      state: "pending",
+      actor: "OpenAI Responses + eval runner",
+      summary: "Model calls are bounded structured transformations, then evaluated from trace metadata.",
+      data: [
+        "model_api=OpenAI Responses API",
+        `model_planning_supported=${workflow.patterns.some((pattern) => pattern.includes("rag") || pattern.includes("rca") || pattern.includes("evaluator") || pattern.includes("plan"))}`,
+        "evals=trace grounding, policy coverage, blocked writes, evidence completeness",
+      ],
+      reasoning: [
+        "The model can reason over evidence and produce typed drafts.",
+        "The model cannot approve policy, bypass schema validation, or execute write actions.",
+      ],
+      controls: [
+        "Prompt version, model, token counts, cost, latency, and trace id must be recorded.",
+        "Rubric/eval checks run against persisted trace metadata.",
+      ],
+      source: "workflow_contract",
+    },
+    {
+      id: `${workflow.id}-memory`,
+      title: "Memory + Checkpoints",
+      kind: "memory",
+      state: apiStatus.label === "online" && apiStatus.readiness.database_configured ? "pending" : "blocked",
+      actor: "Supabase/Postgres + pgvector",
+      summary: "Durable state, checkpoints, evidence, approvals, memory, and retrieval live in managed Postgres with pgvector.",
+      data: [
+        "provider_target=Supabase Postgres or equivalent managed Postgres",
+        "tables=workflow_runs, tool_calls, model_calls, evidence_records, memory_records, approvals, audit_events",
+        "vector_extension=pgvector",
+      ],
+      reasoning: [
+        "A production agent needs persistent graph state and memory; browser state is not execution.",
+        "Supabase/Postgres is the cloud storage boundary for live runs.",
+      ],
+      controls: [
+        "DATABASE_URL must be configured on the full runtime.",
+        "Alembic migrations must run before live workflow execution.",
+        "Memory writes carry retention class and data sensitivity.",
+      ],
+      source: apiStatus.label === "online" ? "live_api" : "workflow_contract",
+    },
+    {
+      id: `${workflow.id}-policy`,
+      title: "Guardrails + OPA",
+      kind: "policy",
+      state: apiStatus.label === "online" && apiStatus.readiness.policy_configured ? "pending" : "blocked",
+      actor: "OPA/Rego",
+      summary: "Dynamic policy decides run eligibility, tool access, budgets, approvals, and data sensitivity outside the model.",
+      data: [
+        `fake_data_allowed=${workflow.data_policy.fake_data_allowed}`,
+        `regex_business_extraction_allowed=${workflow.data_policy.regex_business_extraction_allowed}`,
+        `approval_required_for=${workflow.approval_required_for.join(", ") || "none"}`,
+      ],
+      reasoning: [
+        "Rule-based checks still matter, but policy is separate from model reasoning.",
+        "The agent can propose actions; OPA decides whether they are allowed, blocked, or approval-required.",
+      ],
+      controls: [
+        "aegisops.run_eligibility",
+        "aegisops.tool_access",
+        "aegisops.approvals",
+        "aegisops.budget",
+        "aegisops.data_sensitivity",
+      ],
+      source: apiStatus.label === "online" ? "live_api" : "workflow_contract",
+    },
+    {
+      id: `${workflow.id}-approval-output`,
+      title: "Approval + Output",
+      kind: "approval",
+      state: runtimeReady && workflow.enabled ? "pending" : "blocked",
+      actor: "Approval service",
+      summary: "The workflow ends in an inspectable decision packet, not an uncontrolled autonomous action.",
+      data: [
+        `workflow_enabled=${workflow.enabled}`,
+        `missing_connectors=${workflow.missing_connectors.join(", ") || "none"}`,
+        `trace_status=${traceStatus.label}`,
+      ],
+      reasoning: [
+        "Executives see outcome, risk, confidence, and next action.",
+        "Architects see policy, tools, memory, and observability.",
+        "Engineers see schemas, source paths, hashes, and trace ids.",
+      ],
+      controls: [
+        "External writes remain blocked without approval records.",
+        "Captured real trace is required before public outcome playback.",
+      ],
+      source: "workflow_contract",
+    },
+  );
+
+  return graphSteps;
 }
 
 function buildFlow(
@@ -1307,6 +1599,26 @@ function formatUnknown(value: unknown) {
   } catch {
     return String(value);
   }
+}
+
+function schemaSummary(schema: Record<string, unknown>) {
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter((item): item is string => typeof item === "string")
+    : [];
+  const properties =
+    schema.properties && typeof schema.properties === "object"
+      ? Object.keys(schema.properties)
+      : [];
+
+  if (required.length > 0) {
+    return `required=${required.join(", ")}`;
+  }
+
+  if (properties.length > 0) {
+    return `properties=${properties.join(", ")}`;
+  }
+
+  return "object schema";
 }
 
 function readUpstreamResult(

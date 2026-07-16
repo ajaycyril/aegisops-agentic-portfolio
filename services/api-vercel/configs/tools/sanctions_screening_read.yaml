@@ -1,0 +1,49 @@
+id: sanctions_screening_read
+name: Sanctions Screening Read
+description: Check a supplier or beneficial owner against an approved sanctions data source with citations.
+connector: sanctions_source
+mcp_server: aegisops.sanctions
+status: planned
+risk_class: read
+required_scopes:
+  - research:read
+allowed_workflows:
+  - supply_chain_supplier_risk
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - subject_name
+  properties:
+    subject_name:
+      type: string
+      minLength: 1
+    country:
+      type: string
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - matches
+    - checked_at
+  properties:
+    matches:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - name
+          - source_uri
+          - confidence
+        properties:
+          name:
+            type: string
+          source_uri:
+            type: string
+            format: uri
+          confidence:
+            type: number
+    checked_at:
+      type: string
+      format: date-time

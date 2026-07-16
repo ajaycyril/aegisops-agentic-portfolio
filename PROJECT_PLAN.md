@@ -478,6 +478,11 @@ Completed artifacts:
 - Document retrieval tool contract.
 - Observability log search tool contract.
 - Support ticket read, CRM customer profile read, and knowledge base search tool contracts.
+- Supplier profile, sanctions screening, approved web research, invoice read, and purchase
+  order read tool contracts for the supplier-risk and finance examples.
+- Web command center now loads the live `/tools` registry and changes the React Flow agent
+  graph per selected use case, showing distinct tool calls, guardrails, memory, model/eval,
+  evidence, and approval stages from real contracts before any trace exists.
 - Validation that write-class tools require approval by default.
 - JSON Schema validation for tool input payloads before policy evaluation.
 - Durable `tool_calls` and audit events for allowed, blocked, and approval-required tool call

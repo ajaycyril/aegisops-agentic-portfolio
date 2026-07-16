@@ -1,0 +1,49 @@
+id: invoice_read
+name: Invoice Read
+description: Read invoice metadata, vendor details, line totals, and exception flags from the accounting system.
+connector: accounting_system
+mcp_server: aegisops.accounting
+status: planned
+risk_class: read
+required_scopes:
+  - invoices:read
+  - vendors:read
+allowed_workflows:
+  - finance_invoice_exception
+input_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - invoice_id
+  properties:
+    invoice_id:
+      type: string
+      minLength: 1
+output_schema:
+  type: object
+  additionalProperties: false
+  required:
+    - invoice
+  properties:
+    invoice:
+      type: object
+      additionalProperties: true
+      required:
+        - invoice_id
+        - vendor_id
+        - amount
+        - currency
+        - source_uri
+      properties:
+        invoice_id:
+          type: string
+        vendor_id:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        purchase_order_id:
+          type: string
+        source_uri:
+          type: string
