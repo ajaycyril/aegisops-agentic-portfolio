@@ -17,6 +17,7 @@ const apiReadinessSchema = z.object({
   policy_configured: z.boolean(),
   database_configured: z.boolean(),
   live_runs_require_approval: z.boolean(),
+  live_run_admin_gate_configured: z.boolean().default(false),
   engineering_issue_to_pr_planner_configured: z.boolean(),
   openai_planner_model: z.string().nullable(),
 });

@@ -1,9 +1,10 @@
 from collections.abc import AsyncGenerator, Generator
+from hmac import compare_digest
 from typing import Annotated
 from uuid import UUID
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from aegisops_api import __version__
@@ -200,6 +201,7 @@ async def ready() -> dict[str, object]:
         "policy_configured": settings.opa_base_url is not None,
         "database_configured": settings.database_url is not None,
         "live_runs_require_approval": settings.require_human_approval,
+        "live_run_admin_gate_configured": settings.live_run_admin_key is not None,
         "engineering_issue_to_pr_planner_configured": (
             settings.openai_api_key is not None and openai_planner_model is not None
         ),
@@ -343,6 +345,7 @@ async def create_workflow_run(
     session: Annotated[Session, Depends(get_database_session)],
     policy_evaluator: Annotated[RunPolicyEvaluator, Depends(get_run_policy_evaluator)],
     settings: SettingsDependency,
+    live_run_key: Annotated[str | None, Header(alias="x-aegisops-live-run-key")] = None,
 ) -> WorkflowRunStartResponse:
     registry = get_workflow_registry()
     try:
@@ -353,6 +356,7 @@ async def create_workflow_run(
             policy_evaluator=policy_evaluator,
             available_connectors=get_available_connectors(),
             settings=settings,
+            live_run_authorized=live_run_admin_key_is_valid(settings, live_run_key),
         )
     except WorkflowNotFoundError as exc:
         raise HTTPException(status_code=404, detail="workflow not found") from exc
@@ -363,6 +367,13 @@ async def create_workflow_run(
         ) from exc
     except (PolicyEvaluationError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail="OPA policy evaluation failed") from exc
+
+
+def live_run_admin_key_is_valid(settings: Settings, supplied_key: str | None) -> bool:
+    expected_key = settings.live_run_admin_key
+    if expected_key is None or supplied_key is None:
+        return False
+    return compare_digest(supplied_key, expected_key)
 
 
 @app.get(

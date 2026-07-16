@@ -220,8 +220,14 @@ async def start_workflow_run(
     policy_evaluator: RunPolicyEvaluator,
     available_connectors: set[str],
     settings: Settings | None = None,
+    live_run_authorized: bool = False,
 ) -> WorkflowRunStartResponse:
     resolved_settings = settings or get_settings()
+    ensure_live_run_admin_gate(
+        request=request,
+        settings=resolved_settings,
+        live_run_authorized=live_run_authorized,
+    )
     workflow = registry.get_workflow(request.workflow_id, available_connectors=available_connectors)
     ensure_workflow_can_start(request, workflow)
 
@@ -233,6 +239,7 @@ async def start_workflow_run(
         budget=budget,
         autonomy_level=autonomy_level,
         settings=resolved_settings,
+        live_run_authorized=live_run_authorized,
     )
     decision = await policy_evaluator.evaluate(policy_input)
     if not decision.allowed and not decision.requires_approval:
@@ -378,12 +385,40 @@ def ensure_workflow_can_start(request: WorkflowRunStartRequest, workflow: Workfl
             )
 
 
+def ensure_live_run_admin_gate(
+    request: WorkflowRunStartRequest,
+    settings: Settings,
+    live_run_authorized: bool,
+) -> None:
+    if request.execution_mode != "live":
+        return
+    if not settings.live_workflow_runs_enabled:
+        raise WorkflowRunStartRejectedError(
+            reason_code="live_runs_disabled",
+            message="Live workflow runs are disabled for this deployment.",
+            http_status=403,
+        )
+    if not settings.live_run_admin_key:
+        raise WorkflowRunStartRejectedError(
+            reason_code="live_run_admin_key_not_configured",
+            message="LIVE_RUN_ADMIN_KEY must be configured before live workflow runs can start.",
+            http_status=503,
+        )
+    if not live_run_authorized:
+        raise WorkflowRunStartRejectedError(
+            reason_code="live_run_admin_required",
+            message="A valid x-aegisops-live-run-key header is required for live workflow runs.",
+            http_status=403,
+        )
+
+
 def build_run_policy_input(
     request: WorkflowRunStartRequest,
     workflow: WorkflowDetail,
     budget: BudgetEnvelope,
     autonomy_level: AutonomyLevel,
     settings: Settings,
+    live_run_authorized: bool = False,
 ) -> dict[str, Any]:
     return {
         "workflow": workflow.model_dump(mode="json"),
@@ -398,6 +433,7 @@ def build_run_policy_input(
         "elapsed_seconds": 0,
         "replay_source_run_id": request.replay_source_run_id,
         "live_workflow_runs_enabled": settings.live_workflow_runs_enabled,
+        "admin_live_run_authorized": live_run_authorized,
         "require_human_approval": settings.require_human_approval,
     }
 

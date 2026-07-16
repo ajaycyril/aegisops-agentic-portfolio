@@ -23,6 +23,7 @@
     "elapsed_seconds": 0,
     "replay_source_run_id": "captured-real-run-001",
     "live_workflow_runs_enabled": false,
+    "admin_live_run_authorized": false,
     "require_human_approval": true
   },
   "expected": {

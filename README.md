@@ -33,7 +33,8 @@ This repository currently defines:
   workflow and tool registries.
 - Typed workflow registry loader and read-only workflow catalog endpoints.
 - Typed `POST /workflow-runs` start gate with connector readiness, replay/live mode, budget
-  envelope, OPA run eligibility, durable run records, registry snapshots, and audit events.
+  envelope, admin-only live-run preflight, OPA run eligibility, durable run records, registry
+  snapshots, and audit events.
 - Registry-aware visual command center with portfolio selection, execution segmentation,
   React Flow graph, evidence board, policy lens, trace timeline, code lens, and safe disabled
   run-start controls.
@@ -124,6 +125,8 @@ This repository currently defines:
 - Rubric eval contracts for Engineering patch proposals, Incident RCA drafts, and Customer
   Support response drafts, plus structured approval policy fixtures for rollback, paging,
   incident updates, and support messages.
+- Admin-only live-run gate requiring `LIVE_RUN_ADMIN_KEY` and a matching
+  `x-aegisops-live-run-key` header before workflow lookup, policy evaluation, or persistence.
 
 ## Core Principle
 

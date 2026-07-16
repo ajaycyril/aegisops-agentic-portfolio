@@ -12,6 +12,8 @@ services:
         value: production
       - key: LIVE_WORKFLOW_RUNS_ENABLED
         value: "false"
+      - key: LIVE_RUN_ADMIN_KEY
+        sync: false
       - key: REQUIRE_HUMAN_APPROVAL
         value: "true"
       - key: MAX_AGENT_RUN_SECONDS

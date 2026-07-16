@@ -261,7 +261,8 @@ Completed artifacts:
   connector names are configured through `CONFIGURED_CONNECTORS`.
 - `POST /workflow-runs` with typed request/response models.
 - Run-start readiness checks for workflow status, required connectors, replay source, replay
-  eligibility, budget envelope, live-run feature flag, and OPA run eligibility.
+  eligibility, budget envelope, live-run feature flag, admin live-run key, and OPA run
+  eligibility.
 - Durable run creation through the governance data model when policy allows or requires
   approval.
 - Workflow registry snapshots and audit events written during run creation.
@@ -628,7 +629,7 @@ Tasks:
    Done for rubric contracts covering Engineering proposal quality, Incident RCA grounding, and
    Customer Support response drafts. Done for executable deterministic trace eval runners and
    UI eval-result display over real configured run ids.
-6. Add admin-only live-run gate.
+6. Done: add admin-only live-run gate.
 7. Add per-run budget enforcement.
 8. Add demo reset and seed from captured real traces only.
 

@@ -52,6 +52,7 @@ MAX_AGENT_TOOL_CALLS=25
 MAX_AGENT_ESTIMATED_USD=1.00
 REQUIRE_HUMAN_APPROVAL=true
 LIVE_WORKFLOW_RUNS_ENABLED=false
+LIVE_RUN_ADMIN_KEY=
 ```
 
 Connector readiness has two layers:
@@ -66,8 +67,10 @@ Connector readiness has two layers:
 - `SUPPORT_SYSTEM_API_BASE_URL`, `CRM_API_BASE_URL`, and `KNOWLEDGE_BASE_API_BASE_URL` point to
   read-only HTTP JSON gateway endpoints for the support workflow.
 
-`LIVE_WORKFLOW_RUNS_ENABLED=false` keeps live execution disabled by default. Replay mode still
-requires a captured real-run source id.
+`LIVE_WORKFLOW_RUNS_ENABLED=false` keeps live execution disabled by default. When live runs are
+intentionally enabled for a sandbox, set `LIVE_RUN_ADMIN_KEY` and send the same value in the
+`x-aegisops-live-run-key` request header. Replay mode still requires a captured real-run source
+id.
 
 ## Run Local Infrastructure
 
@@ -159,6 +162,10 @@ curl -X POST http://localhost:8000/workflow-runs \
 
 The request is rejected unless the workflow is ready, required connectors are configured, OPA
 is reachable, and the budget/replay policy permits the start.
+
+Example live run-start requests additionally require live runs enabled, `LIVE_RUN_ADMIN_KEY`
+configured on the API, and the `x-aegisops-live-run-key` header. Without that header, the API
+rejects the request before workflow readiness lookup, OPA evaluation, or database writes.
 
 Tool authorization validates the selected workflow/tool contract, JSON input schema, connector
 readiness, OPA `tool_access`, and approval status before a non-executed `tool_calls` record is

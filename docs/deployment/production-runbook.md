@@ -37,6 +37,7 @@ Safe defaults:
 ```text
 APP_ENV=production
 LIVE_WORKFLOW_RUNS_ENABLED=false
+LIVE_RUN_ADMIN_KEY=<required-only-when-live-runs-are-enabled>
 REQUIRE_HUMAN_APPROVAL=true
 MAX_AGENT_RUN_SECONDS=300
 MAX_AGENT_TOOL_CALLS=25
@@ -49,7 +50,12 @@ Required before starting real workflow runs:
 DATABASE_URL=<managed-postgres-url>
 OPA_BASE_URL=<opa-service-url>
 CONFIGURED_CONNECTORS=github,observability,deployments,support_system,crm,knowledge_base
+LIVE_RUN_ADMIN_KEY=<secret-admin-run-start-key>
 ```
+
+Live workflow-run start requests must include `x-aegisops-live-run-key` with that configured
+secret. If live runs are enabled without the key, the API returns a configuration error before
+workflow lookup, policy evaluation, or persistence.
 
 Optional model configuration for Engineering proposal/evaluator runs:
 
@@ -102,7 +108,7 @@ Only use captured real runs. Do not seed invented business payloads.
 
 1. Configure read-only connectors in the API host.
 2. Start a workflow run with `LIVE_WORKFLOW_RUNS_ENABLED=false` unless an admin is explicitly
-   validating a live sandbox.
+   validating a live sandbox with `LIVE_RUN_ADMIN_KEY` and `x-aegisops-live-run-key`.
 3. Execute the read-only context/evidence route.
 4. Run approval-review and decision routes where required.
 5. For support demos, call `message-send/authorize` to record the blocked send gate.
@@ -112,7 +118,8 @@ Only use captured real runs. Do not seed invented business payloads.
 ## Deployment Gates
 
 - `GET /health` returns `200`.
-- `GET /ready` reports database and policy configured before live runs.
+- `GET /ready` reports database, policy, and `live_run_admin_gate_configured=true` before live
+  runs.
 - `GET /connectors` shows required connectors configured.
 - `GET /workflow-runs/{run_id}/trace` returns stored metadata.
 - `GET /workflow-runs/{run_id}/evals/trace` returns pass/warn/fail checks.

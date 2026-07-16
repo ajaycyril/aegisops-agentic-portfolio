@@ -33,6 +33,7 @@ replay_allowed if {
 live_run_can_request_approval if {
 	input.execution_mode == "live"
 	input.live_workflow_runs_enabled == true
+	input.admin_live_run_authorized == true
 	input.require_human_approval == true
 }
 
@@ -83,6 +84,12 @@ reason_codes contains "replay_not_allowed" if {
 reason_codes contains "live_runs_disabled" if {
 	input.execution_mode == "live"
 	input.live_workflow_runs_enabled != true
+}
+
+reason_codes contains "live_run_admin_required" if {
+	input.execution_mode == "live"
+	input.live_workflow_runs_enabled == true
+	input.admin_live_run_authorized != true
 }
 
 reason_codes contains "human_approval_not_required" if {

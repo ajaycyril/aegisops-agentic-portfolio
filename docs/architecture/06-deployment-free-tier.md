@@ -44,7 +44,7 @@ Before public deployment:
 
 - `services/api/Dockerfile` packages the FastAPI runtime, configs, and policy files.
 - `render.yaml` provides a Docker web-service blueprint candidate with live runs disabled by
-  default.
+  default and `LIVE_RUN_ADMIN_KEY` secret-managed for explicit live-run sandboxes.
 - `docs/deployment/production-runbook.md` is the operator checklist for API env vars,
   migrations, OPA, connector gates, and real-run trace/eval display.
 - `docs/deployment/portfolio-walkthrough.md` is the executive demo script.
@@ -53,7 +53,7 @@ Before public deployment:
 
 The public demo should default to safe modes:
 
-- No live run without admin key.
+- No live run without `LIVE_RUN_ADMIN_KEY` and a matching `x-aegisops-live-run-key` header.
 - Per-run model budget.
 - Per-run tool-call limit.
 - Per-workflow autonomy limit.

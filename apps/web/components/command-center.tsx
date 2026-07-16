@@ -1479,6 +1479,19 @@ function createProposalReview(
           state: workflow.missing_connectors.length === 0 ? "open" : "closed",
         },
         {
+          label: "Live-run admin gate",
+          value: readiness
+            ? readiness.live_run_admin_gate_configured
+              ? "configured"
+              : "not configured"
+            : "ready check unavailable",
+          state: readiness
+            ? readiness.live_run_admin_gate_configured
+              ? "open"
+              : "closed"
+            : "neutral",
+        },
+        {
           label: "Autonomy ceiling",
           value: humanize(workflow.default_autonomy),
           state: workflow.default_autonomy === "autonomous" ? "closed" : "open",
@@ -1584,6 +1597,19 @@ function createProposalReview(
           : "ready check unavailable",
         state: readiness
           ? readiness.database_configured
+            ? "open"
+            : "closed"
+          : "neutral",
+      },
+      {
+        label: "Live-run admin gate",
+        value: readiness
+          ? readiness.live_run_admin_gate_configured
+            ? "configured"
+            : "not configured"
+          : "ready check unavailable",
+        state: readiness
+          ? readiness.live_run_admin_gate_configured
             ? "open"
             : "closed"
           : "neutral",

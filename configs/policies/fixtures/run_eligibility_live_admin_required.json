@@ -23,11 +23,11 @@
     "elapsed_seconds": 0,
     "replay_source_run_id": null,
     "live_workflow_runs_enabled": true,
-    "admin_live_run_authorized": true,
+    "admin_live_run_authorized": false,
     "require_human_approval": true
   },
   "expected": {
     "allow": false,
-    "requires_approval": true
+    "requires_approval": false
   }
 }

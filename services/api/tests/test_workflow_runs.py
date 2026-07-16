@@ -19,7 +19,12 @@ from aegisops_api.db.models import (
     WorkflowRun,
     utc_now,
 )
-from aegisops_api.main import app, get_database_session, get_run_policy_evaluator
+from aegisops_api.main import (
+    app,
+    get_database_session,
+    get_run_policy_evaluator,
+    live_run_admin_key_is_valid,
+)
 from aegisops_api.policy import PolicyDecision
 from aegisops_api.workflows.registry import WorkflowRegistry
 from aegisops_api.workflows.runs import (
@@ -328,12 +333,14 @@ async def test_start_workflow_run_queues_live_run_for_approval(tmp_path: Path) -
         session=cast(Session, recording_session),
         policy_evaluator=evaluator,
         available_connectors={"github"},
-        settings=Settings(live_workflow_runs_enabled=True),
+        settings=Settings(live_workflow_runs_enabled=True, live_run_admin_key="admin-key"),
+        live_run_authorized=True,
     )
 
     assert response.status == "waiting_for_approval"
     assert response.policy_decision.requires_approval is True
     assert recording_session.commit_count == 1
+    assert evaluator.inputs[0]["admin_live_run_authorized"] is True
 
 
 @pytest.mark.asyncio
@@ -363,7 +370,7 @@ async def test_start_workflow_run_rejects_missing_replay_source_before_policy(
 
 
 @pytest.mark.asyncio
-async def test_start_workflow_run_rejects_policy_denial_before_persistence(
+async def test_start_workflow_run_rejects_live_run_when_disabled_before_policy(
     tmp_path: Path,
 ) -> None:
     registry = create_ready_registry(tmp_path)
@@ -371,19 +378,12 @@ async def test_start_workflow_run_rejects_policy_denial_before_persistence(
     evaluator = FakeRunPolicyEvaluator(
         PolicyDecision(
             package_path="aegisops.run_eligibility",
-            allowed=False,
-            requires_approval=False,
-            decision_id="decision-denied",
-            reason_codes=["live_runs_disabled"],
-            result={
-                "allow": False,
-                "requires_approval": False,
-                "reason_codes": ["live_runs_disabled"],
-            },
+            allowed=True,
+            result={"allow": True},
         )
     )
 
-    with pytest.raises(WorkflowRunStartRejectedError, match="OPA policy denied"):
+    with pytest.raises(WorkflowRunStartRejectedError) as exc_info:
         await start_workflow_run(
             request=WorkflowRunStartRequest(
                 workflow_id="ready_engineering",
@@ -396,8 +396,126 @@ async def test_start_workflow_run_rejects_policy_denial_before_persistence(
             settings=Settings(),
         )
 
+    assert exc_info.value.reason_code == "live_runs_disabled"
+    assert exc_info.value.http_status == 403
+    assert evaluator.inputs == []
     assert recording_session.added == []
     assert recording_session.commit_count == 0
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_run_rejects_live_run_without_admin_key_before_policy(
+    tmp_path: Path,
+) -> None:
+    registry = create_ready_registry(tmp_path)
+    recording_session = RecordingSession()
+    evaluator = FakeRunPolicyEvaluator(
+        PolicyDecision(
+            package_path="aegisops.run_eligibility",
+            allowed=True,
+            result={"allow": True},
+        )
+    )
+
+    with pytest.raises(WorkflowRunStartRejectedError) as exc_info:
+        await start_workflow_run(
+            request=WorkflowRunStartRequest(
+                workflow_id="ready_engineering",
+                execution_mode="live",
+            ),
+            registry=registry,
+            session=cast(Session, recording_session),
+            policy_evaluator=evaluator,
+            available_connectors={"github"},
+            settings=Settings(live_workflow_runs_enabled=True),
+        )
+
+    assert exc_info.value.reason_code == "live_run_admin_key_not_configured"
+    assert exc_info.value.http_status == 503
+    assert evaluator.inputs == []
+    assert recording_session.added == []
+    assert recording_session.commit_count == 0
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_run_rejects_live_run_without_admin_authorization_before_policy(
+    tmp_path: Path,
+) -> None:
+    registry = create_ready_registry(tmp_path)
+    recording_session = RecordingSession()
+    evaluator = FakeRunPolicyEvaluator(
+        PolicyDecision(
+            package_path="aegisops.run_eligibility",
+            allowed=True,
+            result={"allow": True},
+        )
+    )
+
+    with pytest.raises(WorkflowRunStartRejectedError) as exc_info:
+        await start_workflow_run(
+            request=WorkflowRunStartRequest(
+                workflow_id="ready_engineering",
+                execution_mode="live",
+            ),
+            registry=registry,
+            session=cast(Session, recording_session),
+            policy_evaluator=evaluator,
+            available_connectors={"github"},
+            settings=Settings(live_workflow_runs_enabled=True, live_run_admin_key="admin-key"),
+        )
+
+    assert exc_info.value.reason_code == "live_run_admin_required"
+    assert exc_info.value.http_status == 403
+    assert evaluator.inputs == []
+    assert recording_session.added == []
+    assert recording_session.commit_count == 0
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_run_rejects_policy_denial_before_persistence(
+    tmp_path: Path,
+) -> None:
+    registry = create_ready_registry(tmp_path)
+    recording_session = RecordingSession()
+    evaluator = FakeRunPolicyEvaluator(
+        PolicyDecision(
+            package_path="aegisops.run_eligibility",
+            allowed=False,
+            requires_approval=False,
+            decision_id="decision-denied",
+            reason_codes=["budget_exceeded"],
+            result={
+                "allow": False,
+                "requires_approval": False,
+                "reason_codes": ["budget_exceeded"],
+            },
+        )
+    )
+
+    with pytest.raises(WorkflowRunStartRejectedError, match="OPA policy denied"):
+        await start_workflow_run(
+            request=WorkflowRunStartRequest(
+                workflow_id="ready_engineering",
+                replay_source_run_id="captured-real-run-001",
+            ),
+            registry=registry,
+            session=cast(Session, recording_session),
+            policy_evaluator=evaluator,
+            available_connectors={"github"},
+            settings=Settings(),
+        )
+
+    assert recording_session.added == []
+    assert recording_session.commit_count == 0
+
+
+def test_live_run_admin_key_validator_requires_configured_matching_key() -> None:
+    settings = Settings(live_run_admin_key="admin-key")
+
+    assert live_run_admin_key_is_valid(settings, "admin-key") is True
+    assert live_run_admin_key_is_valid(settings, "wrong-key") is False
+    assert live_run_admin_key_is_valid(settings, None) is False
+    assert live_run_admin_key_is_valid(Settings(), "admin-key") is False
 
 
 def test_workflow_run_endpoint_reports_planned_workflow_rejection() -> None:

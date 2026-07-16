@@ -10,6 +10,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     app_env: str = Field(default="local", validation_alias="APP_ENV")
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="LIVE_WORKFLOW_RUNS_ENABLED",
     )
+    live_run_admin_key: str | None = Field(default=None, validation_alias="LIVE_RUN_ADMIN_KEY")
 
 
 @lru_cache
