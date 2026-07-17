@@ -37,9 +37,10 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
   direct-API equivalent unit economics.
 - Vitest covers typed run contracts, scenario topology, and policy allow/block/approval behavior.
 
-Local end-to-end evidence: the incident run completed both lanes with 36 streamed events, two
-specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, and a
-passing grounding evaluator. Production redeployment and managed Postgres/Redis activation remain.
+Production end-to-end evidence: the incident run completed both lanes with 36 streamed events,
+two specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, a
+passing grounding evaluator, 1,909 measured tokens, and a `$0.00167` direct-API equivalent.
+Managed Postgres/Redis activation remains.
 
 Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level. Live
 verification now follows a cloud-only path: managed Postgres/pgvector, a hosted
@@ -131,7 +132,7 @@ Current production web deployment:
 | 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
 | 8     | Customer Support Escalation workflow | Implemented                                  | Real support/KB/CRM workflow path                                                   |
 | 9     | Evals, replay, and demo hardening    | In progress                                  | Captured real-run replay and quality gates                                          |
-| 10    | Deployment and portfolio polish      | Live runtime done; deploy/state activation pending | Public free-tier deployment and executive-grade UI                         |
+| 10    | Deployment and portfolio polish      | Production verified; managed state pending | Public free-tier deployment and executive-grade UI                                |
 
 ## Phase 0: Architecture Baseline
 
@@ -708,7 +709,7 @@ Tasks:
 12. Done: add four real-source dual-lane use cases with live MCP calls and deterministic rules.
 13. Done: implement and visualize the incident supervisor plus parallel specialist agents.
 14. Done: add OPA/Rego WASM policy, unit economics, tool I/O, and automated web boundary tests.
-15. In progress: redeploy the live workbench and verify a production multi-agent run.
+15. Done: redeploy the live workbench and verify a production multi-agent run.
 16. Pending: activate dedicated Postgres/pgvector checkpoints and durable Redis rate limiting.
 
 Acceptance criteria:
@@ -748,7 +749,7 @@ A feature is done only when:
 
 ## Current Next Task
 
-Deploy the new Next.js live workbench to Vercel, run the incident multi-agent workflow on the
-production URL, then provision dedicated Postgres/pgvector and a Redis-compatible limiter. Do not
-enable rollback, paging, incident-update, customer-message, refund, account-change, branch, or
-pull-request write execution. Continue real connector adapters only behind MCP schemas and OPA.
+Provision dedicated Postgres/pgvector and a Redis-compatible limiter, then validate durable
+LangGraph checkpoints and cross-instance rate limits. Do not enable rollback, paging,
+incident-update, customer-message, refund, account-change, branch, or pull-request write execution.
+Continue real connector adapters only behind MCP schemas and OPA.

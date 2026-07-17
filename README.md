@@ -36,8 +36,8 @@ public demo as using the `MemorySaver` fallback. See
 ## Current Phase
 
 The live dual-lane workbench and the real multi-agent incident workflow are implemented and
-verified locally. Production redeployment and managed Postgres/Redis activation are the active
-deployment tasks; the older registry-only gateway is no longer the primary browser run path.
+verified in production. Managed Postgres/Redis activation is the active infrastructure task;
+the older registry-only gateway is no longer the browser run path.
 
 This repository currently defines:
 
@@ -263,9 +263,9 @@ next incomplete task without relying on chat history.
 
 Current next task:
 
-1. Deploy and verify the new live workbench on Vercel.
-2. Provision dedicated managed Postgres/pgvector and Redis-compatible rate limiting.
-3. Continue the connector library behind the same MCP and OPA authorization boundary.
+1. Provision dedicated managed Postgres/pgvector and Redis-compatible rate limiting.
+2. Continue the connector library behind the same MCP and OPA authorization boundary.
+3. Add authenticated enterprise write paths only after durable approval and audit are active.
 2. Deploy the full API runtime with `DATABASE_URL`, `OPA_BASE_URL`, spend controls, connector
    readiness, and admin live-run key configured.
 3. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`

@@ -1,6 +1,6 @@
 # Live Workbench Runtime
 
-Status: implemented and locally verified on 2026-07-17.
+Status: implemented and production verified on 2026-07-17.
 
 ## Product Contract
 
@@ -124,6 +124,6 @@ pnpm --filter @aegisops/web test
 pnpm --filter @aegisops/web build
 ```
 
-Browser acceptance requires one completed incident run, two specialist tool calls, two validated
-evidence records, a supervisor handoff, OPA side-effect blocking, a passing grounding evaluator,
-completed deterministic rules, and no horizontal overflow at 390 px.
+Browser acceptance passed with one completed production incident run, two specialist tool calls,
+two validated evidence records, a supervisor handoff, OPA side-effect blocking, a passing grounding
+evaluator, completed deterministic rules, and no horizontal overflow at 390 px.
