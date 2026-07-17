@@ -16,6 +16,29 @@ This comparison is executable, not explanatory copy. The UI receives a streamed 
 maps each event to a React Flow node, animated edge, trace row, evidence record, policy state, and
 unit-economics metric.
 
+## Observable Decisions, Not Hidden Reasoning
+
+The workbench does not claim to expose a model's private chain-of-thought. It exposes the runtime
+decisions required to audit an agent system:
+
+1. **Bounded goal - human and LangGraph:** accepted scope, approved tools, budget, and graph limits.
+2. **Choose action - model:** selected tool names, available tool set, role, finish reason, and
+   whether the graph required an initial call.
+3. **Execute tool - MCP:** typed call start/completion, actor, arguments, result fields, and latency.
+4. **Observe state - source and Zod:** evidence captured only after source payload validation.
+5. **Adapt, reconcile, or stop - model:** the next observable action after evidence, including
+   specialist handoff and supervisor synthesis.
+6. **Verify boundary - OPA and evaluator:** policy allow/block/approval state and grounding result.
+
+Every phase is derived from a real `RunEvent` and opens that event in the inspector. The fixed-rule
+track beside it shows its contrasting control model: configured fields, preselected fetches,
+versioned condition matching, and a known set of outcomes. This makes the distinction about control
+flow and adaptability, rather than implying that every model-backed step is autonomous.
+
+Model-step events include an `observableDecision` record with the controller, agent role, available
+and selected tools, graph constraint, and an explicit
+`execution_summary_not_private_chain_of_thought` visibility marker.
+
 ## Runtime Topology
 
 ```mermaid
@@ -57,6 +80,23 @@ Each specialist is a separate AI SDK `ToolLoopAgent` with one active tool, a sep
 and a scoped assignment. LangGraph executes both specialist nodes in the same superstep, waits at a
 fan-in barrier, and sends both structured reports to a third supervisor agent. The supervisor has no
 tools and cannot silently fetch new evidence during reconciliation.
+
+## Live Stack Map
+
+The stack lens is a second React Flow graph, not a prose inventory. It visualizes the production
+control and data path and lights each component from the same streamed events:
+
+- Experience: React Flow, AI Elements, and trace rendering.
+- Streaming gateway: Next.js route and AI SDK `UIMessage` transport.
+- Agent runtime: LangGraph state orchestration and AI SDK `ToolLoopAgent` decisions.
+- Deterministic control: `json-rules-engine`, OPA/Rego WASM, Zod contracts, and checkpointer state.
+- Tool protocol: MCP TypeScript SDK client/server boundary.
+- External systems: provider adapter and the scenario's official live source API.
+- Observability: event, actor, token, latency, evidence, and policy telemetry.
+
+Edges are labeled with the actual boundary being crossed, such as typed request, model step, tool
+call, source payload, policy input, checkpoint, and live trace. A lit node can be selected to open
+its supporting trace event.
 
 ## Live Scenario Library
 
@@ -126,4 +166,5 @@ pnpm --filter @aegisops/web build
 
 Browser acceptance passed with one completed production incident run, two specialist tool calls,
 two validated evidence records, a supervisor handoff, OPA side-effect blocking, a passing grounding
-evaluator, completed deterministic rules, and no horizontal overflow at 390 px.
+evaluator, completed deterministic rules, inspectable observable model-decision metadata, an
+event-driven live stack map, and no horizontal overflow at 390 px.

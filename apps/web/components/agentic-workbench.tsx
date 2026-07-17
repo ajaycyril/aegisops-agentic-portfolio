@@ -38,23 +38,14 @@ import {
   ToolOutput,
   type ToolPart,
 } from "@/components/ai-elements/tool";
+import { DecisionLens } from "@/components/decision-lens";
 import { RunInspector } from "@/components/run-inspector";
+import { StackArchitecture } from "@/components/stack-architecture";
 import { WorkflowCanvas } from "@/components/workflow-canvas";
 import type { AegisUIMessage, RunEvent } from "@/lib/agentic/contracts";
 import { scenarios, type ScenarioDefinition } from "@/lib/agentic/scenarios";
 
 type DetailView = "answer" | "tools" | "stack";
-
-const stackLayers = [
-  { layer: "Experience", choice: "Next.js 16 + AI Elements", role: "Streamed answer, tool UI, mobile cockpit" },
-  { layer: "Visualization", choice: "React Flow 12", role: "Live graph, node state, animated execution edges" },
-  { layer: "Orchestration", choice: "LangGraph JS 1.4", role: "State graph, streamed updates, parallel agents, fan-in" },
-  { layer: "Agent loop", choice: "Vercel AI SDK 6", role: "Typed tools, model streaming, usage, provider routing" },
-  { layer: "Tool boundary", choice: "MCP TypeScript SDK 1", role: "Portable schemas and connector execution" },
-  { layer: "Dynamic policy", choice: "OPA 1.18 + Rego WASM", role: "Context-aware authorization and approvals" },
-  { layer: "Fixed decisions", choice: "json-rules-engine 7", role: "Auditable deterministic business conditions" },
-  { layer: "State + memory", choice: "LangGraph PostgresSaver adapter", role: "Supabase-ready; MemorySaver fallback in the free public demo" },
-];
 
 const modelPrices: Record<string, { input: number; output: number }> = {
   "openai/gpt-4.1-mini": { input: 0.4, output: 1.6 },
@@ -314,7 +305,7 @@ export function AgenticWorkbench() {
       <section className="execution-workspace">
         <div className="canvas-panel">
           <div className="panel-heading">
-            <div><span className="section-kicker">Live execution canvas</span><h2>Same evidence. Two systems.</h2></div>
+            <div><span className="section-kicker">Live execution canvas</span><h2>Agent decides. Rules match.</h2></div>
             <div className="canvas-stats">
               <span><Wrench size={13} /> {agentToolEvents.length} agent tools</span>
               <span><Gauge size={13} /> {inputTokens + outputTokens} tokens · ${directApiEquivalent.toFixed(4)} equiv.</span>
@@ -322,6 +313,11 @@ export function AgenticWorkbench() {
             </div>
           </div>
           <WorkflowCanvas
+            scenario={scenario}
+            events={events}
+            onSelectEvent={setSelectedEvent}
+          />
+          <DecisionLens
             scenario={scenario}
             events={events}
             onSelectEvent={setSelectedEvent}
@@ -357,7 +353,7 @@ export function AgenticWorkbench() {
         <div className="detail-tabs" role="tablist" aria-label="Run detail views">
           <button className={detailView === "answer" ? "active" : ""} onClick={() => setDetailView("answer")} type="button"><Sparkles size={14} /> Agent answer</button>
           <button className={detailView === "tools" ? "active" : ""} onClick={() => setDetailView("tools")} type="button"><Wrench size={14} /> Tool I/O <span>{agentToolEvents.length}</span></button>
-          <button className={detailView === "stack" ? "active" : ""} onClick={() => setDetailView("stack")} type="button"><Layers3 size={14} /> Stack lens</button>
+          <button className={detailView === "stack" ? "active" : ""} onClick={() => setDetailView("stack")} type="button"><Layers3 size={14} /> Live stack map</button>
         </div>
 
         {detailView === "answer" ? (
@@ -393,16 +389,12 @@ export function AgenticWorkbench() {
 
         {detailView === "stack" ? (
           <div className="stack-view">
-            <div className="answer-heading"><div><span className="section-kicker">Architecture ownership</span><h2>Production stack by layer</h2></div><span>standard libraries, typed boundaries</span></div>
-            <div className="stack-table" role="table">
-              {stackLayers.map((item) => (
-                <div className="stack-row" key={item.layer} role="row">
-                  <strong role="cell">{item.layer}</strong>
-                  <span role="cell">{item.choice}</span>
-                  <small role="cell">{item.role}</small>
-                </div>
-              ))}
-            </div>
+            <div className="answer-heading"><div><span className="section-kicker">Architecture ownership</span><h2>Live control and data flow</h2></div><span>click a lit node to inspect its trace event</span></div>
+            <StackArchitecture
+              scenario={scenario}
+              events={events}
+              onSelectEvent={setSelectedEvent}
+            />
           </div>
         ) : null}
       </section>

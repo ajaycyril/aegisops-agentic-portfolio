@@ -33,13 +33,21 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
 - OPA/Rego WASM gates intake and holds every requested side effect for approval.
 - React Flow animates active graph edges and every node exposes trace, latency, actor, data,
   evidence, and policy state through the inspector.
+- An observable decision ledger now separates human/graph constraints, model tool selection, MCP
+  execution, validated observations, adaptation/handoffs, and OPA/eval checks from the fixed rule
+  lane's prewired fields, conditions, and outcomes. It exposes execution summaries, not private
+  model chain-of-thought.
+- A second event-driven React Flow map now visualizes the live stack across Next.js/AI SDK
+  streaming, LangGraph orchestration, ToolLoopAgent, MCP, OPA/Rego, Zod, checkpointing,
+  observability, provider inference, and official source APIs.
 - The UI reports actual tool calls, validated source payloads, model tokens, free-tier charge, and
   direct-API equivalent unit economics.
 - Vitest covers typed run contracts, scenario topology, and policy allow/block/approval behavior.
 
 Production end-to-end evidence: the incident run completed both lanes with 36 streamed events,
 two specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, a
-passing grounding evaluator, 1,909 measured tokens, and a `$0.00167` direct-API equivalent.
+passing grounding evaluator, inspectable bounded model-decision metadata, 1,909 measured tokens,
+and a `$0.00167` direct-API equivalent.
 Managed Postgres/Redis activation remains.
 
 Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level. Live

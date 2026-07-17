@@ -18,6 +18,12 @@ starts two concurrent lanes against the same live public source:
 - A `json-rules-engine` lane that reads the same source data and evaluates only its predefined
   conditions, without a model.
 
+The execution canvas includes an observable decision ledger that identifies which choices belong
+to the human/graph, model, MCP tool boundary, live source contract, OPA policy, and evaluator. It
+shows execution summaries and selected actions from real streamed events, not private model
+chain-of-thought. A separate live React Flow stack map lights up LangGraph, AI SDK ToolLoopAgent,
+MCP, OPA/Rego, Zod, checkpointing, telemetry, provider, and source layers as those components run.
+
 The four selectable workflows use official source APIs and do not ship synthetic business records:
 
 | Workflow | Live source | Agent architecture |

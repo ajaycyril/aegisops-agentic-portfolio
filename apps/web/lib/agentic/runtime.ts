@@ -200,6 +200,11 @@ function emitModelStep(
   emit: EventEmitter,
   agentId: string,
   agentLabel: string,
+  decisionContext: {
+    availableTools: string[];
+    initialToolRequired: boolean;
+    role: "adaptive_agent" | "specialist" | "supervisor";
+  },
 ) {
   return (step: {
     stepNumber: number;
@@ -209,15 +214,27 @@ function emitModelStep(
     usage: { inputTokens?: number; outputTokens?: number };
     response: { id?: string };
   }) => {
+    const selectedTools = step.toolCalls.map((call) => call.toolName);
+    const requiredByGraph = decisionContext.initialToolRequired && step.stepNumber === 0;
+    const decisionKind =
+      selectedTools.length > 0 ? "tool_selection" : "synthesize_or_stop";
+    const controller =
+      selectedTools.length > 0 && requiredByGraph
+        ? "model_within_graph_constraint"
+        : "model";
     emit({
       lane: "agentic",
       type: "model_step",
       nodeId: `${agentId}-model-step-${step.stepNumber + 1}`,
       label: `${agentLabel} step ${step.stepNumber + 1}`,
       summary:
-        step.toolCalls.length > 0
-          ? `Selected ${step.toolCalls.map((call) => call.toolName).join(", ")}.`
-          : `Completed with ${step.finishReason}.`,
+        selectedTools.length > 0
+          ? decisionContext.role === "specialist"
+            ? `LangGraph assigned ${selectedTools.join(", ")}; the specialist issued the typed call.`
+            : `A tool call was required; the model selected ${selectedTools.join(", ")} from ${decisionContext.availableTools.length} approved tools.`
+          : decisionContext.role === "supervisor"
+            ? "The supervisor synthesized the specialist handoffs and stopped without requesting new evidence."
+            : `The agent used the returned observations and completed with ${step.finishReason}.`,
       status: "completed",
       actor: `${step.model.provider}/${step.model.modelId}`,
       data: {
@@ -225,8 +242,17 @@ function emitModelStep(
         inputTokens: step.usage.inputTokens ?? 0,
         outputTokens: step.usage.outputTokens ?? 0,
         finishReason: step.finishReason,
-        toolCalls: step.toolCalls.map((call) => call.toolName),
+        toolCalls: selectedTools,
         generationId: step.response.id,
+        observableDecision: {
+          kind: decisionKind,
+          controller,
+          role: decisionContext.role,
+          availableTools: decisionContext.availableTools,
+          selectedTools,
+          graphConstraint: requiredByGraph ? "at_least_one_tool_call_required" : "none",
+          visibility: "execution_summary_not_private_chain_of_thought",
+        },
       },
     });
   };
@@ -290,7 +316,11 @@ async function runSpecialistAgent({
     prompt: `${assignment}\n\nApproved tool arguments: ${JSON.stringify(
       toolArguments(toolName, request),
     )}`,
-    onStepFinish: emitModelStep(emit, agentId, label),
+    onStepFinish: emitModelStep(emit, agentId, label, {
+      availableTools: [toolName],
+      initialToolRequired: true,
+      role: "specialist",
+    }),
   });
 
   emit({
@@ -401,7 +431,11 @@ export async function runAgenticLane(
             scenario.requiredTools.map((name) => [name, toolArguments(name, state.request)]),
           ),
         )}`,
-        onStepFinish: emitModelStep(emit, "agent-plan", "Evidence agent"),
+        onStepFinish: emitModelStep(emit, "agent-plan", "Evidence agent", {
+          availableTools: scenario.requiredTools,
+          initialToolRequired: true,
+          role: "adaptive_agent",
+        }),
       });
       writer.merge(result.toUIMessageStream<AegisUIMessage>());
       const finalText = await result.text;
@@ -485,7 +519,11 @@ export async function runAgenticLane(
           null,
           2,
         )}`,
-        onStepFinish: emitModelStep(emit, "agent-supervisor", "Supervisor"),
+        onStepFinish: emitModelStep(emit, "agent-supervisor", "Supervisor", {
+          availableTools: [],
+          initialToolRequired: false,
+          role: "supervisor",
+        }),
       });
       writer.merge(result.toUIMessageStream<AegisUIMessage>());
       const finalText = await result.text;
