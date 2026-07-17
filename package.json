@@ -5,6 +5,12 @@
   "private": true,
   "packageManager": "pnpm@10.15.1",
   "description": "Production-grade visual agentic workflow portfolio.",
+  "pnpm": {
+    "overrides": {
+      "dompurify": "3.4.12",
+      "postcss": "8.5.19"
+    }
+  },
   "scripts": {
     "dev:web": "pnpm --filter @aegisops/web dev",
     "build": "pnpm -r build",
