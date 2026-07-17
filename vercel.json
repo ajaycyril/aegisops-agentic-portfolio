@@ -22,6 +22,12 @@
   },
   "rewrites": [
     {
+      "source": "/api/agent-runs",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
       "source": "/api/(.*)",
       "destination": {
         "service": "api"
