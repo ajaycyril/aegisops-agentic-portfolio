@@ -10,6 +10,11 @@ export const scenarioIdSchema = z.enum([
 
 export type ScenarioId = z.infer<typeof scenarioIdSchema>;
 
+export const publicModelSchema = z.enum([
+  "openai/gpt-4.1-mini",
+  "openai/gpt-4o-mini",
+]);
+
 export const runRequestSchema = z.object({
   messages: z.array(z.unknown()).max(20).default([]),
   scenarioId: scenarioIdSchema,
@@ -18,8 +23,8 @@ export const runRequestSchema = z.object({
     .object({
       maxToolCalls: z.number().int().min(1).max(8).default(4),
       maxCostUsd: z.number().positive().max(0.25).default(0.05),
-      requireApproval: z.boolean().default(true),
-      model: z.string().max(100).default("openai/gpt-4.1-mini"),
+      requireApproval: z.literal(true).default(true),
+      model: publicModelSchema.default("openai/gpt-4.1-mini"),
     })
     .default({
       maxToolCalls: 4,

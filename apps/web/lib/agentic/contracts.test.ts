@@ -32,6 +32,34 @@ describe("agent run contracts", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects unapproved public models", () => {
+    const result = runRequestSchema.safeParse({
+      scenarioId: "incident_response",
+      controls: {
+        maxToolCalls: 4,
+        maxCostUsd: 0.05,
+        requireApproval: true,
+        model: "openai/unbounded-model",
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("does not allow public callers to disable side-effect approval", () => {
+    const result = runRequestSchema.safeParse({
+      scenarioId: "incident_response",
+      controls: {
+        maxToolCalls: 4,
+        maxCostUsd: 0.05,
+        requireApproval: false,
+        model: "openai/gpt-4.1-mini",
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("accepts specialist handoff trace events", () => {
     const event = runEventSchema.parse({
       id: "event-1",

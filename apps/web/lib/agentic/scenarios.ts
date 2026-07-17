@@ -14,6 +14,10 @@ export type ScenarioDefinition = {
   accent: "teal" | "blue" | "amber" | "red";
   orchestration: "multi_agent" | "single_agent";
   agentPattern: string;
+  businessOutcome: string;
+  enterpriseSystems: string;
+  agenticAdvantage: string;
+  ruleBoundary: string;
   agentNodes: string[];
   ruleNodes: string[];
   requiredTools: string[];
@@ -39,8 +43,26 @@ export const scenarios: ScenarioDefinition[] = [
     accent: "teal",
     orchestration: "multi_agent",
     agentPattern: "Supervisor + parallel evidence specialists",
-    agentNodes: ["guardrail", "status-specialist", "incident-specialist", "supervisor", "policy", "evaluate"],
-    ruleNodes: ["fetch-status", "normalize-facts", "evaluate-rules", "route-alert"],
+    businessOutcome: "Faster, evidence-backed incident command",
+    enterpriseSystems: "Datadog · PagerDuty · deployment telemetry · GitHub",
+    agenticAdvantage:
+      "Parallel specialists reconcile independent evidence and adapt the operational brief to what they observe.",
+    ruleBoundary:
+      "Thresholds route known severity states; they cannot investigate conflicting or novel evidence combinations.",
+    agentNodes: [
+      "guardrail",
+      "status-specialist",
+      "incident-specialist",
+      "supervisor",
+      "policy",
+      "evaluate",
+    ],
+    ruleNodes: [
+      "fetch-status",
+      "normalize-facts",
+      "evaluate-rules",
+      "route-alert",
+    ],
     requiredTools: ["github_status", "github_incidents"],
     defaultInput: { scope: "github-platform", timeWindow: "current" },
     inputFields: [
@@ -62,10 +84,34 @@ export const scenarios: ScenarioDefinition[] = [
     accent: "blue",
     orchestration: "single_agent",
     agentPattern: "Plan-and-execute + evaluator",
-    agentNodes: ["guardrail", "plan", "issue-tool", "repo-tool", "assess", "policy", "evaluate"],
-    ruleNodes: ["fetch-issue", "normalize-facts", "evaluate-rules", "assign-queue"],
+    businessOutcome:
+      "Higher-quality triage before engineering time is committed",
+    enterpriseSystems: "GitHub Enterprise · Jira · CI/CD · code search",
+    agenticAdvantage:
+      "The agent selects evidence, resolves issue ambiguity, and changes its investigation path as repository context arrives.",
+    ruleBoundary:
+      "Rules can label by state, age, or comment count; they cannot determine an evidence-grounded implementation path.",
+    agentNodes: [
+      "guardrail",
+      "plan",
+      "issue-tool",
+      "repo-tool",
+      "assess",
+      "policy",
+      "evaluate",
+    ],
+    ruleNodes: [
+      "fetch-issue",
+      "normalize-facts",
+      "evaluate-rules",
+      "assign-queue",
+    ],
     requiredTools: ["github_issue", "github_repository"],
-    defaultInput: { owner: "langchain-ai", repository: "langgraphjs", issueNumber: "2570" },
+    defaultInput: {
+      owner: "langchain-ai",
+      repository: "langgraphjs",
+      issueNumber: "2570",
+    },
     inputFields: [
       { key: "owner", label: "GitHub owner", placeholder: "langchain-ai" },
       { key: "repository", label: "Repository", placeholder: "langgraphjs" },
@@ -86,12 +132,35 @@ export const scenarios: ScenarioDefinition[] = [
     accent: "red",
     orchestration: "single_agent",
     agentPattern: "Research agent + policy gate",
-    agentNodes: ["guardrail", "plan", "gleif-tool", "entity-resolution", "risk-review", "policy", "evaluate"],
-    ruleNodes: ["fetch-entity", "normalize-facts", "evaluate-rules", "route-review"],
+    businessOutcome: "Defensible supplier onboarding and renewal decisions",
+    enterpriseSystems: "ERP supplier master · GLEIF · sanctions · procurement",
+    agenticAdvantage:
+      "The agent resolves entity ambiguity, weighs registration evidence, and explains why a candidate needs review.",
+    ruleBoundary:
+      "Rules can block known status codes; they cannot disambiguate legal entities or reconcile incomplete evidence.",
+    agentNodes: [
+      "guardrail",
+      "plan",
+      "gleif-tool",
+      "entity-resolution",
+      "risk-review",
+      "policy",
+      "evaluate",
+    ],
+    ruleNodes: [
+      "fetch-entity",
+      "normalize-facts",
+      "evaluate-rules",
+      "route-review",
+    ],
     requiredTools: ["gleif_entity"],
     defaultInput: { legalName: "Microsoft Corporation" },
     inputFields: [
-      { key: "legalName", label: "Legal entity name", placeholder: "Microsoft Corporation" },
+      {
+        key: "legalName",
+        label: "Legal entity name",
+        placeholder: "Microsoft Corporation",
+      },
     ],
     prompt: (input) =>
       `Assess legal-entity evidence for supplier candidate ${input.legalName}. Resolve the entity with GLEIF, report match confidence using returned structured fields, flag registration or entity-status concerns, cite the source, and require approval for any supplier status change.`,
@@ -108,13 +177,36 @@ export const scenarios: ScenarioDefinition[] = [
     accent: "amber",
     orchestration: "single_agent",
     agentPattern: "Evidence analyst + grounded evaluator",
-    agentNodes: ["guardrail", "plan", "sec-tool", "evidence-analysis", "materiality-review", "policy", "evaluate"],
-    ruleNodes: ["fetch-facts", "normalize-facts", "evaluate-rules", "route-review"],
+    businessOutcome: "Faster exception review with an auditable evidence trail",
+    enterpriseSystems: "ERP subledger · filings · policy service · approvals",
+    agenticAdvantage:
+      "The agent finds relevant filing evidence, interprets periods and caveats, and separates facts from judgment.",
+    ruleBoundary:
+      "Rules can flag dates and thresholds; they cannot produce a grounded materiality narrative from changing evidence.",
+    agentNodes: [
+      "guardrail",
+      "plan",
+      "sec-tool",
+      "evidence-analysis",
+      "materiality-review",
+      "policy",
+      "evaluate",
+    ],
+    ruleNodes: [
+      "fetch-facts",
+      "normalize-facts",
+      "evaluate-rules",
+      "route-review",
+    ],
     requiredTools: ["sec_company_facts"],
     defaultInput: { cik: "0000789019", metric: "AccountsPayableCurrent" },
     inputFields: [
       { key: "cik", label: "SEC CIK", placeholder: "0000789019" },
-      { key: "metric", label: "US-GAAP metric", placeholder: "AccountsPayableCurrent" },
+      {
+        key: "metric",
+        label: "US-GAAP metric",
+        placeholder: "AccountsPayableCurrent",
+      },
     ],
     prompt: (input) =>
       `Analyze live SEC company facts for CIK ${input.cik}, focusing on ${input.metric}. Use the SEC tool, cite the filing evidence returned, explain the latest reported value and period, avoid unsupported accounting conclusions, and require approval before any financial action.`,

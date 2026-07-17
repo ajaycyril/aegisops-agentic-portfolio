@@ -1,332 +1,209 @@
-# AegisOps Agentic Workflow Portfolio
+# AegisOps
 
-A production-grade, visual-first agentic AI platform blueprint for enterprise workflows.
+### A live enterprise agent systems lab
 
-The purpose of this repo is to demonstrate expertise across the full agentic stack:
-orchestration, tools, memory, policy, guardrails, human approval, observability, evals,
-deployment, and cost governance.
+[![Live demo](https://img.shields.io/badge/live-demo-43d1b5?style=flat-square)](https://aegisops-agentic-portfolio.vercel.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/ajaycyril/aegisops-agentic-portfolio/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/ajaycyril/aegisops-agentic-portfolio/actions)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/ajaycyril/aegisops-agentic-portfolio/codeql.yml?branch=main&style=flat-square&label=CodeQL)](https://github.com/ajaycyril/aegisops-agentic-portfolio/security/code-scanning)
+[![License: MIT](https://img.shields.io/badge/license-MIT-75a7ff?style=flat-square)](./LICENSE)
+[![No synthetic business data](https://img.shields.io/badge/data-real%20sources-edc55f?style=flat-square)](./docs/architecture/05-live-workbench-runtime.md)
 
-This is not a chatbot demo. It is an agentic workflow platform.
+**AegisOps runs agentic and deterministic systems side by side against the same live evidence.**
+It makes the control boundary visible: what the graph constrains, what the model chooses, which
+typed tools execute, what evidence returns, where policy intervenes, and why a fixed rule engine
+cannot perform the same adaptive work.
 
-## Live Workbench Status - July 2026
+[Open the production workbench](https://aegisops-agentic-portfolio.vercel.app) ·
+[Read the user guide](./docs/USER_GUIDE.md) ·
+[Explore the enterprise playbook](./docs/ENTERPRISE_AGENTIC_PLAYBOOK.md)
 
-The first screen is now a working execution cockpit, not a catalog page. `POST /api/agent-runs`
-starts two concurrent lanes against the same live public source:
+![AegisOps live workbench](docs/assets/screenshots/live-workbench.jpg)
 
-- A LangGraph + AI SDK agentic lane with typed MCP tools, OPA/Rego policy, evidence contracts,
-  streamed model output, grounding evaluation, and checkpoint support.
-- A `json-rules-engine` lane that reads the same source data and evaluates only its predefined
-  conditions, without a model.
+## The Question This Project Answers
 
-The execution canvas includes an observable decision ledger that identifies which choices belong
-to the human/graph, model, MCP tool boundary, live source contract, OPA policy, and evaluator. It
-shows execution summaries and selected actions from real streamed events, not private model
-chain-of-thought. A separate live React Flow stack map lights up LangGraph, AI SDK ToolLoopAgent,
-MCP, OPA/Rego, Zod, checkpointing, telemetry, provider, and source layers as those components run.
+Enterprises do not need an agent for every workflow. They need a defensible way to decide where
+agentic control adds value and where deterministic automation remains safer, cheaper, and clearer.
 
-The four selectable workflows use official source APIs and do not ship synthetic business records:
-
-| Workflow | Live source | Agent architecture |
+| Control mode | Best fit | What is visible in AegisOps |
 | --- | --- | --- |
-| Production Incident Investigator | GitHub Status API | Two parallel specialist agents plus supervisor |
-| Engineering Issue Triage | GitHub REST API | Single adaptive evidence agent |
-| Supplier Entity Risk | GLEIF LEI API | Single research agent with policy gate |
-| Finance Evidence Analyst | SEC EDGAR Data API | Single grounded evidence agent |
+| Fixed rules | Stable facts, thresholds, validation, known routes | Inputs, conditions, matched outcomes, zero model cost |
+| Dynamic policy | Contextual allow, block, and approval decisions | OPA/Rego input, decision, controls, approval requirement |
+| AI workflow | Bounded generation or evaluation inside a fixed graph | Model, prompt boundary, structured output, tokens, eval result |
+| Agentic | Evidence changes the next action, tool choice, handoff, or stopping point | LangGraph state, model decision, MCP call, observation, adaptation, policy |
 
-The public demo uses rate-limited GitHub Models inference when `GITHUB_MODELS_TOKEN` is set.
-The UI reports actual tokens, a zero free-tier charge, and the equivalent direct OpenAI API cost.
-`DATABASE_URL` activates LangGraph `PostgresSaver`; without it, the UI explicitly describes the
-public demo as using the `MemorySaver` fallback. See
-[`docs/architecture/05-live-workbench-runtime.md`](docs/architecture/05-live-workbench-runtime.md).
+The product does not expose or fabricate private model chain-of-thought. It exposes the operational
+decisions required to audit the system: available and selected tools, graph constraints, agent role,
+evidence, handoffs, finish reason, policy state, cost, latency, and trace identity.
 
-## Current Phase
+![Observable decisions versus fixed rules](docs/assets/screenshots/decision-ledger.jpg)
 
-The live dual-lane workbench and the real multi-agent incident workflow are implemented and
-verified in production. Managed Postgres/Redis activation is the active infrastructure task;
-the older registry-only gateway is no longer the browser run path.
+## What Runs Today
 
-This repository currently defines:
+Press **Run both live** and two concurrent lanes execute against the same official public source:
 
-- Durable agent execution instructions.
-- Full incremental project plan.
-- Monorepo structure.
-- Production stack decisions.
-- Workflow portfolio and use-case library.
-- Visual product architecture.
-- Real-data-only operating rules.
-- Free-tier deployment target with production-grade upgrade path.
-- Dependency manifests for web, API, and shared contracts.
-- Cloud-first infrastructure plan for managed Postgres, pgvector, Redis/Upstash, and OPA.
-- Deployed visual command-center shell.
-- Vercel Services read-only API gateway under `/api` for public workflow, connector, and tool
-  registry endpoints, backed by a committed snapshot of the canonical registry YAML contracts.
-- SQLAlchemy governance data model and Alembic migration.
-- OPA/Rego policy baseline and structured policy fixtures.
-- Typed OPA client and audit event writer.
-- Typed connector auth/readiness catalog covering all enterprise systems referenced by the
-  workflow and tool registries.
-- Typed workflow registry loader and read-only workflow catalog endpoints.
-- Typed `POST /workflow-runs` start gate with connector readiness, replay/live mode, budget
-  envelope, admin-only live-run preflight, OPA run eligibility, durable run records, registry
-  snapshots, and audit events.
-- Per-run budget enforcement that evaluates persisted model cost, tool-call count, elapsed
-  runtime, and prospective tool calls through OPA before runtime graph or tool execution work
-  continues.
-- Live-contract-first visual command center with five priority use cases, a shared React Flow
-  workflow player, real API run-start bridge, runtime readiness gates, trace-backed step
-  inspection, workflow tuning controls, and immediate rule-engine comparison.
-- Agentic-vs-rule-engine visual taxonomy that separates fixed deterministic checks, dynamic
-  OPA policy, structured AI workflow calls, and true LangGraph/MCP agentic execution with
-  costs, controls, failure modes, and selected-workflow fit.
-- Peel-the-layers stack panels that present workflow contracts, connector readiness, data
-  policy, approvals, orchestration, tools, memory, guardrails, policy, observability, evals,
-  and deployment without fabricated agent activity.
-- Typed tool contract registry with GitHub, SQL read, document retrieval, and observability
-  tool definitions exposed through read-only API endpoints.
-- MCP tool contract server skeleton and `POST /tool-calls/authorize` boundary for
-  schema-validated, OPA-checked, audit-logged tool calls without live connector execution.
-- `POST /tool-calls/{tool_call_id}/execute` for executing a previously authorized stored tool
-  call, with input-hash revalidation, output schema validation, status transitions, latency,
-  output hash, and audit events.
-- Read-only GitHub App adapter for real issue and file reads through installation-token REST
-  calls. Write adapters remain intentionally unavailable.
-- Read-only HTTP JSON adapters for observability log search, deployment event search, support
-  ticket read, CRM customer profile read, and knowledge base search, configured through
-  explicit connection IDs, base URLs, optional endpoint paths, and optional bearer tokens.
-- Customer Support Escalation workflow marked ready behind real connector readiness, with
-  typed support ticket read, CRM customer profile read, and knowledge base search tools.
-- Engineering Issue-to-PR LangGraph module with typed input, issue read node, context file read
-  node, evidence assembly node, and policy-backed tool runtime integration.
-- Controlled Engineering Issue-to-PR evidence collection route at
-  `POST /workflow-runs/{run_id}/engineering-issue-to-pr/evidence`, gated by a stored live
-  workflow run, typed input, tool policy authorization, GitHub adapter execution, persisted
-  evidence metadata, and audit events.
-- Captured-real-run replay fixture schema and loader for the same Engineering evidence route.
-  The repo documents fixture placement but does not ship fabricated replay payloads.
-- `aegisops-demo-seed` utility for resetting and seeding public demo traces from externally
-  supplied captured-real-run replay manifests only.
-- Optional Engineering Issue-to-PR proposal/evaluator graph nodes with typed patch-plan,
-  test-plan, and evaluation contracts. They require an injected planner and do not enable
-  branch or pull-request writes.
-- OpenAI Responses API planner adapter for those proposal/evaluator contracts, with
-  `model_calls` audit records for model, prompt version, token counts, latency, trace ID, and
-  failure status.
-- `include_proposal=true` support on the Engineering evidence route when `OPENAI_API_KEY` and
-  an explicit OpenAI model are configured. Proposal/evaluation output remains non-writing and
-  approval-required.
-- Run-scoped Engineering approval-review route that persists pending `approvals` rows for
-  proposed branch and pull-request actions, validates evidence URIs against the proposal, moves
-  the run to `waiting_for_approval`, and records audit events without executing GitHub writes.
-- Run-scoped Engineering approval decision route that approves or rejects pending branch/PR
-  approval records through OPA, captures decision metadata, enforces four-eyes review input, and
-  still returns a no-write execution state.
-- Run-scoped Engineering PR draft authorization route that accepts approved approval IDs and
-  creates policy-checked `github_pull_request_draft` tool calls as authorized-but-not-executed
-  records, or blocked records when approval is missing. It still does not execute GitHub writes.
-- Run-scoped Engineering PR draft preview route that verifies the approved authorization and
-  input hash, then persists a dry-run evidence artifact with PR metadata and hashes only.
-- Generic workflow-run trace endpoint returning run, approval, tool-call, model-call, evidence,
-  memory, and audit metadata for UI readouts.
-- Server-rendered web trace reader keyed by `DEMO_WORKFLOW_RUN_ID`/`DEMO_TRACE_RUN_ID`, with
-  no fake fallback data. It visualizes approval decisions, PR authorization blocks, dry-run
-  preview evidence, record counts, and recent trace metadata from
-  `GET /workflow-runs/{run_id}/trace`.
-- Visual Proposal Review cockpit showing the route contract, planner readiness, typed
-  proposal/evaluation output, model-call audit path, approval persistence contract, and approval
-  stop-points.
-- Visual multi-agent orchestration cockpit for the Production Incident Investigator, using
-  React Flow to show supervisor-worker fan-out, specialist evidence gathering, evaluator
-  reconciliation, and approval-gated production actions without fake incident data.
-- Production Incident Investigator LangGraph runtime slice with read-only log, deployment,
-  and code evidence collection through policy-authorized tool calls plus captured-real-run
-  replay loading. Live observability/deployment reads use the generic HTTP JSON adapters when
-  connector env vars are configured. The route returns source-grounded evidence validation and
-  can create a typed, hash-only RCA draft contract when `include_rca=true`; rollback, paging,
-  incident updates, and external writes remain disabled.
-- Run-scoped Incident approval-review route that creates pending `approvals` rows for rollback,
-  paging, and incident-update proposals from a grounded RCA draft without executing those
-  actions.
-- Run-scoped Incident approval decision route that approves or rejects those records through
-  OPA policy, audits the decision, and still returns a no-write execution state.
-- Run-scoped Customer Support Escalation context route at
-  `POST /workflow-runs/{run_id}/customer-support-escalation/context` that reads a real support
-  ticket, CRM customer profile, and cited knowledge documents through policy-authorized tools,
-  persists hash-only/redacted evidence metadata, and can create an internal cited response draft
-  with `include_draft=true`.
-- Run-scoped Customer Support approval-review route that creates a pending external-message
-  approval record for the cited response draft while keeping customer-visible sending disabled.
-- Run-scoped Customer Support approval decision route that approves or rejects that pending
-  customer-message approval through OPA and audits the decision without sending a message.
-- Run-scoped Customer Support send-disabled authorization route at
-  `POST /workflow-runs/{run_id}/customer-support-escalation/message-send/authorize` that
-  verifies the approved response draft hash, then persists a blocked `customer_message_send`
-  tool-call record with no raw customer message and no external execution.
-- Customer Support memory policy records that write only run-scoped, 30-day, redacted memory
-  governance metadata; user/org customer memory remains approval-gated.
-- Executable trace eval endpoint at `GET /workflow-runs/{run_id}/evals/trace`, with
-  deterministic checks for support grounding, redaction, memory policy, send-disabled state,
-  sensitive writes, policy metadata, and cost/model usage.
-- Visual eval-result panel in the command center when a real demo run id is configured.
-- Rubric eval contracts for Engineering patch proposals, Incident RCA drafts, and Customer
-  Support response drafts, plus structured approval policy fixtures for rollback, paging,
-  incident updates, and support messages.
-- Admin-only live-run gate requiring `LIVE_RUN_ADMIN_KEY` and a matching
-  `x-aegisops-live-run-key` header before workflow lookup, policy evaluation, or persistence.
+1. A LangGraph and AI SDK agentic lane selects typed MCP tools, observes validated evidence,
+   adapts or reconciles, passes OPA policy, and completes a grounding evaluation.
+2. A `json-rules-engine` lane fetches predefined fields and can return only outcomes configured
+   before the run.
 
-## Core Principle
+Four interactive workflows are deployed:
 
-Every workflow must be real-system ready.
+| Workflow | Live evidence | Enterprise integration pattern | Why agentic |
+| --- | --- | --- | --- |
+| Production Incident Investigator | GitHub Status API | Datadog, PagerDuty, deployment telemetry, GitHub | Parallel specialists reconcile independent operational evidence |
+| Engineering Issue Triage | GitHub REST API | GitHub Enterprise, Jira, CI/CD, code search | Investigation changes as issue and repository context arrive |
+| Supplier Entity Risk | GLEIF LEI API | ERP supplier master, sanctions, procurement | Entity ambiguity and incomplete evidence require explainable research |
+| Finance Evidence Analyst | SEC EDGAR Data API | ERP subledger, filings, policy, approvals | Filing periods and caveats must be grounded before judgment |
 
-- No fake data.
-- No regex-driven extraction for business logic.
-- No opaque agent runs.
-- No unrestricted autonomy.
-- No model call without trace, budget, and policy context.
+The repository also contains production contracts for customer support, security remediation,
+invoice exceptions, compliance evidence, sales/RFP, BI analysis, and HR/IT access workflows.
 
-If a real connector is not configured, the workflow remains disabled. Replay mode is allowed
-only for captured real runs and must be labeled as replay.
+## Live Architecture
 
-## Portfolio Workflows
+The architecture view is generated from the same streamed run events as the workflow graph. A
+layer lights up only when its runtime evidence exists.
 
-| Domain            | Workflow                            | Production Value                                               |
-| ----------------- | ----------------------------------- | -------------------------------------------------------------- |
-| Engineering       | GitHub Issue-to-PR Agent            | Turns real issues into reviewed PR drafts                      |
-| Security          | Vulnerability Remediation Agent     | Triage CVEs and generate safe remediation plans                |
-| Customer Support  | Escalation Resolution Agent         | Resolve real support escalations with context and approval     |
-| Supply Chain      | Supplier Risk Agent                 | Investigate supplier risk from real systems and sources        |
-| Finance Ops       | Invoice Exception Agent             | Triage invoices, policies, approvals, and audit evidence       |
-| Incident Response | Production Incident Investigator    | Multi-agent log, trace, deploy, and code investigation for RCA |
-| Sales / RFP       | Account Research and Proposal Agent | Build source-grounded RFP and account briefs                   |
-| Compliance        | Audit Evidence Agent                | Collect evidence from systems and map to controls              |
-| Data / BI         | Executive Analyst Agent             | Query real operational data and explain drivers                |
-| HR / IT Ops       | Onboarding and Access Agent         | Coordinate access, docs, tasks, and approvals                  |
+![Live agentic stack map](docs/assets/screenshots/live-stack-map.jpg)
 
-## Repository Layout
+The same execution canvas remains inspectable on mobile without collapsing the graph into a
+static illustration.
+
+<img src="docs/assets/screenshots/mobile-workbench.jpg" alt="AegisOps mobile execution canvas" width="390" />
+
+```mermaid
+flowchart LR
+  UI["Next.js workbench"] --> Stream["AI SDK UIMessage stream"]
+  Stream --> Graph["LangGraph state graph"]
+  Stream --> Rules["json-rules-engine"]
+  Graph --> Agent["AI SDK ToolLoopAgent"]
+  Graph --> Policy["OPA / Rego WASM"]
+  Graph --> State["PostgresSaver or MemorySaver"]
+  Agent --> MCP["MCP TypeScript SDK"]
+  MCP --> Sources["Official live APIs"]
+  Sources --> Contracts["Zod evidence contracts"]
+  Contracts --> Trace["Trace and OTel telemetry"]
+  Policy --> Trace
+  Rules --> Trace
+  Trace --> UI
+```
+
+### Stack
+
+| Layer | Production choice |
+| --- | --- |
+| Experience | Next.js 16, React 19, AI Elements, React Flow 12 |
+| Agent orchestration | LangGraph JS 1.4 with fan-out, fan-in, checkpoints, evaluators |
+| Model/tool loop | Vercel AI SDK 6 `ToolLoopAgent`; OpenAI-compatible provider adapters |
+| Tool boundary | MCP TypeScript SDK with Zod input and result contracts |
+| Deterministic decisions | `json-rules-engine` 7 |
+| Dynamic authorization | OPA/Rego compiled to WASM |
+| State and memory | Postgres/pgvector architecture; LangGraph `PostgresSaver` adapter |
+| Observability | Typed run events, trace IDs, model/tool telemetry, token and cost accounting |
+| Full API | FastAPI, Pydantic, SQLAlchemy, Alembic, approval and audit records |
+| Deployment | Vercel Services with a bounded public runtime and read-only registry API |
+
+## Multi-Agent Work That Is Justified
+
+The incident workflow uses three model agents because the topology matches the operational problem:
+
+- A platform-health specialist reads component state.
+- An incident specialist reads unresolved incident evidence.
+- LangGraph runs both specialists in parallel and waits at a fan-in barrier.
+- A tool-less supervisor reconciles the handoffs without silently collecting new evidence.
+- OPA holds side effects, and a grounding evaluator requires both sources before completion.
+
+This is not multiple agents for visual effect. Independent evidence collection reduces blind spots;
+the supervisor exists because the reports may need conflict resolution and one accountable output.
+
+## Public Runtime Safety
+
+The public deployment is narrower than the enterprise runtime by design:
+
+- Read-only, allowlisted MCP tools only.
+- Server-side model allowlist.
+- Mandatory approval semantics for side effects.
+- OPA/Rego policy outside the model.
+- Typed request, tool, evidence, event, and policy contracts.
+- Request-size, rate, concurrency, tool-count, token, spend, and duration bounds.
+- No browser credentials and no committed secrets.
+- Security headers and no-store streaming responses.
+- CodeQL, Dependabot, CI, policy tests, and contract tests.
+
+The free public deployment uses `MemorySaver` and an in-process limiter when managed state is not
+configured. An enterprise deployment must activate Postgres checkpoints, shared Redis-compatible
+rate limiting, authenticated connectors, durable approval/audit records, and identity-aware policy
+before enabling writes.
+
+See [SECURITY.md](./SECURITY.md) for disclosure and deployment boundaries.
+
+## Run Locally
+
+Prerequisites: Node.js 24 and pnpm 10.15.1.
+
+```bash
+pnpm install --frozen-lockfile
+cp .env.example .env.local
+pnpm --filter @aegisops/web dev
+```
+
+Open `http://localhost:3000`. A provider credential is required for model-backed runs; health,
+documentation, contracts, rules, and most tests do not require one. Never expose a provider key as
+a `NEXT_PUBLIC_*` variable.
+
+Validation:
+
+```bash
+pnpm --filter @aegisops/web lint
+pnpm --filter @aegisops/web typecheck
+pnpm --filter @aegisops/web test
+pnpm --filter @aegisops/web build
+node scripts/check-docs-placeholders.mjs
+```
+
+Full setup details: [Local development](./docs/development/local-setup.md) and
+[production runbook](./docs/deployment/production-runbook.md).
+
+## Repository Map
 
 ```text
-.
-├── apps/
-│   └── web/                  # Visual command center
-├── services/
-│   ├── api/                  # FastAPI, LangGraph, OpenAI, policy, tools
-│   └── api-vercel/           # Slim Vercel read-only registry API
-├── packages/
-│   └── shared-contracts/     # Shared TypeScript contracts and generated schemas
-├── configs/
-│   ├── connectors/           # Connector auth, scope, and data-boundary contracts
-│   ├── policies/             # Policy routing and approval metadata
-│   ├── tools/                # Typed tool contract definitions
-│   └── workflows/            # Workflow registry definitions
-├── docs/
-│   ├── architecture/          # System design and stack decisions
-│   ├── adrs/                  # Architecture decision records
-│   ├── use-cases/             # Enterprise workflow portfolio
-│   └── workflows/             # Workflow design contracts
-├── infra/                    # Local and deployment infrastructure
-├── mcp/                      # MCP server design and tool contracts
-└── policies/                 # OPA/Rego policy home
+apps/web/                  live workbench and bounded public agent runtime
+services/api/              stateful FastAPI enterprise runtime
+services/api-vercel/       read-only public registry API
+configs/workflows/         enterprise workflow contracts
+configs/tools/             typed tool registry
+configs/connectors/        connector identity and scope contracts
+policies/                  OPA/Rego governance
+mcp/                       MCP server and tool-boundary design
+docs/                      architecture, operations, use cases, and runbooks
 ```
 
-## Stack Summary
+## Documentation
 
-| Layer                     | Choice                                                     |
-| ------------------------- | ---------------------------------------------------------- |
-| Frontend                  | Next.js 16, React 19, AI Elements, Tailwind, React Flow 12  |
-| Backend                   | FastAPI, Pydantic, SQLAlchemy                              |
-| Agent orchestration       | LangGraph JS 1.4                                            |
-| Agent loop                | Vercel AI SDK 6 `ToolLoopAgent`                            |
-| Model route               | GitHub Models free tier; OpenAI and AI Gateway adapters    |
-| Tool protocol             | MCP TypeScript SDK 1                                       |
-| Policy engine             | OPA/Rego compiled to WASM                                  |
-| Data layer                | Postgres, pgvector                                         |
-| Cache/rate limits         | Redis or Upstash Redis                                     |
-| Observability             | OpenTelemetry, LangSmith, Langfuse                         |
-| Evals                     | pytest, promptfoo, Ragas, trace evaluators                 |
-| Deployment                | Vercel web/read-only registry API, cloud full API, Neon/Supabase Postgres |
+- [User guide](./docs/USER_GUIDE.md): run and inspect the live workbench.
+- [Enterprise agentic playbook](./docs/ENTERPRISE_AGENTIC_PLAYBOOK.md): determine when agentic
+  control is justified and how to productionize it.
+- [System architecture](./docs/architecture/01-system-architecture.md): runtime and trust boundaries.
+- [Stack decisions](./docs/architecture/02-stack-decisions.md): library choices and tradeoffs.
+- [Workflow taxonomy](./docs/architecture/03-agentic-workflow-taxonomy.md): deterministic through
+  multi-agent patterns.
+- [Live runtime](./docs/architecture/05-live-workbench-runtime.md): the deployed execution contract.
+- [Use-case portfolio](./docs/use-cases/README.md): ten enterprise workflow families.
+- [Project plan](./PROJECT_PLAN.md): durable implementation status and next work.
+- [Contributing](./CONTRIBUTING.md): engineering and validation requirements.
 
-## Start Here
+## Project Status
 
-Read these documents in order:
+The dual-lane live workbench, four public-source workflows, multi-agent incident graph, typed MCP
+tools, OPA policy, grounding checks, observable decision ledger, unit economics, and live stack map
+are production deployed. Managed shared state and authenticated enterprise write connectors remain
+explicit deployment upgrades, not hidden claims.
 
-1. [Agent Operating Guide](./AGENTS.md)
-2. [Incremental Project Plan](./PROJECT_PLAN.md)
-3. [Executive Overview](./docs/architecture/00-executive-overview.md)
-4. [System Architecture](./docs/architecture/01-system-architecture.md)
-5. [Stack Decisions](./docs/architecture/02-stack-decisions.md)
-6. [Workflow Taxonomy](./docs/architecture/03-agentic-workflow-taxonomy.md)
-7. [Visual Product Blueprint](./docs/architecture/04-visual-product-blueprint.md)
-8. [Use-Case Portfolio](./docs/use-cases/README.md)
-9. [Workflow Contracts](./docs/workflows/README.md)
-10. [Production Deployment Runbook](./docs/deployment/production-runbook.md)
-11. [Cloud-Only Runtime Plan](./docs/deployment/cloud-only-runtime.md)
-12. [Portfolio Walkthrough Script](./docs/deployment/portfolio-walkthrough.md)
-13. [Local Development Setup](./docs/development/local-setup.md)
+## Author
 
-## Execution Plan
-
-`PROJECT_PLAN.md` is the canonical execution plan. Future agents should use it to select the
-next incomplete task without relying on chat history.
-
-Current next task:
-
-1. Provision dedicated managed Postgres/pgvector and Redis-compatible rate limiting.
-2. Continue the connector library behind the same MCP and OPA authorization boundary.
-3. Add authenticated enterprise write paths only after durable approval and audit are active.
-2. Deploy the full API runtime with `DATABASE_URL`, `OPA_BASE_URL`, spend controls, connector
-   readiness, and admin live-run key configured.
-3. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`
-   at it for the public eval/trace readout.
-
-## Cloud-First Development Target
-
-Runtime verification and demos use managed cloud services. Local development still supports
-running the web app and API process, but it should point at cloud-managed state and policy
-services when validating live behavior.
-
-- `pnpm` workspace for frontend and shared TypeScript contracts.
-- Python virtual environment for the API and agent runtime.
-- Managed Postgres with pgvector.
-- Redis-compatible cache or Upstash Redis.
-- Hosted OPA-compatible policy service.
-- Environment variables validated at startup.
-
-## Free-Tier Constraint
-
-The public demo should run on free tiers where possible, but the architecture must remain
-deployment-grade. Free hosting is a demo constraint, not a production SLA.
-
-## Current Deployment
-
-The visual command center is deployed on Vercel:
-
-- Production URL: https://aegisops-agentic-portfolio.vercel.app
-- Vercel project: `aegisops-agentic-portfolio`
-- Public read-only API: `/api/ready`, `/api/workflows`, `/api/connectors`, `/api/tools`
-- API cloud-runtime artifacts: `services/api`, `services/api/Dockerfile` as an optional cloud
-  build artifact, `render.yaml`, and
-  `docs/deployment/production-runbook.md`
-
-The FastAPI service mounted at `/api` remains a read-only registry. The separate Next.js
-`POST /api/agent-runs` route runs the bounded public-source workbench with live MCP reads,
-OPA/Rego policy, spend controls, and no write tools. The full cloud API remains the target for
-authenticated enterprise connectors, durable audit, approval records, and side effects.
-
-The legacy `/live-run/start` registry bridge was removed because it could only return the
-registry gateway's closed-runtime response. To test locally against the production registry
-while running the real workbench route locally:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=https://aegisops-agentic-portfolio.vercel.app/api pnpm --filter @aegisops/web dev --hostname 127.0.0.1 --port 3000
-```
-
-When workflow, connector, or tool YAML changes, update the Vercel API snapshot before
-deployment:
-
-```bash
-pnpm vercel-api:sync-config
-pnpm vercel-api:check-config
-```
+Designed and built by [Ajay Cyril](https://github.com/ajaycyril) as an opinionated reference
+implementation for transparent, governed enterprise agent systems: agentic where adaptation creates
+measurable value, deterministic where certainty is the better engineering choice.
 
 ## License
 
-Private project scaffold. Choose a license before public release.
+[MIT](./LICENSE) © 2026 Ajay Cyril

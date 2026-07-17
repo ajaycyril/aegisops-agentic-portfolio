@@ -43,6 +43,13 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
 - The UI reports actual tool calls, validated source payloads, model tokens, free-tier charge, and
   direct-API equivalent unit economics.
 - Vitest covers typed run contracts, scenario topology, and policy allow/block/approval behavior.
+- Each scenario now states its production integration pattern, deterministic rule boundary, and
+  specific agentic advantage directly above the live execution canvas.
+- The public release candidate includes an MIT license, contributor and security policies,
+  CodeQL, Dependabot, a screenshot-led README, a user guide, and an enterprise agentic playbook.
+- The public live-run route now enforces a model allowlist, mandatory human approval controls,
+  request-size, run-rate, tool, spend, and process-concurrency limits. Repository and complete
+  Git-history scans are clean for the known provider credential formats.
 
 Production end-to-end evidence: the incident run completed both lanes with 36 streamed events,
 two specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, a
@@ -114,15 +121,15 @@ true LangGraph/MCP agentic execution with cost, controls, failure modes, and sel
 fit. It also includes a peel-the-layers stack panel that maps executive, architect, and
 engineer views to the actual orchestration, model, tool, governance, memory, observability,
 eval, and deployment layers.
-The production Vercel deployment now uses Vercel Services for the web app plus a slim
-read-only FastAPI registry gateway under `/api`. That public gateway exposes real workflow,
-connector, and tool contracts from a checked config snapshot, reports registry counts in
-readiness, and intentionally excludes live workflow-run, model, database, OPA, connector, and
-write-action routes.
+The production Vercel deployment serves the visual Next.js workbench and its bounded live
+`POST /api/agent-runs` runtime. The separate slim FastAPI service remains a read-only registry
+gateway for workflow, connector, and tool contracts. Public writes remain disabled, all side
+effects are held for approval, and the deployed demo uses official public read-only sources.
 
 Current production web deployment:
 
 - https://aegisops-agentic-portfolio.vercel.app
+- Bounded live execution: `POST /api/agent-runs`
 - Public read-only API checks:
   `/api/ready`, `/api/workflows`, `/api/connectors`, `/api/tools`
 
