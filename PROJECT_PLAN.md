@@ -45,16 +45,23 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
 - Vitest covers typed run contracts, scenario topology, and policy allow/block/approval behavior.
 - Each scenario now states its production integration pattern, deterministic rule boundary, and
   specific agentic advantage directly above the live execution canvas.
-- The public release candidate includes an MIT license, contributor and security policies,
+- The public release includes an MIT license, contributor and security policies,
   CodeQL, Dependabot, a screenshot-led README, a user guide, and an enterprise agentic playbook.
 - The public live-run route now enforces a model allowlist, mandatory human approval controls,
   request-size, run-rate, tool, spend, and process-concurrency limits. Repository and complete
   Git-history scans are clean for the known provider credential formats.
+- GitHub publication is complete at `github.com/ajaycyril/aegisops-agentic-portfolio`, with
+  secret scanning, push protection, vulnerability alerts, Dependabot security updates, and
+  private vulnerability reporting enabled.
 
 Production end-to-end evidence: the incident run completed both lanes with 36 streamed events,
 two specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, a
 passing grounding evaluator, inspectable bounded model-decision metadata, 1,909 measured tokens,
 and a `$0.00167` direct-API equivalent.
+The public release deployment repeated the full incident run successfully after publication:
+parallel specialists called both typed MCP tools, captured two Zod-validated official-source
+records, reconciled through the supervisor, passed policy and grounding controls, and completed
+the deterministic comparison without a client error or horizontal overflow.
 Managed Postgres/Redis activation remains.
 
 Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level. Live
