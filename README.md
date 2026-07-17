@@ -8,10 +8,36 @@ deployment, and cost governance.
 
 This is not a chatbot demo. It is an agentic workflow platform.
 
+## Live Workbench Status - July 2026
+
+The first screen is now a working execution cockpit, not a catalog page. `POST /api/agent-runs`
+starts two concurrent lanes against the same live public source:
+
+- A LangGraph + AI SDK agentic lane with typed MCP tools, OPA/Rego policy, evidence contracts,
+  streamed model output, grounding evaluation, and checkpoint support.
+- A `json-rules-engine` lane that reads the same source data and evaluates only its predefined
+  conditions, without a model.
+
+The four selectable workflows use official source APIs and do not ship synthetic business records:
+
+| Workflow | Live source | Agent architecture |
+| --- | --- | --- |
+| Production Incident Investigator | GitHub Status API | Two parallel specialist agents plus supervisor |
+| Engineering Issue Triage | GitHub REST API | Single adaptive evidence agent |
+| Supplier Entity Risk | GLEIF LEI API | Single research agent with policy gate |
+| Finance Evidence Analyst | SEC EDGAR Data API | Single grounded evidence agent |
+
+The public demo uses rate-limited GitHub Models inference when `GITHUB_MODELS_TOKEN` is set.
+The UI reports actual tokens, a zero free-tier charge, and the equivalent direct OpenAI API cost.
+`DATABASE_URL` activates LangGraph `PostgresSaver`; without it, the UI explicitly describes the
+public demo as using the `MemorySaver` fallback. See
+[`docs/architecture/05-live-workbench-runtime.md`](docs/architecture/05-live-workbench-runtime.md).
+
 ## Current Phase
 
-Foundation runtime, governance scaffolding, workflow registry, policy-gated run-start
-scaffolding, and the registry-aware visual command center are in place.
+The live dual-lane workbench and the real multi-agent incident workflow are implemented and
+verified locally. Production redeployment and managed Postgres/Redis activation are the active
+deployment tasks; the older registry-only gateway is no longer the primary browser run path.
 
 This repository currently defines:
 
@@ -199,13 +225,13 @@ only for captured real runs and must be labeled as replay.
 
 | Layer                     | Choice                                                     |
 | ------------------------- | ---------------------------------------------------------- |
-| Frontend                  | Next.js, React, shadcn/ui, Tailwind, React Flow            |
+| Frontend                  | Next.js 16, React 19, AI Elements, Tailwind, React Flow 12  |
 | Backend                   | FastAPI, Pydantic, SQLAlchemy                              |
-| Agent orchestration       | LangGraph                                                  |
-| OpenAI-native specialists | OpenAI Agents SDK                                          |
-| Model API                 | OpenAI Responses API                                       |
-| Tool protocol             | MCP                                                        |
-| Policy engine             | OPA/Rego                                                   |
+| Agent orchestration       | LangGraph JS 1.4                                            |
+| Agent loop                | Vercel AI SDK 6 `ToolLoopAgent`                            |
+| Model route               | GitHub Models free tier; OpenAI and AI Gateway adapters    |
+| Tool protocol             | MCP TypeScript SDK 1                                       |
+| Policy engine             | OPA/Rego compiled to WASM                                  |
 | Data layer                | Postgres, pgvector                                         |
 | Cache/rate limits         | Redis or Upstash Redis                                     |
 | Observability             | OpenTelemetry, LangSmith, Langfuse                         |
@@ -237,7 +263,9 @@ next incomplete task without relying on chat history.
 
 Current next task:
 
-1. Provision managed Postgres/pgvector and a hosted OPA-compatible policy endpoint.
+1. Deploy and verify the new live workbench on Vercel.
+2. Provision dedicated managed Postgres/pgvector and Redis-compatible rate limiting.
+3. Continue the connector library behind the same MCP and OPA authorization boundary.
 2. Deploy the full API runtime with `DATABASE_URL`, `OPA_BASE_URL`, spend controls, connector
    readiness, and admin live-run key configured.
 3. Capture a real sandbox support, incident, or engineering run and point `DEMO_TRACE_RUN_ID`
@@ -272,15 +300,14 @@ The visual command center is deployed on Vercel:
   build artifact, `render.yaml`, and
   `docs/deployment/production-runbook.md`
 
-The deployed Vercel API is read-only and only exposes registry contracts. Live workflow
-execution remains disabled until the full cloud API has real connectors, live OPA checks,
-database migrations, approvals, and spend controls configured.
+The FastAPI service mounted at `/api` remains a read-only registry. The separate Next.js
+`POST /api/agent-runs` route runs the bounded public-source workbench with live MCP reads,
+OPA/Rego policy, spend controls, and no write tools. The full cloud API remains the target for
+authenticated enterprise connectors, durable audit, approval records, and side effects.
 
-The portal includes a Test Drive panel that calls `/test-drive/probe`, verifies the safe
-read-only registry endpoints, and shows the closed live-run/write gates. It also includes
-`POST /live-run/start`, a server-side bridge that sends a real upstream `POST /workflow-runs`
-request to the configured full API and returns the upstream gate status to the UI without
-inventing a run. To test locally against the production read-only registry:
+The legacy `/live-run/start` registry bridge was removed because it could only return the
+registry gateway's closed-runtime response. To test locally against the production registry
+while running the real workbench route locally:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=https://aegisops-agentic-portfolio.vercel.app/api pnpm --filter @aegisops/web dev --hostname 127.0.0.1 --port 3000

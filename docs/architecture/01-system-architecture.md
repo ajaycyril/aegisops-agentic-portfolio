@@ -117,16 +117,21 @@ sequenceDiagram
 
 ## Public Deployment Split
 
-The public Vercel deployment serves two safe surfaces:
+The public Vercel deployment serves three bounded surfaces:
 
 - `apps/web`: the visual command center.
+- `apps/web/app/api/agent-runs`: a Node.js streaming runtime for read-only public-source
+  workflows. It enforces typed input, OPA policy, tool and spend ceilings, per-session rate
+  limits, and no external writes.
 - `services/api-vercel`: a slim read-only FastAPI service mounted at `/api` that exposes
   workflow, connector, and tool registry contracts.
 
-The stateful agent runtime remains in `services/api` and requires the production controls
-before live runs: Postgres, OPA, connector secrets, audit persistence, approval gates, and
-spend limits. The public registry API must not expose workflow-run creation, tool execution,
-model calls, memory mutation, approval decisions, or external write actions.
+The browser's live demo route is deliberately narrower than the full enterprise runtime. It can
+read only the approved public MCP tools and cannot mutate memory or external systems. The full
+stateful runtime remains in `services/api` for authenticated enterprise connectors, durable audit,
+approval records, and writes. `DATABASE_URL` upgrades the public LangGraph checkpointer from
+`MemorySaver` to `PostgresSaver`; a durable Redis-compatible limiter is still required before
+raising public traffic limits.
 
 ## Production Constraints
 

@@ -19,6 +19,28 @@ The platform must show:
 
 ## Current Status
 
+### Active Live Workbench Milestone - 2026-07-17
+
+The obsolete browser path that forwarded to the registry-only `/live-run/start` gateway has been
+replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and locally verified:
+
+- Four scenario-specific live-source workflows switch graph, inputs, tools, rules, and prompts.
+- LangGraph streams graph updates and checkpoints through `PostgresSaver` when `DATABASE_URL` is
+  configured, with an explicit `MemorySaver` fallback for the free demo.
+- The incident workflow is a real multi-agent graph: two AI SDK specialist agents execute in
+  parallel, call separate MCP tools, and hand reports to a supervisor for reconciliation.
+- A `json-rules-engine` lane executes concurrently against the same live evidence.
+- OPA/Rego WASM gates intake and holds every requested side effect for approval.
+- React Flow animates active graph edges and every node exposes trace, latency, actor, data,
+  evidence, and policy state through the inspector.
+- The UI reports actual tool calls, validated source payloads, model tokens, free-tier charge, and
+  direct-API equivalent unit economics.
+- Vitest covers typed run contracts, scenario topology, and policy allow/block/approval behavior.
+
+Local end-to-end evidence: the incident run completed both lanes with 36 streamed events, two
+specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, and a
+passing grounding evaluator. Production redeployment and managed Postgres/Redis activation remain.
+
 Phases 0 and 1 are complete. Phases 2, 3, and 4 are implemented at code/test level. Live
 verification now follows a cloud-only path: managed Postgres/pgvector, a hosted
 OPA-compatible policy endpoint, deployed full API runtime, connector secrets, and an
@@ -109,7 +131,7 @@ Current production web deployment:
 | 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
 | 8     | Customer Support Escalation workflow | Implemented                                  | Real support/KB/CRM workflow path                                                   |
 | 9     | Evals, replay, and demo hardening    | In progress                                  | Captured real-run replay and quality gates                                          |
-| 10    | Deployment and portfolio polish      | In progress                                  | Public free-tier deployment and executive-grade UI                                  |
+| 10    | Deployment and portfolio polish      | Live runtime done; deploy/state activation pending | Public free-tier deployment and executive-grade UI                         |
 
 ## Phase 0: Architecture Baseline
 
@@ -325,13 +347,8 @@ cd services/api && .venv/bin/mypy .
 Not run: live Postgres migration and live OPA policy loading/evaluation, because managed cloud
 services are not yet provisioned.
 
-Current next task:
-
-1. Provision managed Postgres/pgvector and hosted OPA-compatible policy service.
-2. Deploy the full API runtime with `DATABASE_URL`, `OPA_BASE_URL`, budgets, connector
-   readiness, and admin live-run key configured.
-3. Continue Phase 5 with connector auth registry and real connector adapters behind the
-   policy-checked tool authorization boundary.
+Historical next task at the end of Phase 3 has been superseded by the active milestone and the
+canonical `Current Next Task` at the end of this document.
 
 ## Phase 4: Visual Command Center Shell
 
@@ -342,19 +359,16 @@ Completed artifacts:
 - Registry-aware web catalog loader in `apps/web/lib/api.ts`.
 - Repository workflow catalog mirror in `apps/web/lib/workflows.ts` used only when the live
   API registry is not configured or reachable.
-- Live-contract-first command center in `apps/web/components/command-center.tsx`.
-- Five priority use cases: incident response, customer support, engineering Issue-to-PR,
-  supplier risk, and finance invoice exception.
-- Shared React Flow workflow player built from real workflow contracts and persisted real trace
-  metadata when `DEMO_WORKFLOW_RUN_ID`/`DEMO_TRACE_RUN_ID` is configured.
-- Real `POST /live-run/start` bridge that forwards run-start requests to the configured full
-  API and shows the actual upstream status/body as the run gate.
-- Step inspector for contract, readiness, run-start, tool, evidence, model, memory, approval,
-  and eval metadata from live API or live trace sources.
+- Live workbench in `apps/web/components/agentic-workbench.tsx`.
+- Four real-source use cases: incident response, engineering triage, supplier risk, and finance
+  evidence analysis.
+- Shared React Flow workflow player driven by the streamed `RunEvent` contract.
+- Real `POST /api/agent-runs` route running LangGraph and json-rules-engine concurrently.
+- Step inspector for nodes, agents, tool arguments, evidence, model usage, policy, latency, and
+  trace metadata from the live stream.
 - Workflow tuning controls for autonomy, tool budget, spend cap, approval requirement, model
   planning flag, and use-case-specific input payload fields.
-- Immediate traditional-system comparison under the agent player explaining why a rule engine
-  is insufficient for the selected use case.
+- Immediate traditional-system lane using an executable rules engine against the same evidence.
 - Contract depth panels for connectors, scopes, data policy, approval requirements, and source
   config path.
 - Favicon and mobile-first responsive styling.
@@ -690,6 +704,12 @@ Tasks:
    `/api` at request time.
 10. Done: add an in-app Test Drive panel plus `/test-drive/probe` for safe read-only endpoint
     verification without live connector credentials.
+11. Done: replace the registry-gateway run button with a real AI SDK UIMessage streaming route.
+12. Done: add four real-source dual-lane use cases with live MCP calls and deterministic rules.
+13. Done: implement and visualize the incident supervisor plus parallel specialist agents.
+14. Done: add OPA/Rego WASM policy, unit economics, tool I/O, and automated web boundary tests.
+15. In progress: redeploy the live workbench and verify a production multi-agent run.
+16. Pending: activate dedicated Postgres/pgvector checkpoints and durable Redis rate limiting.
 
 Acceptance criteria:
 
@@ -728,9 +748,7 @@ A feature is done only when:
 
 ## Current Next Task
 
-Run live Phase 2/3 infrastructure verification against managed cloud Postgres/pgvector,
-hosted OPA-compatible policy, and the deployed full API runtime, then capture a real sandbox
-run for `DEMO_TRACE_RUN_ID`. Do not enable rollback, paging, incident-update, customer-message,
-refund, account-change, branch, or pull-request write execution.
-When changing workflow, connector, or tool YAML contracts, run `pnpm vercel-api:sync-config`
-and `pnpm vercel-api:check-config` before the next Vercel deployment.
+Deploy the new Next.js live workbench to Vercel, run the incident multi-agent workflow on the
+production URL, then provision dedicated Postgres/pgvector and a Redis-compatible limiter. Do not
+enable rollback, paging, incident-update, customer-message, refund, account-change, branch, or
+pull-request write execution. Continue real connector adapters only behind MCP schemas and OPA.

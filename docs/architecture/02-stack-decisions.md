@@ -20,6 +20,29 @@
 | Evaluation | pytest, promptfoo, Ragas, custom trace evals | Regression and quality gates |
 | Deployment | Vercel, Render/Fly/Railway, Neon/Supabase | Free-tier demo with production upgrade path |
 
+## July 2026 Implementation Audit
+
+The live workbench uses one standard library per ownership boundary instead of reimplementing
+agent loops, graph execution, policy evaluation, rules evaluation, tool protocol, or graph UI.
+Repository popularity was checked on 2026-07-17 and is evidence of ecosystem adoption, not the
+sole selection criterion.
+
+| Boundary | Active package | Version | GitHub stars checked | Why it owns this boundary |
+| --- | --- | ---: | ---: | --- |
+| Agent graph | `@langchain/langgraph` | 1.4.8 | 3,120 | Stateful nodes, parallel fan-out, fan-in, checkpoints, streamed updates |
+| Model/tool loop | `ai` | 6.0.225 | 25,604 | Provider-neutral `ToolLoopAgent`, typed tools, streaming, usage |
+| Tool protocol | `@modelcontextprotocol/sdk` | 1.29.0 | 12,870 | Standard client/server schemas and portable connector boundary |
+| Dynamic policy | OPA/Rego + `opa-wasm` | OPA 1.18.2 | 11,989 | Deterministic authorization outside model control |
+| Fixed rules | `json-rules-engine` | 7.3.1 | 3,107 | Versioned, inspectable business conditions |
+| Workflow UI | `@xyflow/react` | 12.11.2 | 37,673 | Production graph rendering, custom nodes, animated execution edges |
+| Runtime contracts | Zod | 4.4.3 | 43,277 | Input, event, source response, and evidence validation |
+| Cloud data target | Supabase Postgres | adapter-ready | 106,436 | Postgres, pgvector, audit, and LangGraph checkpoint target |
+
+`@openai/agents` is installed as an evaluated OpenAI-native option, but it is not falsely shown as
+active in the public free-tier path. LangGraph owns the incident supervisor-worker graph and AI SDK
+owns each specialist tool loop. OpenAI Agents SDK becomes appropriate when an OpenAI-native
+deployment needs its sessions, hosted tracing, or handoff semantics more than provider portability.
+
 ## Why LangGraph Is Primary
 
 LangGraph is the core runtime because this platform needs explicit state, branching,
@@ -67,6 +90,7 @@ The demo should be free-tier first:
 - Public demo can use captured real-run replay.
 - Live workflows require configured credentials and admin approval.
 - Unit economics are shown in the UI as an architectural capability, not as a cost burden.
+- Actual GitHub Models free-tier charge and direct OpenAI API equivalent are displayed separately.
 
 ## Dependency Policy
 
