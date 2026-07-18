@@ -22,6 +22,16 @@ Keep the interactive topology as a separate architect lens. Do not shrink an ent
 nodes become unreadable: use full-size nodes with pan, zoom, and active-edge animation. On mobile,
 render the story as full-width vertical stages and keep the topology pannable.
 
+The runtime event stream and the presentation clock are separate concerns. Never delay execution
+or fabricate waiting states for visual effect. The client may present only already-received events
+at a readable cadence, must show received and presented counts, and must provide a direct path to
+the final state. Release generated output only when its real completion event reaches the
+presentation clock.
+
+Use progressive disclosure for editable inputs, runtime tuning, raw traces, tool payloads, and
+stack inspection. The default view should keep one stage per lane in focus, with a compact stage
+rail for navigation and clear regions for input, decision or rule, rationale, and output.
+
 ## Navigation And Lenses
 
 | Section                   | Purpose                                                           |

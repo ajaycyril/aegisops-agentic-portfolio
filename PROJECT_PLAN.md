@@ -48,6 +48,17 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
 - Responsive verification at 390px and 1440px found no horizontal page overflow. A real incident
   run completed all ten comparison stages with live source fields, specialist reconciliation,
   policy and grounding outputs, and a deterministic matched outcome visible in the primary view.
+- The presentation layer now keeps runtime truth separate from visual cadence. The API and
+  LangGraph runtime stream at full speed, while the browser presents only received events on a
+  1.4-second readable clock with an explicit received/presented counter and a "Show final state"
+  control. The final model answer remains hidden until its real lane-completion event is presented.
+- The story view now shows one animated stage per lane instead of every large stage card at once.
+  Each focus surface separates actual input, observable model decision or fixed-rule logic,
+  operational rationale, and actual output. A compact progress rail supports review of every
+  planned or observed stage without losing the live focus.
+- Run inputs, the raw trace inspector, model/tool payloads, stack map, and cost controls now use
+  progressive disclosure. The default viewport prioritizes the use case, live decision story, and
+  agentic-versus-deterministic outcome rather than configuration and engineering telemetry.
 - A second event-driven React Flow map now visualizes the live stack across Next.js/AI SDK
   streaming, LangGraph orchestration, ToolLoopAgent, MCP, OPA/Rego, Zod, checkpointing,
   observability, provider inference, and official source APIs.

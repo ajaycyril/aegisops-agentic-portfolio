@@ -7,15 +7,17 @@ import {
   Bot,
   Braces,
   CheckCircle2,
+  ChevronDown,
   CircleStop,
   Code2,
   Database,
   ExternalLink,
-  Gauge,
+  FastForward,
   Layers3,
   ListTree,
   LoaderCircle,
   Network,
+  PanelRightOpen,
   Play,
   Radio,
   RefreshCw,
@@ -26,7 +28,8 @@ import {
   Waypoints,
   Wrench,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Message,
@@ -42,7 +45,6 @@ import {
   type ToolPart,
 } from "@/components/ai-elements/tool";
 import { DecisionLens } from "@/components/decision-lens";
-import { EnterpriseValueBoundary } from "@/components/enterprise-value-boundary";
 import { RunInspector } from "@/components/run-inspector";
 import { StackArchitecture } from "@/components/stack-architecture";
 import { WorkflowCanvas } from "@/components/workflow-canvas";
@@ -85,6 +87,27 @@ function extractToolParts(messages: AegisUIMessage[]) {
     .filter((message) => message.role === "assistant")
     .flatMap((message) => message.parts)
     .filter(isToolOrDynamicToolUIPart);
+}
+
+function usePacedEvents(events: RunEvent[]) {
+  const [visibleCount, setVisibleCount] = useState(0);
+
+  useEffect(() => {
+    if (events.length === 0) return;
+    if (visibleCount >= events.length) return;
+    const timer = window.setTimeout(
+      () => setVisibleCount((current) => Math.min(current + 1, events.length)),
+      visibleCount === 0 ? 180 : 1400,
+    );
+    return () => window.clearTimeout(timer);
+  }, [events.length, visibleCount]);
+
+  return {
+    presentedEvents: events.slice(0, visibleCount),
+    isPresenting: visibleCount < events.length,
+    resetPresentation: () => setVisibleCount(0),
+    showFinalState: () => setVisibleCount(events.length),
+  };
 }
 
 function ToolInvocation({ part }: { part: ToolPart }) {
@@ -234,6 +257,9 @@ export function AgenticWorkbench() {
   const [selectedEvent, setSelectedEvent] = useState<RunEvent | null>(null);
   const [detailView, setDetailView] = useState<DetailView>("answer");
   const [executionView, setExecutionView] = useState<ExecutionView>("story");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [technicalOpen, setTechnicalOpen] = useState(false);
   const [controls, setControls] = useState({
     maxToolCalls: 4,
     maxCostUsd: 0.05,
@@ -249,11 +275,16 @@ export function AgenticWorkbench() {
     useChat<AegisUIMessage>({ transport, experimental_throttle: 35 });
 
   const events = useMemo(() => extractEvents(messages), [messages]);
+  const { presentedEvents, isPresenting, resetPresentation, showFinalState } =
+    usePacedEvents(events);
   const answer = useMemo(() => extractText(messages), [messages]);
   const toolParts = useMemo(() => extractToolParts(messages), [messages]);
   const agentToolEvents = events.filter(
     (event) => event.lane === "agentic" && event.type === "tool_started",
   );
+  const presentedAgentToolCount = presentedEvents.filter(
+    (event) => event.lane === "agentic" && event.type === "tool_started",
+  ).length;
   const isRunning = status === "submitted" || status === "streaming";
   const modelSteps = events.filter((event) => event.type === "model_step");
   const inputTokens = modelSteps.reduce(
@@ -269,7 +300,17 @@ export function AgenticWorkbench() {
   const directApiEquivalent =
     (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
 
-  const inspectedEvent = selectedEvent ?? events.at(-1) ?? null;
+  const inspectedEvent = selectedEvent ?? presentedEvents.at(-1) ?? null;
+  const presentedAnswer = presentedEvents.some(
+    (event) => event.lane === "agentic" && event.type === "lane_completed",
+  )
+    ? answer
+    : "";
+
+  const inspectEvent = (event: RunEvent) => {
+    setSelectedEvent(event);
+    setInspectorOpen(true);
+  };
 
   const selectScenario = (next: ScenarioDefinition) => {
     stop();
@@ -279,9 +320,13 @@ export function AgenticWorkbench() {
     setSelectedEvent(null);
     setDetailView("answer");
     setExecutionView("story");
+    setSetupOpen(false);
+    setInspectorOpen(false);
+    resetPresentation();
   };
 
   const startRun = async () => {
+    resetPresentation();
     setMessages([]);
     setSelectedEvent(null);
     setDetailView("answer");
@@ -293,11 +338,13 @@ export function AgenticWorkbench() {
 
   const runState = error
     ? "failed"
-    : events.at(-1)?.type === "run_completed"
-      ? events.at(-1)?.status
-      : isRunning
-        ? "running"
-        : "ready";
+    : isPresenting
+      ? "presenting"
+      : events.at(-1)?.type === "run_completed"
+        ? events.at(-1)?.status
+        : isRunning
+          ? "running"
+          : "ready";
 
   return (
     <main className="workbench-shell">
@@ -333,7 +380,7 @@ export function AgenticWorkbench() {
           </a>
         </div>
         <div className={`run-state state-${runState}`}>
-          {isRunning ? (
+          {isRunning || isPresenting ? (
             <LoaderCircle className="spin" size={14} />
           ) : (
             <Activity size={14} />
@@ -344,7 +391,10 @@ export function AgenticWorkbench() {
 
       <ScenarioRail selected={scenario} onSelect={selectScenario} />
 
-      <section className="run-config" aria-labelledby="workflow-title">
+      <section
+        className={`run-config ${setupOpen ? "setup-open" : ""}`}
+        aria-labelledby="workflow-title"
+      >
         <div className="workflow-identity">
           <div className="workflow-kickers">
             <span className="section-kicker">{scenario.domain}</span>
@@ -361,47 +411,75 @@ export function AgenticWorkbench() {
             <ExternalLink size={12} />
           </a>
         </div>
-        <div className="input-grid">
-          {scenario.inputFields.map((field) => (
-            <label key={field.key}>
-              <span>{field.label}</span>
-              <input
-                value={input[field.key] ?? ""}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    [field.key]: event.target.value,
-                  }))
-                }
-                disabled={isRunning}
-              />
-            </label>
-          ))}
-        </div>
+        <AnimatePresence initial={false}>
+          {setupOpen ? (
+            <motion.div
+              className="input-grid run-setup-fields"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {scenario.inputFields.map((field) => (
+                <label key={field.key}>
+                  <span>{field.label}</span>
+                  <input
+                    value={input[field.key] ?? ""}
+                    placeholder={field.placeholder}
+                    onChange={(event) =>
+                      setInput((current) => ({
+                        ...current,
+                        [field.key]: event.target.value,
+                      }))
+                    }
+                    disabled={isRunning}
+                  />
+                </label>
+              ))}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         <div className="run-actions">
           <div className="tune-summary">
-            <Settings2 size={14} />
-            <span>{controls.model.replace("openai/", "")}</span>
-            <span>{controls.maxToolCalls} tool calls</span>
-            <span>${controls.maxCostUsd.toFixed(2)} ceiling</span>
+            {scenario.inputFields.map((field) => (
+              <span key={field.key}>
+                {field.label}: <b>{input[field.key]}</b>
+              </span>
+            ))}
           </div>
-          {isRunning ? (
-            <button className="run-button stop" onClick={stop} type="button">
-              <CircleStop size={17} /> Stop run
+          <div className="run-command-row">
+            <button
+              className={`setup-toggle ${setupOpen ? "active" : ""}`}
+              onClick={() => setSetupOpen((current) => !current)}
+              aria-expanded={setupOpen}
+              type="button"
+            >
+              <Settings2 size={15} /> {setupOpen ? "Close setup" : "Edit setup"}
             </button>
-          ) : (
-            <button className="run-button" onClick={startRun} type="button">
-              <Play size={17} fill="currentColor" /> Run both live
-            </button>
-          )}
+            {isRunning ? (
+              <button className="run-button stop" onClick={stop} type="button">
+                <CircleStop size={17} /> Stop run
+              </button>
+            ) : isPresenting ? (
+              <button
+                className="run-button presenting"
+                onClick={showFinalState}
+                type="button"
+              >
+                <FastForward size={17} /> Show final state
+              </button>
+            ) : (
+              <button className="run-button" onClick={startRun} type="button">
+                <Play size={17} fill="currentColor" /> Run both live
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
-      <ModeStrip />
-      <EnterpriseValueBoundary scenario={scenario} />
-
-      <section className="execution-workspace">
+      <section
+        className={`execution-workspace ${inspectorOpen ? "with-inspector" : "without-inspector"}`}
+      >
         <div className="canvas-panel">
           <div className="panel-heading">
             <div>
@@ -409,7 +487,11 @@ export function AgenticWorkbench() {
               <h2>Agent decides. Rules match.</h2>
             </div>
             <div className="canvas-heading-tools">
-              <div className="execution-view-switch" role="tablist" aria-label="Execution visualization">
+              <div
+                className="execution-view-switch"
+                role="tablist"
+                aria-label="Execution visualization"
+              >
                 <button
                   className={executionView === "story" ? "active" : ""}
                   onClick={() => setExecutionView("story")}
@@ -430,9 +512,21 @@ export function AgenticWorkbench() {
                 </button>
               </div>
               <div className="canvas-stats">
-                <span><Wrench size={13} /> {agentToolEvents.length} agent tools</span>
-                <span><Gauge size={13} /> {inputTokens + outputTokens} tokens · ${directApiEquivalent.toFixed(4)} equiv.</span>
-                <span><Radio size={13} /> {events.length} events</span>
+                <span>
+                  <Wrench size={13} /> {presentedAgentToolCount} agent tools
+                </span>
+                <span>
+                  <Activity size={13} /> {presentedEvents.length}/
+                  {events.length} paced events
+                </span>
+                <button
+                  className={inspectorOpen ? "active" : ""}
+                  onClick={() => setInspectorOpen((current) => !current)}
+                  type="button"
+                  title="Toggle trace inspector"
+                >
+                  <PanelRightOpen size={13} /> Trace details
+                </button>
               </div>
             </div>
           </div>
@@ -440,15 +534,15 @@ export function AgenticWorkbench() {
             <DecisionLens
               scenario={scenario}
               input={input}
-              events={events}
-              answer={answer}
-              onSelectEvent={setSelectedEvent}
+              events={presentedEvents}
+              answer={presentedAnswer}
+              onSelectEvent={inspectEvent}
             />
           ) : (
             <WorkflowCanvas
               scenario={scenario}
-              events={events}
-              onSelectEvent={setSelectedEvent}
+              events={presentedEvents}
+              onSelectEvent={inspectEvent}
             />
           )}
           <div className="run-economics" aria-label="Run unit economics">
@@ -469,11 +563,13 @@ export function AgenticWorkbench() {
             </div>
           </div>
         </div>
-        <RunInspector
-          events={events}
-          selected={inspectedEvent}
-          onSelect={setSelectedEvent}
-        />
+        {inspectorOpen ? (
+          <RunInspector
+            events={presentedEvents}
+            selected={inspectedEvent}
+            onSelect={setSelectedEvent}
+          />
+        ) : null}
       </section>
 
       {error ? (
@@ -486,7 +582,24 @@ export function AgenticWorkbench() {
         </div>
       ) : null}
 
-      <section className="run-detail" id="live-evidence">
+      <section className="technical-disclosure" id="live-evidence">
+        <button
+          type="button"
+          onClick={() => setTechnicalOpen((current) => !current)}
+          aria-expanded={technicalOpen}
+        >
+          <span>
+            <Layers3 size={15} />
+            <strong>Technical evidence</strong>
+            <small>tool payloads · stack map · cost controls</small>
+          </span>
+          <ChevronDown className={technicalOpen ? "open" : ""} size={16} />
+        </button>
+      </section>
+
+      {technicalOpen ? <ModeStrip /> : null}
+
+      <section className={`run-detail ${technicalOpen ? "" : "is-hidden"}`}>
         <div
           className="detail-tabs"
           role="tablist"
@@ -610,7 +723,10 @@ export function AgenticWorkbench() {
         ) : null}
       </section>
 
-      <section className="tuning-drawer" aria-label="Runtime controls">
+      <section
+        className={`tuning-drawer ${technicalOpen ? "" : "is-hidden"}`}
+        aria-label="Runtime controls"
+      >
         <div>
           <Settings2 size={15} />
           <strong>Runtime controls</strong>

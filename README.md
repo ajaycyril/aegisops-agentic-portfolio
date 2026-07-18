@@ -41,6 +41,12 @@ output. A plain-language line explains why the step is adaptive in the agentic l
 in the deterministic lane. The final model conclusion and matched rule outcome are compared in the
 same surface; the full React Flow topology remains available as an architect lens.
 
+The runtime is not artificially slowed. AegisOps buffers only events that the live runtime has
+already emitted, then presents them on a readable clock with a received-versus-presented counter.
+One animated stage per lane stays in focus while a compact progress rail allows manual review. The
+trace inspector, raw payloads, stack map, tuning controls, and editable inputs remain available
+through progressive disclosure instead of competing with the primary explanation.
+
 ![Observable decisions versus fixed rules](docs/assets/screenshots/decision-ledger.jpg)
 
 ## What Runs Today
