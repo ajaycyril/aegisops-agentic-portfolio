@@ -37,6 +37,17 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
   execution, validated observations, adaptation/handoffs, and OPA/eval checks from the fixed rule
   lane's prewired fields, conditions, and outcomes. It exposes execution summaries, not private
   model chain-of-thought.
+- The live canvas now defaults to a story-first comparison for non-technical users. Each agentic
+  and deterministic stage presents its real input, governing decision or fixed condition, output,
+  and a plain-language explanation of where control can or cannot adapt. The grounded model answer,
+  matched rule outcome, and scenario-specific "why agentic" verdict now appear directly beside the
+  execution story instead of only in a lower detail tab.
+- The React Flow topology is a separate technical lens with 218px nodes, readable typography,
+  pan/zoom, and animated execution packets. Desktop follows the active stage horizontally without
+  shifting page position; mobile renders full-width vertical story cards and a pannable topology.
+- Responsive verification at 390px and 1440px found no horizontal page overflow. A real incident
+  run completed all ten comparison stages with live source fields, specialist reconciliation,
+  policy and grounding outputs, and a deterministic matched outcome visible in the primary view.
 - A second event-driven React Flow map now visualizes the live stack across Next.js/AI SDK
   streaming, LangGraph orchestration, ToolLoopAgent, MCP, OPA/Rego, Zod, checkpointing,
   observability, provider inference, and official source APIs.

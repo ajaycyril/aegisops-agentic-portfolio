@@ -199,23 +199,23 @@ export function WorkflowCanvas({
       stateForNode(target, events) === "running";
 
     if (scenario.orchestration === "multi_agent") {
-      const agentY = 72;
-      const ruleY = 330;
+      const agentY = 105;
+      const ruleY = 400;
       const visualNodes: RuntimeNode[] = [
-        makeNode("agent-guardrail", "Guardrail", "Typed intake + budget", "agentic", "guardrail", 20, agentY, events),
-        makeNode("agent-status-specialist", "Health specialist", "Independent model agent", "agentic", "model", 220, 25, events),
-        makeNode("agent-github_status", "github_status", "MCP read tool", "agentic", "tool", 430, 25, events),
-        makeNode("agent-incident-specialist", "Incident specialist", "Independent model agent", "agentic", "model", 220, 138, events),
-        makeNode("agent-github_incidents", "github_incidents", "MCP read tool", "agentic", "tool", 430, 138, events),
-        makeNode("agent-supervisor", "Supervisor", "Reconcile agent handoffs", "agentic", "model", 650, agentY, events),
-        makeNode("output-policy", "Dynamic policy", "OPA/Rego decision", "policy", "policy", 860, agentY, events),
-        makeNode("agent-evaluate", "Grounding eval", "Required evidence check", "agentic", "evaluator", 1060, agentY, events),
-        makeNode("agent-output", "Agent output", "Reconciled conclusion", "agentic", "output", 1260, agentY, events),
-        makeNode("rules-fetch", "Fixed intake", "Predefined fields", "rules", "rules", 20, ruleY, events),
-        makeNode("rules-github_status", "github_status", "Fixed source input", "rules", "tool", 250, ruleY, events),
-        makeNode("rules-github_incidents", "github_incidents", "Fixed source input", "rules", "tool", 470, ruleY, events),
-        makeNode("rules-evaluate", "Rule engine", "Configured conditions", "rules", "rules", 700, ruleY, events),
-        makeNode("rules-output", "Rule output", "Predefined outcome", "rules", "output", 920, ruleY, events),
+        makeNode("agent-guardrail", "Guardrail", "Typed intake + budget", "agentic", "guardrail", 30, agentY, events),
+        makeNode("agent-status-specialist", "Health specialist", "Independent model agent", "agentic", "model", 310, 45, events),
+        makeNode("agent-github_status", "github_status", "MCP read tool", "agentic", "tool", 590, 45, events),
+        makeNode("agent-incident-specialist", "Incident specialist", "Independent model agent", "agentic", "model", 310, 175, events),
+        makeNode("agent-github_incidents", "github_incidents", "MCP read tool", "agentic", "tool", 590, 175, events),
+        makeNode("agent-supervisor", "Supervisor", "Reconcile agent handoffs", "agentic", "model", 870, agentY, events),
+        makeNode("output-policy", "Dynamic policy", "OPA/Rego decision", "policy", "policy", 1140, agentY, events),
+        makeNode("agent-evaluate", "Grounding eval", "Required evidence check", "agentic", "evaluator", 1410, agentY, events),
+        makeNode("agent-output", "Agent output", "Reconciled conclusion", "agentic", "output", 1680, agentY, events),
+        makeNode("rules-fetch", "Fixed intake", "Predefined fields", "rules", "rules", 30, ruleY, events),
+        makeNode("rules-github_status", "github_status", "Fixed source input", "rules", "tool", 320, ruleY, events),
+        makeNode("rules-github_incidents", "github_incidents", "Fixed source input", "rules", "tool", 610, ruleY, events),
+        makeNode("rules-evaluate", "Rule engine", "Configured conditions", "rules", "rules", 900, ruleY, events),
+        makeNode("rules-output", "Rule output", "Predefined outcome", "rules", "output", 1190, ruleY, events),
       ];
       const paths: Array<[string, string, "agentic" | "rules"]> = [
         ["agent-guardrail", "agent-status-specialist", "agentic"],
@@ -240,9 +240,9 @@ export function WorkflowCanvas({
       };
     }
 
-    const agentY = 70;
-    const ruleY = 310;
-    const toolSpacing = 180;
+    const agentY = 105;
+    const ruleY = 400;
+    const toolSpacing = 270;
     const agentTools = scenario.requiredTools.map((toolName, index) =>
       makeNode(
         `agent-${toolName}`,
@@ -250,7 +250,7 @@ export function WorkflowCanvas({
         "MCP read tool",
         "agentic",
         "tool",
-        410 + index * toolSpacing,
+        600 + index * toolSpacing,
         agentY,
         events,
       ),
@@ -262,25 +262,25 @@ export function WorkflowCanvas({
         "Fixed source input",
         "rules",
         "tool",
-        225 + index * toolSpacing,
+        320 + index * toolSpacing,
         ruleY,
         events,
       ),
     );
-    const afterAgentTools = 410 + scenario.requiredTools.length * toolSpacing;
-    const afterRuleTools = 225 + scenario.requiredTools.length * toolSpacing;
+    const afterAgentTools = 600 + scenario.requiredTools.length * toolSpacing;
+    const afterRuleTools = 320 + scenario.requiredTools.length * toolSpacing;
 
     const visualNodes: RuntimeNode[] = [
-      makeNode("agent-guardrail", "Guardrail", "Typed intake + budget", "agentic", "guardrail", 20, agentY, events),
-      makeNode("agent-plan", "Plan + act", scenario.agentPattern, "agentic", "model", 215, agentY, events),
+      makeNode("agent-guardrail", "Guardrail", "Typed intake + budget", "agentic", "guardrail", 30, agentY, events),
+      makeNode("agent-plan", "Plan + act", scenario.agentPattern, "agentic", "model", 310, agentY, events),
       ...agentTools,
       makeNode("output-policy", "Dynamic policy", "OPA/Rego decision", "policy", "policy", afterAgentTools, agentY, events),
-      makeNode("agent-evaluate", "Grounding eval", "Required evidence check", "agentic", "evaluator", afterAgentTools + 190, agentY, events),
-      makeNode("agent-output", "Agent output", "Adaptive conclusion", "agentic", "output", afterAgentTools + 380, agentY, events),
-      makeNode("rules-fetch", "Fixed intake", "Predefined fields", "rules", "rules", 20, ruleY, events),
+      makeNode("agent-evaluate", "Grounding eval", "Required evidence check", "agentic", "evaluator", afterAgentTools + 270, agentY, events),
+      makeNode("agent-output", "Agent output", "Adaptive conclusion", "agentic", "output", afterAgentTools + 540, agentY, events),
+      makeNode("rules-fetch", "Fixed intake", "Predefined fields", "rules", "rules", 30, ruleY, events),
       ...ruleTools,
       makeNode("rules-evaluate", "Rule engine", "Configured conditions", "rules", "rules", afterRuleTools, ruleY, events),
-      makeNode("rules-output", "Rule output", "Predefined outcome", "rules", "output", afterRuleTools + 195, ruleY, events),
+      makeNode("rules-output", "Rule output", "Predefined outcome", "rules", "output", afterRuleTools + 270, ruleY, events),
     ];
 
     const visualEdges: Edge[] = [];
@@ -342,10 +342,9 @@ export function WorkflowCanvas({
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.18, maxZoom: 1 }}
-        minZoom={0.36}
-        maxZoom={1.35}
+        defaultViewport={{ x: 18, y: 28, zoom: 0.82 }}
+        minZoom={0.45}
+        maxZoom={1.4}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable

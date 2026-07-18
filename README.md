@@ -35,6 +35,12 @@ The product does not expose or fabricate private model chain-of-thought. It expo
 decisions required to audit the system: available and selected tools, graph constraints, agent role,
 evidence, handoffs, finish reason, policy state, cost, latency, and trace identity.
 
+The default **Decision story** is designed for a non-technical reader. Every stage shows the actual
+input, who or what controls the step, the observable decision or fixed condition, and the resulting
+output. A plain-language line explains why the step is adaptive in the agentic lane or preconfigured
+in the deterministic lane. The final model conclusion and matched rule outcome are compared in the
+same surface; the full React Flow topology remains available as an architect lens.
+
 ![Observable decisions versus fixed rules](docs/assets/screenshots/decision-ledger.jpg)
 
 ## What Runs Today
@@ -65,8 +71,9 @@ layer lights up only when its runtime evidence exists.
 
 ![Live agentic stack map](docs/assets/screenshots/live-stack-map.jpg)
 
-The same execution canvas remains inspectable on mobile without collapsing the graph into a
-static illustration.
+On mobile, decision stages become full-width vertical cards so inputs, controls, outputs, and the
+agentic value remain readable. The technical topology stays interactive and pannable rather than
+being reduced to a static illustration.
 
 <img src="docs/assets/screenshots/mobile-workbench.jpg" alt="AegisOps mobile execution canvas" width="390" />
 

@@ -13,7 +13,9 @@ import {
   ExternalLink,
   Gauge,
   Layers3,
+  ListTree,
   LoaderCircle,
+  Network,
   Play,
   Radio,
   RefreshCw,
@@ -48,6 +50,7 @@ import type { AegisUIMessage, RunEvent } from "@/lib/agentic/contracts";
 import { scenarios, type ScenarioDefinition } from "@/lib/agentic/scenarios";
 
 type DetailView = "answer" | "tools" | "stack";
+type ExecutionView = "story" | "topology";
 
 const modelPrices: Record<string, { input: number; output: number }> = {
   "openai/gpt-4.1-mini": { input: 0.4, output: 1.6 },
@@ -230,6 +233,7 @@ export function AgenticWorkbench() {
   );
   const [selectedEvent, setSelectedEvent] = useState<RunEvent | null>(null);
   const [detailView, setDetailView] = useState<DetailView>("answer");
+  const [executionView, setExecutionView] = useState<ExecutionView>("story");
   const [controls, setControls] = useState({
     maxToolCalls: 4,
     maxCostUsd: 0.05,
@@ -251,14 +255,6 @@ export function AgenticWorkbench() {
     (event) => event.lane === "agentic" && event.type === "tool_started",
   );
   const isRunning = status === "submitted" || status === "streaming";
-  const latestAgent = [...events]
-    .reverse()
-    .find(
-      (event) => event.lane === "agentic" && event.type === "lane_completed",
-    );
-  const latestRules = [...events]
-    .reverse()
-    .find((event) => event.lane === "rules" && event.type === "lane_completed");
   const modelSteps = events.filter((event) => event.type === "model_step");
   const inputTokens = modelSteps.reduce(
     (total, event) => total + Number(event.data?.inputTokens ?? 0),
@@ -282,6 +278,7 @@ export function AgenticWorkbench() {
     setMessages([]);
     setSelectedEvent(null);
     setDetailView("answer");
+    setExecutionView("story");
   };
 
   const startRun = async () => {
@@ -411,49 +408,49 @@ export function AgenticWorkbench() {
               <span className="section-kicker">Live execution canvas</span>
               <h2>Agent decides. Rules match.</h2>
             </div>
-            <div className="canvas-stats">
-              <span>
-                <Wrench size={13} /> {agentToolEvents.length} agent tools
-              </span>
-              <span>
-                <Gauge size={13} /> {inputTokens + outputTokens} tokens · $
-                {directApiEquivalent.toFixed(4)} equiv.
-              </span>
-              <span>
-                <Radio size={13} /> {events.length} events
-              </span>
+            <div className="canvas-heading-tools">
+              <div className="execution-view-switch" role="tablist" aria-label="Execution visualization">
+                <button
+                  className={executionView === "story" ? "active" : ""}
+                  onClick={() => setExecutionView("story")}
+                  role="tab"
+                  aria-selected={executionView === "story"}
+                  type="button"
+                >
+                  <ListTree size={14} /> Decision story
+                </button>
+                <button
+                  className={executionView === "topology" ? "active" : ""}
+                  onClick={() => setExecutionView("topology")}
+                  role="tab"
+                  aria-selected={executionView === "topology"}
+                  type="button"
+                >
+                  <Network size={14} /> Topology
+                </button>
+              </div>
+              <div className="canvas-stats">
+                <span><Wrench size={13} /> {agentToolEvents.length} agent tools</span>
+                <span><Gauge size={13} /> {inputTokens + outputTokens} tokens · ${directApiEquivalent.toFixed(4)} equiv.</span>
+                <span><Radio size={13} /> {events.length} events</span>
+              </div>
             </div>
           </div>
-          <WorkflowCanvas
-            scenario={scenario}
-            events={events}
-            onSelectEvent={setSelectedEvent}
-          />
-          <DecisionLens
-            scenario={scenario}
-            events={events}
-            onSelectEvent={setSelectedEvent}
-          />
-          <div className="lane-outcomes">
-            <div className="agent-outcome">
-              <span>
-                <Bot size={15} /> Agentic result
-              </span>
-              <p>
-                {latestAgent?.summary ??
-                  "Will adapt its plan, choose tools, ground evidence, and pass policy before output."}
-              </p>
-            </div>
-            <div className="rule-outcome">
-              <span>
-                <Braces size={15} /> Fixed-rule result
-              </span>
-              <p>
-                {latestRules?.summary ??
-                  "Will fetch predefined fields, evaluate configured conditions, and stop at the known outcome boundary."}
-              </p>
-            </div>
-          </div>
+          {executionView === "story" ? (
+            <DecisionLens
+              scenario={scenario}
+              input={input}
+              events={events}
+              answer={answer}
+              onSelectEvent={setSelectedEvent}
+            />
+          ) : (
+            <WorkflowCanvas
+              scenario={scenario}
+              events={events}
+              onSelectEvent={setSelectedEvent}
+            />
+          )}
           <div className="run-economics" aria-label="Run unit economics">
             <div>
               <span>Public demo charge</span>

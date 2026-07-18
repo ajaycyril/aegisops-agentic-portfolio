@@ -12,8 +12,15 @@ persisted real trace records. When the full runtime is not configured, the UI mu
 exact blocked gate instead of rendering fabricated tool calls, evidence, model reasoning, or
 memory.
 
-Immediately below the agent workflow, show the traditional rule-based path for the same use
-case and explain why the agentic implementation is justified.
+The default visualization must be a story-first comparison. Every stage must expose its real input,
+the controller, the observable decision or fixed condition, and its output. It must also state in
+plain language what can adapt in the agentic lane and what was preconfigured in the deterministic
+lane. Show the traditional rule-based path for the same use case immediately after the agent lane,
+then compare both outputs and state why the agentic implementation is justified for that scenario.
+
+Keep the interactive topology as a separate architect lens. Do not shrink an entire graph until its
+nodes become unreadable: use full-size nodes with pan, zoom, and active-edge animation. On mobile,
+render the story as full-width vertical stages and keep the topology pannable.
 
 ## Navigation And Lenses
 
