@@ -6,8 +6,10 @@ import { z } from "zod";
 
 import {
   publicToolResultSchema,
+  scenarioIdSchema,
   type PublicToolResult,
 } from "@/lib/agentic/contracts";
+import { searchPolicyCorpus } from "@/lib/agentic/policy-corpus";
 
 const githubStatusSchema = z.object({
   status: z.object({ indicator: z.string(), description: z.string() }),
@@ -91,21 +93,21 @@ const secCompanyFactsSchema = z.object({
     z.record(
       z.string(),
       z.object({
-        label: z.string(),
-        description: z.string(),
+        label: z.string().nullable(),
+        description: z.string().nullable(),
         units: z.record(
           z.string(),
           z.array(
             z.object({
               val: z.number(),
               accn: z.string(),
-              fy: z.number().optional(),
-              fp: z.string().optional(),
+              fy: z.number().nullable().optional(),
+              fp: z.string().nullable().optional(),
               form: z.string(),
               filed: z.string(),
-              frame: z.string().optional(),
-              start: z.string().optional(),
-              end: z.string().optional(),
+              frame: z.string().nullable().optional(),
+              start: z.string().nullable().optional(),
+              end: z.string().nullable().optional(),
             }),
           ),
         ),
@@ -175,6 +177,38 @@ async function buildMcpClient() {
   const server = new McpServer(
     { name: "aegisops-public-evidence", version: "1.0.0" },
     { capabilities: { tools: {} } },
+  );
+
+  server.registerTool(
+    "enterprise_policy_search",
+    {
+      title: "Governed enterprise policy retrieval",
+      description:
+        "Retrieve ranked, versioned policy chunks from the authoritative corpus approved for a workflow.",
+      inputSchema: z.object({
+        scenarioId: scenarioIdSchema,
+        query: z.string().min(3).max(500),
+        limit: z.number().int().min(1).max(5).default(3),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ scenarioId, query, limit }) => {
+      const chunks = searchPolicyCorpus(scenarioId, query, limit);
+      return asToolResponse({
+        tool: "enterprise_policy_search",
+        source: "AegisOps governed policy corpus",
+        sourceUrl: chunks[0].sourceUrl,
+        capturedAt: capturedAt(),
+        data: {
+          retrievalMode:
+            "MiniSearch lexical fallback; pgvector production target",
+          scenarioId,
+          query,
+          resultCount: chunks.length,
+          chunks,
+        },
+      });
+    },
   );
 
   server.registerTool(

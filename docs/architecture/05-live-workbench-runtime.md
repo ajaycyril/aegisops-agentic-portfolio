@@ -105,10 +105,16 @@ its supporting trace event.
 | Scenario                | Official source               | Agent tools                                              | Fixed-rule examples                                                              |
 | ----------------------- | ----------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | UAE villa fire response | UAE MoI Hassantuk, Open-Meteo | `hassantuk_home_protocol`, `open_meteo_villa_conditions` | verification state, sensor count, aerial wind constraint, dispatch approval hold |
-| Incident response       | GitHub Status API             | `github_status`, `github_incidents`                      | unresolved count, degraded component count                                       |
-| Engineering triage      | GitHub REST API               | `github_issue`, `github_repository`                      | comment count, labels, archive state                                             |
-| Supplier risk           | GLEIF LEI API                 | `gleif_entity`                                           | match count, entity and registration status                                      |
-| Finance evidence        | SEC EDGAR Data API            | `sec_company_facts`                                      | observation presence and filing age                                              |
+
+Every workflow also calls `enterprise_policy_search` through MCP. The deployable public fallback
+uses a versioned MiniSearch corpus of authoritative passages; managed production uses the
+Postgres full-text and pgvector schema described in
+`docs/architecture/07-governed-policy-rag.md`. Policy chunks retain authority, URL, version,
+effective date, capture timestamp, and content hash and appear as trace evidence in the UI.
+| Incident response | GitHub Status API | `github_status`, `github_incidents` | unresolved count, degraded component count |
+| Engineering triage | GitHub REST API | `github_issue`, `github_repository` | comment count, labels, archive state |
+| Supplier risk | GLEIF LEI API | `gleif_entity` | match count, entity and registration status |
+| Finance evidence | SEC EDGAR Data API | `sec_company_facts` | observation presence and filing age |
 
 All source responses are parsed with Zod before they become evidence or rule facts. Business
 routing is owned by `json-rules-engine` or OPA, never regular expressions.

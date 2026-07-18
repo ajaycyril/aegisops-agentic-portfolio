@@ -21,6 +21,16 @@ The platform must show:
 
 ### Active Live Workbench Milestone - 2026-07-18
 
+The five-workflow portfolio now includes a shared governed policy retrieval layer. Incident
+response is the primary demo, Engineering Triage is second, and Hassantuk Villa Response is
+third. Every workflow calls `enterprise_policy_search` through MCP and must capture policy
+evidence before the grounding evaluator passes. The public Vercel runtime uses a versioned
+MiniSearch snapshot of authoritative NIST, UAE MoI/UAE Legislation, OECD, and SEC passages.
+Migration `0002_policy_knowledge_store` adds tenant-scoped document/version metadata, Postgres
+full-text search, and optional pgvector HNSW retrieval for managed production. The live story and
+React Flow topology expose policy specialists, ranked citations, document versions, hashes, and
+provenance alongside operational API evidence.
+
 The obsolete browser path that forwarded to the registry-only `/live-run/start` gateway has been
 replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and locally verified:
 

@@ -14,9 +14,7 @@ import {
   ExternalLink,
   FastForward,
   Layers3,
-  ListTree,
   LoaderCircle,
-  Network,
   PanelRightOpen,
   Play,
   Radio,
@@ -25,7 +23,6 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
-  StepForward,
   Waypoints,
   Wrench,
 } from "lucide-react";
@@ -48,12 +45,10 @@ import {
 import { DecisionLens } from "@/components/decision-lens";
 import { RunInspector } from "@/components/run-inspector";
 import { StackArchitecture } from "@/components/stack-architecture";
-import { WorkflowCanvas } from "@/components/workflow-canvas";
 import type { AegisUIMessage, RunEvent } from "@/lib/agentic/contracts";
 import { scenarios, type ScenarioDefinition } from "@/lib/agentic/scenarios";
 
 type DetailView = "answer" | "tools" | "stack";
-type ExecutionView = "story" | "topology";
 type PresentationMode = "manual" | "auto";
 
 const modelPrices: Record<string, { input: number; output: number }> = {
@@ -161,10 +156,11 @@ function useStagePresentation(events: RunEvent[]) {
     availableStage,
     mode,
     setMode,
-    canAdvance: stage < availableStage,
+    canAdvance: stage < 6,
     isPresenting: events.length > 0 && stage < 6,
-    advanceStage: () =>
-      setStage((current) => Math.min(current + 1, availableStage)),
+    advanceStage: () => setStage((current) => Math.min(current + 1, 6)),
+    selectStage: (nextStage: number) =>
+      setStage(Math.max(1, Math.min(nextStage, 6))),
     resetPresentation: () => setStage(1),
     showFinalState: () => setStage(6),
   };
@@ -316,7 +312,6 @@ export function AgenticWorkbench() {
   );
   const [selectedEvent, setSelectedEvent] = useState<RunEvent | null>(null);
   const [detailView, setDetailView] = useState<DetailView>("answer");
-  const [executionView, setExecutionView] = useState<ExecutionView>("story");
   const [setupOpen, setSetupOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [technicalOpen, setTechnicalOpen] = useState(false);
@@ -344,6 +339,7 @@ export function AgenticWorkbench() {
     canAdvance,
     isPresenting,
     advanceStage,
+    selectStage,
     resetPresentation,
     showFinalState,
   } = useStagePresentation(events);
@@ -389,7 +385,6 @@ export function AgenticWorkbench() {
     setMessages([]);
     setSelectedEvent(null);
     setDetailView("answer");
-    setExecutionView("story");
     setSetupOpen(false);
     setInspectorOpen(false);
     resetPresentation();
@@ -511,11 +506,16 @@ export function AgenticWorkbench() {
         </AnimatePresence>
         <div className="run-actions">
           <div className="tune-summary">
-            {scenario.inputFields.map((field) => (
+            {scenario.inputFields.slice(0, 4).map((field) => (
               <span key={field.key}>
                 {field.label}: <b>{input[field.key]}</b>
               </span>
             ))}
+            {scenario.inputFields.length > 4 ? (
+              <span>
+                <b>+{scenario.inputFields.length - 4}</b> context fields
+              </span>
+            ) : null}
           </div>
           <div className="run-command-row">
             <button
@@ -557,64 +557,6 @@ export function AgenticWorkbench() {
               <h2>Agent decides. Rules match.</h2>
             </div>
             <div className="canvas-heading-tools">
-              <div
-                className="presentation-controls"
-                aria-label="Stage playback controls"
-              >
-                <div
-                  className="presentation-mode"
-                  role="group"
-                  aria-label="Progress mode"
-                >
-                  <button
-                    className={presentationMode === "manual" ? "active" : ""}
-                    onClick={() => setPresentationMode("manual")}
-                    type="button"
-                  >
-                    Manual
-                  </button>
-                  <button
-                    className={presentationMode === "auto" ? "active" : ""}
-                    onClick={() => setPresentationMode("auto")}
-                    type="button"
-                  >
-                    Auto
-                  </button>
-                </div>
-                <span>Stage {presentationStageNumber} of 6</span>
-                <button
-                  className="next-stage-button"
-                  onClick={advanceStage}
-                  disabled={!canAdvance || presentationMode === "auto"}
-                  type="button"
-                >
-                  <StepForward size={14} /> Next stage
-                </button>
-              </div>
-              <div
-                className="execution-view-switch"
-                role="tablist"
-                aria-label="Execution visualization"
-              >
-                <button
-                  className={executionView === "story" ? "active" : ""}
-                  onClick={() => setExecutionView("story")}
-                  role="tab"
-                  aria-selected={executionView === "story"}
-                  type="button"
-                >
-                  <ListTree size={14} /> Decision story
-                </button>
-                <button
-                  className={executionView === "topology" ? "active" : ""}
-                  onClick={() => setExecutionView("topology")}
-                  role="tab"
-                  aria-selected={executionView === "topology"}
-                  type="button"
-                >
-                  <Network size={14} /> Topology
-                </button>
-              </div>
               <div className="canvas-stats">
                 <span>
                   <Wrench size={13} /> {presentedAgentToolCount} agent tools
@@ -634,21 +576,20 @@ export function AgenticWorkbench() {
               </div>
             </div>
           </div>
-          {executionView === "story" ? (
-            <DecisionLens
-              scenario={scenario}
-              input={input}
-              events={presentedEvents}
-              answer={presentedAnswer}
-              onSelectEvent={inspectEvent}
-            />
-          ) : (
-            <WorkflowCanvas
-              scenario={scenario}
-              events={presentedEvents}
-              onSelectEvent={inspectEvent}
-            />
-          )}
+          <DecisionLens
+            scenario={scenario}
+            input={input}
+            events={presentedEvents}
+            answer={presentedAnswer}
+            currentStage={presentationStageNumber}
+            availableStage={availableStage}
+            presentationMode={presentationMode}
+            canAdvance={canAdvance}
+            onSetPresentationMode={setPresentationMode}
+            onAdvanceStage={advanceStage}
+            onSelectStage={selectStage}
+            onSelectEvent={inspectEvent}
+          />
           <div className="run-economics" aria-label="Run unit economics">
             <div>
               <span>Public demo charge</span>

@@ -17,16 +17,27 @@ describe("live scenario registry", () => {
     );
 
     expect(multiAgentScenarios.map((scenario) => scenario.id)).toEqual([
-      "hassantuk_villa_response",
       "incident_response",
+      "hassantuk_villa_response",
     ]);
     expect(multiAgentScenarios[0].requiredTools).toEqual([
-      "hassantuk_home_protocol",
-      "open_meteo_villa_conditions",
-    ]);
-    expect(multiAgentScenarios[1].requiredTools).toEqual([
       "github_status",
       "github_incidents",
+      "enterprise_policy_search",
     ]);
+    expect(multiAgentScenarios[1].requiredTools).toEqual([
+      "hassantuk_home_protocol",
+      "open_meteo_villa_conditions",
+      "enterprise_policy_search",
+    ]);
+  });
+
+  it("places Hassantuk third and requires governed policy retrieval", () => {
+    expect(scenarios[2].id).toBe("hassantuk_villa_response");
+    expect(
+      scenarios.every((scenario) =>
+        scenario.requiredTools.includes("enterprise_policy_search"),
+      ),
+    ).toBe(true);
   });
 });

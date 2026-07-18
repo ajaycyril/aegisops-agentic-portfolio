@@ -73,6 +73,13 @@ function toolArguments(
       longitude: Number(request.input.longitude),
     };
   }
+  if (name === "enterprise_policy_search") {
+    return {
+      scenarioId: request.scenarioId,
+      query: scenarioById[request.scenarioId].businessOutcome,
+      limit: 3,
+    };
+  }
   return {};
 }
 
@@ -217,6 +224,17 @@ function createTools(
       inputSchema: z.object({}),
       strict: true,
       execute: (args) => execute("hassantuk_home_protocol", args),
+    }),
+    enterprise_policy_search: tool({
+      description:
+        "Retrieve authoritative, versioned policy passages approved for this workflow, with document citations and content hashes.",
+      inputSchema: z.object({
+        scenarioId: z.literal(request.scenarioId),
+        query: z.string().min(3).max(500),
+        limit: z.number().int().min(1).max(5),
+      }),
+      strict: true,
+      execute: (args) => execute("enterprise_policy_search", args),
     }),
     open_meteo_villa_conditions: tool({
       description: "Read current weather at operator-supplied UAE coordinates.",
@@ -421,6 +439,13 @@ export async function runAgenticLane(
             assignment:
               "Read current conditions at the supplied UAE coordinates and identify only the weather observations relevant to external response or approval-held aerial overwatch.",
           },
+          {
+            agentId: "agent-policy-specialist",
+            label: "UAE policy retrieval specialist",
+            toolName: "enterprise_policy_search" as const,
+            assignment:
+              "Retrieve the authoritative UAE residential fire-safety and Hassantuk policy passages relevant to alarm verification, resident cooperation, and governed escalation.",
+          },
         ]
       : [
           {
@@ -436,6 +461,13 @@ export async function runAgenticLane(
             toolName: "github_incidents" as const,
             assignment:
               "Inspect unresolved GitHub incidents, extract current impact and chronology, and prepare a source-grounded operational handoff.",
+          },
+          {
+            agentId: "agent-policy-specialist",
+            label: "Incident policy specialist",
+            toolName: "enterprise_policy_search" as const,
+            assignment:
+              "Retrieve the authoritative NIST incident-response passages relevant to analysis, coordination, mitigation, and recovery.",
           },
         ];
 
@@ -563,6 +595,17 @@ export async function runAgenticLane(
         }),
       ],
     }))
+    .addNode("specialist_three", async (state) => ({
+      specialistReports: [
+        await runSpecialistAgent({
+          request: state.request,
+          runId,
+          emit,
+          evidence,
+          ...specialistAssignments[2],
+        }),
+      ],
+    }))
     .addNode("supervisor", async (state) => {
       const startedAt = performance.now();
       emit({
@@ -583,7 +626,7 @@ export async function runAgenticLane(
         id: `${scenario.id}-supervisor`,
         model: languageModel(state.request),
         instructions:
-          "You are the supervising enterprise response agent. Reconcile the two specialist handoffs without adding unsupported facts. Resolve conflicts explicitly, cite every supplied source URL, separate operator input, external observations, and inferences, explain why the specialists improved coverage, and keep all production side effects behind policy and authorized human approval. Return sections: Decision, Reconciled evidence, Multi-agent work, Guardrails, Next action.",
+          "You are the supervising enterprise response agent. Reconcile the three specialist handoffs without adding unsupported facts. Resolve conflicts explicitly, cite every supplied operational and policy source URL, separate operator input, external observations, retrieved policy, and inferences, explain why the specialists improved coverage, and keep all production side effects behind policy and authorized human approval. Return sections: Decision, Reconciled evidence, Multi-agent work, Guardrails, Next action.",
         tools: {},
         stopWhen: stepCountIs(1),
         maxOutputTokens: 900,
@@ -697,11 +740,14 @@ export async function runAgenticLane(
       "guardrail",
       (state) =>
         scenarioById[state.request.scenarioId].orchestration === "multi_agent"
-          ? ["specialist_one", "specialist_two"]
+          ? ["specialist_one", "specialist_two", "specialist_three"]
           : "agent",
-      ["agent", "specialist_one", "specialist_two"],
+      ["agent", "specialist_one", "specialist_two", "specialist_three"],
     )
-    .addEdge(["specialist_one", "specialist_two"], "supervisor")
+    .addEdge(
+      ["specialist_one", "specialist_two", "specialist_three"],
+      "supervisor",
+    )
     .addEdge("supervisor", "policy")
     .addEdge("agent", "policy");
   const graph = graphBuilder

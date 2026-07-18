@@ -56,6 +56,60 @@ const rulesByScenario: Record<ScenarioId, RuleProperties[]> = {
       },
     },
     {
+      name: "resident-contact-approval-hold",
+      priority: 79,
+      conditions: {
+        all: [
+          { fact: "residentCallAuthorized", operator: "equal", value: false },
+        ],
+      },
+      event: {
+        type: "hold-automated-resident-call",
+        params: {
+          outcome:
+            "Prepare the resident verification call context, but do not contact the resident without an authorized production approval record.",
+        },
+      },
+    },
+    {
+      name: "drone-launch-approval-hold",
+      priority: 78,
+      conditions: {
+        all: [
+          { fact: "droneLaunchAuthorized", operator: "equal", value: false },
+        ],
+      },
+      event: {
+        type: "hold-drone-launch",
+        params: {
+          outcome:
+            "Prepare an aerial-overwatch request only when it adds situational value; do not launch without fleet, airspace, and human authorization.",
+        },
+      },
+    },
+    {
+      name: "private-context-gap",
+      priority: 75,
+      conditions: {
+        any: [
+          { fact: "alarmHistoryAvailable", operator: "equal", value: false },
+          {
+            fact: "maintenanceHistoryAvailable",
+            operator: "equal",
+            value: false,
+          },
+          { fact: "visualEvidenceAvailable", operator: "equal", value: false },
+        ],
+      },
+      event: {
+        type: "request-missing-villa-context",
+        params: {
+          outcome:
+            "Request authenticated alarm, maintenance, and available visual context before treating the response package as complete.",
+        },
+      },
+    },
+    {
       name: "high-wind-aerial-constraint",
       priority: 70,
       conditions: {
@@ -277,6 +331,13 @@ function toolArguments(
       longitude: Number(request.input.longitude),
     };
   }
+  if (tool === "enterprise_policy_search") {
+    return {
+      scenarioId: request.scenarioId,
+      query: scenarioById[request.scenarioId].businessOutcome,
+      limit: 3,
+    };
+  }
   return {};
 }
 
@@ -352,9 +413,24 @@ function factsFromResults(results: PublicToolResult[]): Facts {
 }
 
 function requestFacts(request: RunRequest): Facts {
+  const sensorCount = Number(request.input.sensorCount);
+  const occupantVerified = request.input.occupantsStatus === "verified fire";
   return {
-    multiSensorAlarm: Number(request.input.sensorCount) >= 2,
-    occupantVerified: request.input.occupantsStatus === "verified fire",
+    sensorCount,
+    multiSensorAlarm: sensorCount >= 2,
+    occupantVerified,
+    alarmPriority: occupantVerified
+      ? "CRITICAL"
+      : sensorCount >= 2
+        ? "HIGH"
+        : "REVIEW",
+    alarmHistoryAvailable:
+      request.input.priorAlarmHistory !== "private connector not configured",
+    maintenanceHistoryAvailable:
+      request.input.maintenanceHistory !== "private connector not configured",
+    visualEvidenceAvailable: request.input.visualEvidence !== "not supplied",
+    residentCallAuthorized: false,
+    droneLaunchAuthorized: false,
     dispatchAuthorized: false,
   };
 }
@@ -447,7 +523,10 @@ export async function runRulesLane(request: RunRequest, emit: EventEmitter) {
     },
   });
 
-  const facts = { ...factsFromResults(results), ...requestFacts(request) };
+  const facts =
+    request.scenarioId === "hassantuk_villa_response"
+      ? { ...requestFacts(request), ...factsFromResults(results) }
+      : factsFromResults(results);
   emit({
     lane: "rules",
     type: "node_completed",

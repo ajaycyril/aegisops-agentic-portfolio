@@ -166,7 +166,7 @@ export async function POST(request: Request) {
           nodeId: "run-start",
           label: scenario.name,
           summary:
-            "Agentic and fixed-rule lanes started concurrently against live public sources.",
+            "Agentic and deterministic decision lanes started concurrently against the same live public sources.",
           status: "running",
           actor: "AegisOps runtime",
           data: {

@@ -70,6 +70,14 @@ Four interactive workflows are deployed:
 The repository also contains production contracts for customer support, security remediation,
 invoice exceptions, compliance evidence, sales/RFP, BI analysis, and HR/IT access workflows.
 
+## Governed Policy Retrieval
+
+Every workflow retrieves authoritative policy evidence through the typed
+`enterprise_policy_search` MCP tool. The public deployment uses a versioned MiniSearch corpus;
+managed deployments can switch to tenant-scoped Postgres full-text plus pgvector retrieval using
+the included migration without changing the workflow contract. See
+[`docs/architecture/07-governed-policy-rag.md`](docs/architecture/07-governed-policy-rag.md).
+
 ## Live Architecture
 
 The architecture view is generated from the same streamed run events as the workflow graph. A

@@ -21,7 +21,11 @@ describe("public demo OPA policy", () => {
       action: "read",
       max_tool_calls: 4,
       max_cost_usd: 0.05,
-      tools: ["hassantuk_home_protocol", "open_meteo_villa_conditions"],
+      tools: [
+        "hassantuk_home_protocol",
+        "open_meteo_villa_conditions",
+        "enterprise_policy_search",
+      ],
     });
 
     expect(decision.allow).toBe(true);

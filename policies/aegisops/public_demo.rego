@@ -11,6 +11,7 @@ approved_tools := {
   "sec_company_facts",
   "hassantuk_home_protocol",
   "open_meteo_villa_conditions",
+  "enterprise_policy_search",
 }
 
 default decision := {

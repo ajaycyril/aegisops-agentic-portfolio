@@ -39,12 +39,12 @@ export type ScenarioDefinition = {
 export const scenarios: ScenarioDefinition[] = [
   {
     id: "hassantuk_villa_response",
-    name: "Hassantuk Villa Fire Response Copilot",
+    name: "Hassantuk for Homes: Villa Fire Response",
     shortName: "Villa fire",
     domain: "UAE physical AI / public safety",
     description:
-      "Assess an operator-supplied villa alarm envelope against the live official Hassantuk operating protocol and current local conditions, then prepare an approval-held response recommendation.",
-    sourceLabel: "UAE MoI Hassantuk + Open-Meteo",
+      "Hassantuk for Homes is the UAE connected smoke-and-heat alarm service for villas. This copilot assesses an operator-supplied alarm envelope against the live official operating protocol and current local conditions, then prepares an approval-held resident, drone, and emergency response recommendation.",
+    sourceLabel: "UAE MoI + UAE Legislation + Open-Meteo",
     icon: Flame,
     accent: "red",
     orchestration: "multi_agent",
@@ -62,6 +62,7 @@ export const scenarios: ScenarioDefinition[] = [
       "guardrail",
       "protocol-specialist",
       "conditions-specialist",
+      "policy-specialist",
       "response-supervisor",
       "dispatch-policy",
       "evaluate",
@@ -73,12 +74,21 @@ export const scenarios: ScenarioDefinition[] = [
       "evaluate-response-table",
       "approval-route",
     ],
-    requiredTools: ["hassantuk_home_protocol", "open_meteo_villa_conditions"],
+    requiredTools: [
+      "hassantuk_home_protocol",
+      "open_meteo_villa_conditions",
+      "enterprise_policy_search",
+    ],
     defaultInput: {
       alarmType: "smoke and heat",
       sensorCount: "2",
       detectorZone: "ground-floor kitchen",
       occupantsStatus: "telephone verification pending",
+      priorAlarmHistory: "private connector not configured",
+      maintenanceHistory: "private connector not configured",
+      visualEvidence: "not supplied",
+      residentCallAction: "approval required before contact",
+      droneDispatchAction: "approval required before launch",
       latitude: "24.4539",
       longitude: "54.3773",
     },
@@ -99,11 +109,36 @@ export const scenarios: ScenarioDefinition[] = [
         label: "Verification state",
         placeholder: "telephone verification pending",
       },
+      {
+        key: "priorAlarmHistory",
+        label: "Prior alarms",
+        placeholder: "private connector not configured",
+      },
+      {
+        key: "maintenanceHistory",
+        label: "Maintenance history",
+        placeholder: "private connector not configured",
+      },
+      {
+        key: "visualEvidence",
+        label: "Camera / thermal evidence",
+        placeholder: "not supplied",
+      },
+      {
+        key: "residentCallAction",
+        label: "Resident call",
+        placeholder: "approval required before contact",
+      },
+      {
+        key: "droneDispatchAction",
+        label: "Drone dispatch",
+        placeholder: "approval required before launch",
+      },
       { key: "latitude", label: "Area latitude", placeholder: "24.4539" },
       { key: "longitude", label: "Area longitude", placeholder: "54.3773" },
     ],
     prompt: (input) =>
-      `Act as a read-only UAE villa fire response team for an operator-supplied ${input.alarmType} alarm in ${input.detectorZone}. Occupant verification is ${input.occupantsStatus}. Reconcile the current official Hassantuk operating protocol with current conditions at ${input.latitude}, ${input.longitude}. Clearly label operator-supplied claims versus live external observations and inference. Identify missing sensor or visual evidence, propose the safest next verification and response actions, and state whether authenticated drone or thermal overwatch would add useful situational awareness. Hold any drone launch, Civil Defence, or physical dispatch action behind authorized human approval. Never claim access to Hassantuk sensors, ARC, ICCC/I999, drone control, or dispatch systems.`,
+      `Act as a read-only UAE villa fire response team for an operator-supplied ${input.alarmType} alarm across ${input.sensorCount} sensors in ${input.detectorZone}. Occupant verification is ${input.occupantsStatus}. Prior alarm history is ${input.priorAlarmHistory}; maintenance history is ${input.maintenanceHistory}; camera or thermal evidence is ${input.visualEvidence}. The resident call state is ${input.residentCallAction}, and drone dispatch is ${input.droneDispatchAction}. Reconcile the current official Hassantuk operating protocol, retrieved UAE policy passages, and current conditions at ${input.latitude}, ${input.longitude}. Cite the retrieved policy documents and clearly label operator-supplied context, live external observations, missing private connector data, and inference. Classify alarm priority using an explicit decision rationale, propose the safest resident-verification sequence, and state whether authenticated drone or thermal overwatch would add useful situational awareness. Hold any resident call, drone launch, Civil Defence, or physical dispatch action behind authorized human approval. Never claim access to Hassantuk sensors, alarm history, maintenance records, resident calling, ARC, ICCC/I999, drone control, or dispatch systems.`,
   },
   {
     id: "incident_response",
@@ -112,7 +147,7 @@ export const scenarios: ScenarioDefinition[] = [
     domain: "SRE / incident response",
     description:
       "Investigate the live GitHub platform status, reconcile component health and active incidents, then produce an evidence-grounded operational brief.",
-    sourceLabel: "GitHub Status API",
+    sourceLabel: "GitHub Status API + NIST policy corpus",
     icon: Activity,
     accent: "teal",
     orchestration: "multi_agent",
@@ -127,6 +162,7 @@ export const scenarios: ScenarioDefinition[] = [
       "guardrail",
       "status-specialist",
       "incident-specialist",
+      "policy-specialist",
       "supervisor",
       "policy",
       "evaluate",
@@ -137,14 +173,18 @@ export const scenarios: ScenarioDefinition[] = [
       "evaluate-rules",
       "route-alert",
     ],
-    requiredTools: ["github_status", "github_incidents"],
+    requiredTools: [
+      "github_status",
+      "github_incidents",
+      "enterprise_policy_search",
+    ],
     defaultInput: { scope: "github-platform", timeWindow: "current" },
     inputFields: [
       { key: "scope", label: "Service scope", placeholder: "github-platform" },
       { key: "timeWindow", label: "Time window", placeholder: "current" },
     ],
     prompt: (input) =>
-      `Investigate the current operational state for ${input.scope ?? "github-platform"}. Use both status tools, reconcile component state and unresolved incidents, cite every source, and distinguish observed evidence from inference. The requested time window is ${input.timeWindow ?? "current"}.`,
+      `Investigate the current operational state for ${input.scope ?? "github-platform"}. Use both status tools and the approved incident-response policy corpus, reconcile component state and unresolved incidents, cite every operational and policy source, and distinguish observed evidence from inference. The requested time window is ${input.timeWindow ?? "current"}.`,
   },
   {
     id: "engineering_triage",
@@ -153,7 +193,7 @@ export const scenarios: ScenarioDefinition[] = [
     domain: "Software engineering",
     description:
       "Read a real open-source issue and repository metadata, assess impact and ambiguity, and draft a grounded implementation triage without making writes.",
-    sourceLabel: "GitHub REST API",
+    sourceLabel: "GitHub REST API + NIST SSDF",
     icon: GitPullRequest,
     accent: "blue",
     orchestration: "single_agent",
@@ -180,7 +220,11 @@ export const scenarios: ScenarioDefinition[] = [
       "evaluate-rules",
       "assign-queue",
     ],
-    requiredTools: ["github_issue", "github_repository"],
+    requiredTools: [
+      "github_issue",
+      "github_repository",
+      "enterprise_policy_search",
+    ],
     defaultInput: {
       owner: "langchain-ai",
       repository: "langgraphjs",
@@ -192,7 +236,7 @@ export const scenarios: ScenarioDefinition[] = [
       { key: "issueNumber", label: "Issue number", placeholder: "2570" },
     ],
     prompt: (input) =>
-      `Triage GitHub issue ${input.owner}/${input.repository}#${input.issueNumber}. Read the issue and repository metadata through tools. Identify evidence, affected surface, missing context, a safe investigation plan, and whether human approval is needed before any write action.`,
+      `Triage GitHub issue ${input.owner}/${input.repository}#${input.issueNumber}. Read the issue, repository metadata, and approved NIST secure-development policy passages through tools. Identify evidence, affected surface, missing context, policy-relevant obligations, a safe investigation plan, and whether human approval is needed before any write action. Cite every source.`,
   },
   {
     id: "supplier_risk",
@@ -201,7 +245,7 @@ export const scenarios: ScenarioDefinition[] = [
     domain: "Supply chain / procurement",
     description:
       "Resolve a real legal entity against GLEIF, inspect registration evidence, and produce an explainable onboarding or renewal risk brief.",
-    sourceLabel: "GLEIF LEI API",
+    sourceLabel: "GLEIF LEI API + OECD guidance",
     icon: Building2,
     accent: "red",
     orchestration: "single_agent",
@@ -227,7 +271,7 @@ export const scenarios: ScenarioDefinition[] = [
       "evaluate-rules",
       "route-review",
     ],
-    requiredTools: ["gleif_entity"],
+    requiredTools: ["gleif_entity", "enterprise_policy_search"],
     defaultInput: { legalName: "Microsoft Corporation" },
     inputFields: [
       {
@@ -237,7 +281,7 @@ export const scenarios: ScenarioDefinition[] = [
       },
     ],
     prompt: (input) =>
-      `Assess legal-entity evidence for supplier candidate ${input.legalName}. Resolve the entity with GLEIF, report match confidence using returned structured fields, flag registration or entity-status concerns, cite the source, and require approval for any supplier status change.`,
+      `Assess legal-entity evidence for supplier candidate ${input.legalName}. Resolve the entity with GLEIF, retrieve the approved OECD due-diligence policy passages, report match confidence using returned structured fields, flag registration or entity-status concerns, cite every source, and require approval for any supplier status change.`,
   },
   {
     id: "finance_evidence",
@@ -246,7 +290,7 @@ export const scenarios: ScenarioDefinition[] = [
     domain: "Finance operations",
     description:
       "Read live SEC company facts for a public company, extract current filing evidence, and explain what a deterministic threshold can and cannot conclude.",
-    sourceLabel: "SEC EDGAR Data API",
+    sourceLabel: "SEC EDGAR + SEC staff guidance",
     icon: ReceiptText,
     accent: "amber",
     orchestration: "single_agent",
@@ -272,7 +316,7 @@ export const scenarios: ScenarioDefinition[] = [
       "evaluate-rules",
       "route-review",
     ],
-    requiredTools: ["sec_company_facts"],
+    requiredTools: ["sec_company_facts", "enterprise_policy_search"],
     defaultInput: { cik: "0000789019", metric: "AccountsPayableCurrent" },
     inputFields: [
       { key: "cik", label: "SEC CIK", placeholder: "0000789019" },
@@ -283,9 +327,21 @@ export const scenarios: ScenarioDefinition[] = [
       },
     ],
     prompt: (input) =>
-      `Analyze live SEC company facts for CIK ${input.cik}, focusing on ${input.metric}. Use the SEC tool, cite the filing evidence returned, explain the latest reported value and period, avoid unsupported accounting conclusions, and require approval before any financial action.`,
+      `Analyze live SEC company facts for CIK ${input.cik}, focusing on ${input.metric}. Use the SEC tool and retrieve approved SEC materiality guidance, cite every filing and policy source returned, explain the latest reported value and period, avoid unsupported accounting conclusions, and require approval before any financial action.`,
   },
 ];
+
+const scenarioOrder: Record<ScenarioId, number> = {
+  incident_response: 0,
+  engineering_triage: 1,
+  hassantuk_villa_response: 2,
+  supplier_risk: 3,
+  finance_evidence: 4,
+};
+
+scenarios.sort(
+  (left, right) => scenarioOrder[left.id] - scenarioOrder[right.id],
+);
 
 export const scenarioById = Object.fromEntries(
   scenarios.map((scenario) => [scenario.id, scenario]),

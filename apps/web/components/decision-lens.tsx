@@ -6,16 +6,19 @@ import {
   Braces,
   Eye,
   GitBranch,
+  Network,
+  Play,
   RefreshCw,
   ShieldCheck,
+  StepForward,
   Target,
   Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
 
 import { MessageResponse } from "@/components/ai-elements/message";
+import { WorkflowCanvas } from "@/components/workflow-canvas";
 import type { RunEvent } from "@/lib/agentic/contracts";
 import type { ScenarioDefinition } from "@/lib/agentic/scenarios";
 
@@ -24,6 +27,8 @@ type DecisionState = "queued" | "running" | "completed" | "blocked";
 type StoryDatum = {
   label: string;
   value: string;
+  provenance?:
+    "Scenario input" | "Live source" | "Policy snapshot" | "Runtime trace";
 };
 
 type StoryStage = {
@@ -33,6 +38,7 @@ type StoryStage = {
   owner: string;
   icon: LucideIcon;
   state: DecisionState;
+  objective: string;
   input: StoryDatum[];
   controlLabel: string;
   control: string;
@@ -128,14 +134,26 @@ function StageFocusCard({
           {stage.state}
         </span>
       </header>
+      <motion.div
+        className="stage-objective"
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.08, duration: 0.28 }}
+      >
+        <small>Outcome targeted in this stage</small>
+        <strong>{stage.objective}</strong>
+      </motion.div>
       <div className="focus-stage-flow">
         <section className="focus-block focus-input">
-          <span className="focus-block-label">What came in</span>
+          <span className="focus-block-label">Inputs available</span>
           <div className="focus-data-list">
             {stage.input.length > 0 ? (
               stage.input.map((datum, index) => (
                 <div key={`${stage.id}-input-${index}-${datum.label}`}>
-                  <small>{datum.label}</small>
+                  <small>
+                    {datum.label}
+                    {datum.provenance ? <i>{datum.provenance}</i> : null}
+                  </small>
                   <strong>{datum.value}</strong>
                 </div>
               ))
@@ -146,28 +164,29 @@ function StageFocusCard({
         </section>
         <section className="focus-block focus-decision">
           <span className="focus-block-label">
-            {lane === "agentic"
-              ? "Decision / control applied"
-              : "Decision logic applied"}
+            {lane === "agentic" ? "Decision or action" : "Decision logic"}
           </span>
           <strong>{stage.controlLabel}</strong>
           <p>{stage.control}</p>
           <div className="focus-rationale">
             <small>
               {lane === "agentic"
-                ? "Observable decision basis"
+                ? "Why this step matters"
                 : "Strength and boundary"}
             </small>
             <p>{stage.why}</p>
           </div>
         </section>
         <section className="focus-block focus-output">
-          <span className="focus-block-label">What came out</span>
+          <span className="focus-block-label">Stage result</span>
           <div className="focus-data-list">
             {stage.output.length > 0 ? (
               stage.output.map((datum, index) => (
                 <div key={`${stage.id}-output-${index}-${datum.label}`}>
-                  <small>{datum.label}</small>
+                  <small>
+                    {datum.label}
+                    {datum.provenance ? <i>{datum.provenance}</i> : null}
+                  </small>
                   <strong>{datum.value}</strong>
                 </div>
               ))
@@ -196,30 +215,17 @@ function StageFocusCard({
 function StoryLane({
   stages,
   lane,
+  currentStage,
+  onSelectStage,
   onSelectEvent,
 }: {
   stages: StoryStage[];
   lane: "agentic" | "rules";
+  currentStage: number;
+  onSelectStage: (stage: number) => void;
   onSelectEvent: (event: RunEvent) => void;
 }) {
-  const activeStage =
-    stages.find((stage) => stage.state === "running") ??
-    [...stages]
-      .reverse()
-      .find(
-        (stage) => stage.state === "completed" || stage.state === "blocked",
-      );
-  const activeStageId = activeStage?.id ?? stages[0].id;
-  const [manualSelection, setManualSelection] = useState<{
-    stageId: string;
-    activeStageId: string;
-  } | null>(null);
-  const selectedStageId =
-    manualSelection?.activeStageId === activeStageId
-      ? manualSelection.stageId
-      : activeStageId;
-  const selectedStage =
-    stages.find((stage) => stage.id === selectedStageId) ?? stages[0];
+  const selectedStage = stages[currentStage - 1] ?? stages[0];
 
   return (
     <section className={`story-lane story-lane-${lane}`}>
@@ -251,9 +257,7 @@ function StoryLane({
             className={`state-${stage.state} ${selectedStage.id === stage.id ? "selected" : ""}`}
             aria-current={selectedStage.id === stage.id ? "step" : undefined}
             key={stage.id}
-            onClick={() =>
-              setManualSelection({ stageId: stage.id, activeStageId })
-            }
+            onClick={() => onSelectStage(stage.step)}
             type="button"
           >
             <span>{stage.step}</span>
@@ -278,18 +282,63 @@ export function DecisionLens({
   input,
   events,
   answer,
+  currentStage,
+  availableStage,
+  presentationMode,
+  canAdvance,
+  onSetPresentationMode,
+  onAdvanceStage,
+  onSelectStage,
   onSelectEvent,
 }: {
   scenario: ScenarioDefinition;
   input: Record<string, string>;
   events: RunEvent[];
   answer: string;
+  currentStage: number;
+  availableStage: number;
+  presentationMode: "manual" | "auto";
+  canAdvance: boolean;
+  onSetPresentationMode: (mode: "manual" | "auto") => void;
+  onAdvanceStage: () => void;
+  onSelectStage: (stage: number) => void;
   onSelectEvent: (event: RunEvent) => void;
 }) {
-  const configuredInput = scenario.inputFields.map((field) => ({
-    label: field.label,
-    value: input[field.key] || "not provided",
-  }));
+  const isHassantuk = scenario.id === "hassantuk_villa_response";
+  const configuredInput = isHassantuk
+    ? [
+        { label: "alarm signal", value: input.alarmType || "not provided" },
+        {
+          label: "triggered sensors",
+          value: input.sensorCount || "not provided",
+        },
+        { label: "detector zone", value: input.detectorZone || "not provided" },
+        {
+          label: "resident verification",
+          value: input.occupantsStatus || "not provided",
+        },
+        {
+          label: "private history",
+          value: `alarms: ${input.priorAlarmHistory || "not provided"} · maintenance: ${input.maintenanceHistory || "not provided"}`,
+        },
+        {
+          label: "visual context",
+          value: input.visualEvidence || "not provided",
+        },
+        {
+          label: "side-effect boundary",
+          value: `resident call: ${input.residentCallAction || "not provided"} · drone: ${input.droneDispatchAction || "not provided"}`,
+        },
+        {
+          label: "response area",
+          value: `${input.latitude || "not provided"}, ${input.longitude || "not provided"}`,
+        },
+      ].map((datum) => ({ ...datum, provenance: "Scenario input" as const }))
+    : scenario.inputFields.map((field) => ({
+        label: field.label,
+        value: input[field.key] || "not provided",
+        provenance: "Scenario input" as const,
+      }));
   const runStarted = latest(events, (event) => event.type === "run_started");
   const guardrail = latest(
     events,
@@ -317,12 +366,36 @@ export function DecisionLens({
       {
         label: event.evidence?.source ?? event.label,
         value: event.evidence?.title ?? event.summary,
+        provenance:
+          event.evidence?.fields?.retrievalMode !== undefined
+            ? ("Policy snapshot" as const)
+            : ("Live source" as const),
       },
       ...dataRows(event.evidence?.fields, 3),
     ])
     .slice(0, 8);
+  const policyEvidence = evidenceEvents.find(
+    (event) => event.evidence?.fields?.scenarioId === scenario.id,
+  );
+  const policyChunks = Array.isArray(policyEvidence?.evidence?.fields?.chunks)
+    ? policyEvidence.evidence.fields.chunks
+    : [];
+  const policyRows: StoryDatum[] = policyChunks
+    .slice(0, 3)
+    .map((value, index) => {
+      const chunk = asRecord(value);
+      return {
+        label: `policy citation ${index + 1}`,
+        value: `${displayValue(chunk.authority)} · ${displayValue(chunk.title)} · ${displayValue(chunk.version)}`,
+        provenance: "Policy snapshot" as const,
+      };
+    });
   const handoffs = events.filter((event) => event.type === "agent_handoff");
   const handoff = handoffs.at(-1);
+  const specialistCount = Math.max(
+    handoffs.length,
+    asStrings(handoff?.data?.from).length,
+  );
   const finalModelStep = latest(events, (event) => event.type === "model_step");
   const supervisor = latest(
     events,
@@ -379,17 +452,52 @@ export function DecisionLens({
   const matchedEvents = asStrings(
     rulesOutput?.data?.matchedEvents ?? rulesEvaluate?.data?.matchedEvents,
   );
+  const agentObjectives = isHassantuk
+    ? [
+        "Accept a bounded villa alarm case without authorizing resident contact, drone launch, or emergency dispatch.",
+        "Select the next evidence source needed to verify the alarm and prepare a safe response.",
+        "Retrieve the current Hassantuk protocol, governing UAE policy, and local response conditions through typed read-only connectors.",
+        "Validate the returned evidence and expose missing private alarm, maintenance, resident, or visual context.",
+        "Reconcile alarm priority, resident verification, and the value of drone or thermal overwatch into one response plan.",
+        "Release a grounded recommendation while holding automated calls, drone launch, and Civil Defence dispatch for authorized approval.",
+      ]
+    : [
+        "Accept a bounded case and enforce its tool, budget, and side-effect limits.",
+        "Choose the most useful approved evidence action for the current case.",
+        "Execute operational connectors and governed policy retrieval, then capture traceable results.",
+        "Validate source evidence and policy citations before either can influence the next decision.",
+        "Adapt the response or reconcile specialist findings into one case-specific plan.",
+        "Release only a grounded, policy-compliant recommendation.",
+      ];
+  const ruleObjectives = isHassantuk
+    ? [
+        "Validate the villa alarm envelope and bind it to a versioned response policy.",
+        "Precompile the exact official and environmental evidence required for this alarm class.",
+        "Acquire the same live protocol, policy corpus, and conditions used by the agentic lane.",
+        "Derive reproducible alarm-priority, verification, weather, and approval facts.",
+        "Match the fact set against the complete versioned response decision table.",
+        "Return a known verification route or safe exception without claiming a call, launch, or dispatch occurred.",
+      ]
+    : [
+        "Validate the versioned decision contract and safe exception path.",
+        "Precompile the exact evidence plan for this known decision class.",
+        "Execute configured operational connectors and governed policy retrieval.",
+        "Normalize evidence and derive reproducible decision facts.",
+        "Match the fact set against the versioned decision table.",
+        "Release a known outcome or route the case to manual exception review.",
+      ];
 
   const agentStages: StoryStage[] = [
     {
       id: "bounded-goal",
       step: 1,
-      title: "Bound the goal",
+      title: isHassantuk ? "Bound alarm intake" : "Bound the goal",
       owner: "HUMAN + LANGGRAPH",
       icon: Target,
       state: stateFromEvent(guardrail ?? runStarted),
+      objective: agentObjectives[0],
       input: configuredInput,
-      controlLabel: "Guardrail",
+      controlLabel: "Safety and autonomy boundary",
       control:
         guardrail?.summary ??
         "Typed scope, tool allowlist, spend ceiling, and approval requirement are checked before execution.",
@@ -413,15 +521,18 @@ export function DecisionLens({
     {
       id: "model-decision",
       step: 2,
-      title: "Choose the next action",
+      title: isHassantuk
+        ? "Choose verification action"
+        : "Choose the next action",
       owner: "MODEL WITHIN GRAPH",
       icon: GitBranch,
       state: stateFromEvent(modelToolDecision),
+      objective: agentObjectives[1],
       input: [
         { label: "goal", value: scenario.businessOutcome },
         { label: "available tools", value: scenario.requiredTools.join(", ") },
       ],
-      controlLabel: "Observable decision",
+      controlLabel: "Selected evidence action",
       control:
         modelToolDecision?.summary ??
         "The model may choose only policy-approved tools; its selected action will appear here as an execution summary.",
@@ -438,10 +549,13 @@ export function DecisionLens({
     {
       id: "typed-action",
       step: 3,
-      title: "Execute typed tools",
+      title: isHassantuk
+        ? "Retrieve protocol, policy, conditions"
+        : "Retrieve evidence and policy",
       owner: "AI SDK + MCP",
       icon: Wrench,
       state: stateFromEvent(latestAgentTool),
+      objective: agentObjectives[2],
       input:
         toolArguments.length > 0
           ? toolArguments
@@ -451,7 +565,7 @@ export function DecisionLens({
                 value: scenario.requiredTools.join(", "),
               },
             ],
-      controlLabel: "Action boundary",
+      controlLabel: "Typed connector execution",
       control:
         latestAgentTool?.summary ??
         "The tool call is schema-validated, read-only, traced, and executed through the MCP boundary.",
@@ -468,10 +582,11 @@ export function DecisionLens({
     {
       id: "observation",
       step: 4,
-      title: "Observe validated state",
+      title: isHassantuk ? "Assess alarm priority" : "Observe validated state",
       owner: "LIVE SOURCE + ZOD",
       icon: Eye,
       state: stateFromEvent(evidenceEvents.at(-1)),
+      objective: agentObjectives[3],
       input:
         agentToolCompletes.length > 0
           ? agentToolCompletes.map((event) => ({
@@ -479,14 +594,14 @@ export function DecisionLens({
               value: event.summary,
             }))
           : [{ label: "source response", value: "waiting for tool output" }],
-      controlLabel: "Evidence check",
+      controlLabel: "Evidence validation result",
       control:
         evidenceEvents.length > 0
           ? `${evidenceEvents.length} live source record${evidenceEvents.length === 1 ? "" : "s"} passed the evidence contract.`
           : "Raw source responses must pass the Zod evidence contract before the model can use them.",
       output:
         evidenceRows.length > 0
-          ? evidenceRows
+          ? [...policyRows, ...evidenceRows].slice(0, 8)
           : [
               {
                 label: "validated evidence",
@@ -499,8 +614,9 @@ export function DecisionLens({
     {
       id: "adaptation",
       step: 5,
-      title:
-        scenario.orchestration === "multi_agent"
+      title: isHassantuk
+        ? "Plan resident and drone response"
+        : scenario.orchestration === "multi_agent"
           ? "Reconcile specialists"
           : "Adapt and synthesize",
       owner:
@@ -509,11 +625,22 @@ export function DecisionLens({
           : "MODEL",
       icon: RefreshCw,
       state: stateFromEvent(adaptationEvent),
+      objective: agentObjectives[4],
       input: [
-        { label: "validated records", value: String(evidenceEvents.length) },
-        { label: "agent handoffs", value: String(handoffs.length) },
+        {
+          label: "validated records",
+          value:
+            evidenceEvents.length > 0
+              ? String(evidenceEvents.length)
+              : "pending live run",
+        },
+        {
+          label: "specialist reports",
+          value:
+            specialistCount > 0 ? String(specialistCount) : "pending live run",
+        },
       ],
-      controlLabel: "Adaptive step",
+      controlLabel: isHassantuk ? "Response synthesis" : "Adaptive synthesis",
       control: adaptationEvent?.summary ?? scenario.agenticAdvantage,
       output: adaptationEvent
         ? [
@@ -530,10 +657,11 @@ export function DecisionLens({
     {
       id: "verification",
       step: 6,
-      title: "Verify and release",
+      title: isHassantuk ? "Authorize or hold dispatch" : "Verify and release",
       owner: "OPA + GROUNDING EVAL",
       icon: policy?.status === "blocked" ? ShieldCheck : BadgeCheck,
       state: stateFromEvent(evaluation ?? policy),
+      objective: agentObjectives[5],
       input: [
         {
           label: "required evidence",
@@ -543,12 +671,15 @@ export function DecisionLens({
         },
         {
           label: "captured evidence",
-          value: String(
-            evaluation?.data?.capturedEvidence ?? evidenceEvents.length,
-          ),
+          value:
+            evaluation?.data?.capturedEvidence !== undefined
+              ? String(evaluation.data.capturedEvidence)
+              : evidenceEvents.length > 0
+                ? String(evidenceEvents.length)
+                : "pending live run",
         },
       ],
-      controlLabel: "Release decision",
+      controlLabel: "Release and side-effect decision",
       control:
         policy?.summary ??
         "OPA evaluates side effects and the evaluator checks that every required source grounded the answer.",
@@ -558,6 +689,9 @@ export function DecisionLens({
           value: evaluation?.label ?? "waiting for evaluator",
         },
         { label: "workflow", value: agentOutput?.status ?? "not released" },
+        ...(answer
+          ? [{ label: "response brief", value: answer.slice(0, 260) }]
+          : []),
       ],
       why: "Agentic does not mean uncontrolled: independent policy and evidence checks decide whether the result may leave the workflow.",
       event: evaluation ?? policy,
@@ -568,10 +702,13 @@ export function DecisionLens({
     {
       id: "deterministic-contract",
       step: 1,
-      title: "Validate decision contract",
+      title: isHassantuk
+        ? "Validate alarm contract"
+        : "Validate decision contract",
       owner: "ZOD + REGISTRY",
       icon: Target,
       state: stateFromEvent(rulesContract ?? runStarted),
+      objective: ruleObjectives[0],
       input: configuredInput,
       controlLabel: "Versioned boundary",
       control:
@@ -590,10 +727,11 @@ export function DecisionLens({
     {
       id: "deterministic-fetch",
       step: 2,
-      title: "Plan configured evidence",
+      title: isHassantuk ? "Plan known evidence" : "Plan configured evidence",
       owner: "VERSIONED DECISION GRAPH",
       icon: GitBranch,
       state: stateFromEvent(rulesFetch),
+      objective: ruleObjectives[1],
       input: [
         { label: "decision goal", value: scenario.businessOutcome },
         {
@@ -615,10 +753,13 @@ export function DecisionLens({
     {
       id: "deterministic-action",
       step: 3,
-      title: "Execute typed connectors",
+      title: isHassantuk
+        ? "Fetch protocol, policy, conditions"
+        : "Fetch evidence and policy",
       owner: "MCP",
       icon: Wrench,
       state: stateFromEvent(rulesToolEvents.at(-1)),
+      objective: ruleObjectives[2],
       input: scenario.requiredTools.map((tool) => ({
         label: "configured tool",
         value: tool,
@@ -640,10 +781,13 @@ export function DecisionLens({
     {
       id: "deterministic-facts",
       step: 4,
-      title: "Normalize and derive facts",
+      title: isHassantuk
+        ? "Derive risk and readiness"
+        : "Normalize and derive facts",
       owner: "ZOD + TYPED TRANSFORMS",
       icon: Eye,
       state: stateFromEvent(rulesDerive ?? rulesNormalize),
+      objective: ruleObjectives[3],
       input:
         rulesNormalize?.data?.sourceCount !== undefined
           ? [
@@ -668,10 +812,11 @@ export function DecisionLens({
     {
       id: "deterministic-evaluate",
       step: 5,
-      title: "Evaluate decision table",
+      title: isHassantuk ? "Apply response policy" : "Evaluate decision table",
       owner: "JSON-RULES-ENGINE",
       icon: Braces,
       state: stateFromEvent(rulesEvaluate),
+      objective: ruleObjectives[4],
       input:
         facts.length > 0
           ? facts
@@ -695,14 +840,22 @@ export function DecisionLens({
     {
       id: "deterministic-outcome",
       step: 6,
-      title: "Release governed outcome",
+      title: isHassantuk
+        ? "Release verification route"
+        : "Release governed outcome",
       owner: "DECISION SERVICE",
       icon: BadgeCheck,
       state: stateFromEvent(rulesOutput),
+      objective: ruleObjectives[5],
       input: [
         {
           label: "matched events",
-          value: matchedEvents.length > 0 ? matchedEvents.join(", ") : "none",
+          value:
+            matchedEvents.length > 0
+              ? matchedEvents.join(", ")
+              : rulesOutput
+                ? "no configured outcome matched"
+                : "pending live run",
         },
       ],
       controlLabel: "Versioned release",
@@ -727,25 +880,83 @@ export function DecisionLens({
       <div className="decision-lens-head">
         <div>
           <span className="section-kicker">Live execution story</span>
-          <h3>Follow one decision at a time</h3>
+          <h3>Step through the same decision in both systems</h3>
         </div>
-        <span>
-          <Eye size={14} /> stage-controlled live trace · observable decision
-          basis, not private chain-of-thought
-        </span>
+        <div
+          className="presentation-controls presentation-controls-primary"
+          aria-label="Stage playback controls"
+        >
+          <div
+            className="presentation-mode"
+            role="group"
+            aria-label="Progress mode"
+          >
+            <button
+              className={presentationMode === "manual" ? "active" : ""}
+              onClick={() => onSetPresentationMode("manual")}
+              type="button"
+            >
+              <StepForward size={13} /> Manual
+            </button>
+            <button
+              className={presentationMode === "auto" ? "active" : ""}
+              onClick={() => onSetPresentationMode("auto")}
+              type="button"
+            >
+              <Play size={12} fill="currentColor" /> Auto
+            </button>
+          </div>
+          <span>
+            Stage {currentStage} of 6 · {availableStage} live
+          </span>
+          <button
+            className="next-stage-button"
+            onClick={onAdvanceStage}
+            disabled={!canAdvance || presentationMode === "auto"}
+            type="button"
+          >
+            <StepForward size={14} /> Next stage
+          </button>
+        </div>
       </div>
       <div className="story-lanes">
         <StoryLane
           stages={agentStages}
           lane="agentic"
+          currentStage={currentStage}
+          onSelectStage={onSelectStage}
           onSelectEvent={onSelectEvent}
         />
         <StoryLane
           stages={ruleStages}
           lane="rules"
+          currentStage={currentStage}
+          onSelectStage={onSelectStage}
           onSelectEvent={onSelectEvent}
         />
       </div>
+
+      <motion.section
+        className="inline-topology"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        aria-label="Live workflow topology"
+      >
+        <header>
+          <span>
+            <Network size={16} /> Live topology
+          </span>
+          <strong>
+            Every lit node is backed by the same received trace shown above.
+          </strong>
+        </header>
+        <WorkflowCanvas
+          scenario={scenario}
+          events={events}
+          onSelectEvent={onSelectEvent}
+        />
+      </motion.section>
 
       <section
         className="result-comparison"
