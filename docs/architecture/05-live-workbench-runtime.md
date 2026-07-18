@@ -9,8 +9,9 @@ inputs and controls, and starts two systems against the same live source data:
 
 1. The agentic lane can plan, select typed tools, adapt to results, reconcile evidence, pass policy,
    and evaluate grounding.
-2. The fixed-rule lane fetches predefined fields, evaluates versioned conditions, and returns only
-   outcomes that were configured before the run.
+2. The deterministic lane validates its decision contract, calls the same production connectors,
+   normalizes and derives typed facts, evaluates versioned conditions, and routes a known outcome
+   or a safe manual exception.
 
 This comparison is executable, not explanatory copy. The UI receives a streamed event contract and
 maps each event to a React Flow node, animated edge, trace row, evidence record, policy state, and
@@ -30,10 +31,11 @@ decisions required to audit an agent system:
    specialist handoff and supervisor synthesis.
 6. **Verify boundary - OPA and evaluator:** policy allow/block/approval state and grounding result.
 
-Every phase is derived from a real `RunEvent` and opens that event in the inspector. The fixed-rule
-track beside it shows its contrasting control model: configured fields, preselected fetches,
-versioned condition matching, and a known set of outcomes. This makes the distinction about control
-flow and adaptability, rather than implying that every model-backed step is autonomous.
+Every phase is derived from a real `RunEvent` and opens that event in the inspector. The
+deterministic track beside it shows an equally production-capable but different control model:
+versioned contracts, precompiled evidence plans, typed connectors, reproducible derivations,
+decision-table matching, and governed outcomes. Its limitation is the boundary of the encoded
+world model, not intentionally weaker engineering.
 
 Model-step events include an `observableDecision` record with the controller, agent role, available
 and selected tools, graph constraint, and an explicit
@@ -100,12 +102,13 @@ its supporting trace event.
 
 ## Live Scenario Library
 
-| Scenario | Official source | Agent tools | Fixed-rule examples |
-| --- | --- | --- | --- |
-| Incident response | GitHub Status API | `github_status`, `github_incidents` | unresolved count, degraded component count |
-| Engineering triage | GitHub REST API | `github_issue`, `github_repository` | comment count, labels, archive state |
-| Supplier risk | GLEIF LEI API | `gleif_entity` | match count, entity and registration status |
-| Finance evidence | SEC EDGAR Data API | `sec_company_facts` | observation presence and filing age |
+| Scenario                | Official source               | Agent tools                                              | Fixed-rule examples                                                              |
+| ----------------------- | ----------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| UAE villa fire response | UAE MoI Hassantuk, Open-Meteo | `hassantuk_home_protocol`, `open_meteo_villa_conditions` | verification state, sensor count, aerial wind constraint, dispatch approval hold |
+| Incident response       | GitHub Status API             | `github_status`, `github_incidents`                      | unresolved count, degraded component count                                       |
+| Engineering triage      | GitHub REST API               | `github_issue`, `github_repository`                      | comment count, labels, archive state                                             |
+| Supplier risk           | GLEIF LEI API                 | `gleif_entity`                                           | match count, entity and registration status                                      |
+| Finance evidence        | SEC EDGAR Data API            | `sec_company_facts`                                      | observation presence and filing age                                              |
 
 All source responses are parsed with Zod before they become evidence or rule facts. Business
 routing is owned by `json-rules-engine` or OPA, never regular expressions.
@@ -146,12 +149,12 @@ The spend ceiling is a policy limit, not a claim about actual charge.
 
 ## Environment
 
-| Variable | Required | Behavior |
-| --- | --- | --- |
-| `GITHUB_MODELS_TOKEN` | Recommended for free demo | Uses GitHub Models OpenAI-compatible inference |
-| `OPENAI_API_KEY` | Optional | Uses direct OpenAI provider when GitHub Models is absent |
-| `VERCEL_OIDC_TOKEN` | Optional | Enables Vercel AI Gateway fallback |
-| `DATABASE_URL` | Optional, production recommended | Enables durable LangGraph Postgres checkpoints |
+| Variable              | Required                         | Behavior                                                 |
+| --------------------- | -------------------------------- | -------------------------------------------------------- |
+| `GITHUB_MODELS_TOKEN` | Recommended for free demo        | Uses GitHub Models OpenAI-compatible inference           |
+| `OPENAI_API_KEY`      | Optional                         | Uses direct OpenAI provider when GitHub Models is absent |
+| `VERCEL_OIDC_TOKEN`   | Optional                         | Enables Vercel AI Gateway fallback                       |
+| `DATABASE_URL`        | Optional, production recommended | Enables durable LangGraph Postgres checkpoints           |
 
 Never expose these values to browser code or commit them to the repository.
 

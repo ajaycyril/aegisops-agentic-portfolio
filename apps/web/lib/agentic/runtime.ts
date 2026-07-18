@@ -47,7 +47,10 @@ type SpecialistReport = {
   report: string;
 };
 
-function toolArguments(name: string, request: RunRequest): Record<string, unknown> {
+function toolArguments(
+  name: string,
+  request: RunRequest,
+): Record<string, unknown> {
   if (name === "github_issue") {
     return {
       owner: request.input.owner,
@@ -63,6 +66,12 @@ function toolArguments(name: string, request: RunRequest): Record<string, unknow
   }
   if (name === "sec_company_facts") {
     return { cik: request.input.cik, metric: request.input.metric };
+  }
+  if (name === "open_meteo_villa_conditions") {
+    return {
+      latitude: Number(request.input.latitude),
+      longitude: Number(request.input.longitude),
+    };
   }
   return {};
 }
@@ -95,10 +104,30 @@ function createTools(
     const startedAt = performance.now();
     emit({
       lane: "agentic",
+      type: "model_step",
+      nodeId: `agent-model-selection-${name}-${evidence.length + 1}`,
+      label: "Next action selected",
+      summary: `The model selected ${name} from the policy-approved tool set after evaluating the current goal and observations.`,
+      status: "completed",
+      actor: "AI SDK ToolLoopAgent",
+      data: {
+        toolCalls: [name],
+        observableDecision: {
+          kind: "tool_selection",
+          availableTools: scenarioById[request.scenarioId].requiredTools,
+          selectedTools: [name],
+          arguments: args,
+          visibility: "execution_summary_not_private_chain_of_thought",
+        },
+      },
+    });
+    emit({
+      lane: "agentic",
       type: "tool_started",
       nodeId: `agent-${name}`,
       label: name,
-      summary: "The model selected this typed tool from the policy-approved MCP registry.",
+      summary:
+        "The model selected this typed tool from the policy-approved MCP registry.",
       status: "running",
       actor: "AI SDK ToolLoopAgent -> MCP SDK v1",
       data: { arguments: args },
@@ -139,13 +168,15 @@ function createTools(
 
   return {
     github_status: tool({
-      description: "Read current GitHub platform component health from the official status API.",
+      description:
+        "Read current GitHub platform component health from the official status API.",
       inputSchema: z.object({}),
       strict: true,
       execute: (args) => execute("github_status", args),
     }),
     github_incidents: tool({
-      description: "Read current unresolved GitHub platform incidents from the official status API.",
+      description:
+        "Read current unresolved GitHub platform incidents from the official status API.",
       inputSchema: z.object({}),
       strict: true,
       execute: (args) => execute("github_incidents", args),
@@ -161,7 +192,8 @@ function createTools(
       execute: (args) => execute("github_issue", args),
     }),
     github_repository: tool({
-      description: "Read public GitHub repository metadata through the official REST API.",
+      description:
+        "Read public GitHub repository metadata through the official REST API.",
       inputSchema: z.object({ owner: z.string(), repository: z.string() }),
       strict: true,
       execute: (args) => execute("github_repository", args),
@@ -173,10 +205,27 @@ function createTools(
       execute: (args) => execute("gleif_entity", args),
     }),
     sec_company_facts: tool({
-      description: "Read one US-GAAP company fact from the official SEC EDGAR Data API.",
+      description:
+        "Read one US-GAAP company fact from the official SEC EDGAR Data API.",
       inputSchema: z.object({ cik: z.string(), metric: z.string() }),
       strict: true,
       execute: (args) => execute("sec_company_facts", args),
+    }),
+    hassantuk_home_protocol: tool({
+      description:
+        "Read the current official UAE MoI Hassantuk for Homes protocol.",
+      inputSchema: z.object({}),
+      strict: true,
+      execute: (args) => execute("hassantuk_home_protocol", args),
+    }),
+    open_meteo_villa_conditions: tool({
+      description: "Read current weather at operator-supplied UAE coordinates.",
+      inputSchema: z.object({
+        latitude: z.number().min(22).max(27),
+        longitude: z.number().min(51).max(57),
+      }),
+      strict: true,
+      execute: (args) => execute("open_meteo_villa_conditions", args),
     }),
   };
 }
@@ -215,7 +264,8 @@ function emitModelStep(
     response: { id?: string };
   }) => {
     const selectedTools = step.toolCalls.map((call) => call.toolName);
-    const requiredByGraph = decisionContext.initialToolRequired && step.stepNumber === 0;
+    const requiredByGraph =
+      decisionContext.initialToolRequired && step.stepNumber === 0;
     const decisionKind =
       selectedTools.length > 0 ? "tool_selection" : "synthesize_or_stop";
     const controller =
@@ -250,7 +300,9 @@ function emitModelStep(
           role: decisionContext.role,
           availableTools: decisionContext.availableTools,
           selectedTools,
-          graphConstraint: requiredByGraph ? "at_least_one_tool_call_required" : "none",
+          graphConstraint: requiredByGraph
+            ? "at_least_one_tool_call_required"
+            : "none",
           visibility: "execution_summary_not_private_chain_of_thought",
         },
       },
@@ -274,7 +326,7 @@ async function runSpecialistAgent({
   evidence: PublicToolResult[];
   agentId: string;
   label: string;
-  toolName: "github_status" | "github_incidents";
+  toolName: keyof ReturnType<typeof createTools>;
   assignment: string;
 }): Promise<SpecialistReport> {
   const startedAt = performance.now();
@@ -294,7 +346,7 @@ async function runSpecialistAgent({
     id: agentId,
     model: languageModel(request),
     instructions:
-      "You are one read-only specialist in a supervised incident team. Call your assigned tool exactly as required, analyze only its returned evidence, cite the source URL, distinguish observation from inference, and return a compact structured handoff for the supervisor. Do not make or claim side effects.",
+      "You are one read-only specialist in a supervised enterprise response team. Call your assigned tool exactly as required, analyze only its returned evidence, cite the source URL, distinguish observation from inference, and return a compact structured handoff for the supervisor. Do not make or claim side effects.",
     tools,
     activeTools: [toolName],
     stopWhen: stepCountIs(3),
@@ -352,6 +404,40 @@ export async function runAgenticLane(
   const evidence: PublicToolResult[] = [];
   const checkpointer = await getCheckpointer();
   const laneStartedAt = performance.now();
+  const specialistAssignments =
+    request.scenarioId === "hassantuk_villa_response"
+      ? [
+          {
+            agentId: "agent-protocol-specialist",
+            label: "Hassantuk protocol specialist",
+            toolName: "hassantuk_home_protocol" as const,
+            assignment:
+              "Read the current official Hassantuk for Homes protocol and extract the verified monitoring, telephonic confirmation, escalation, and dispatch boundaries relevant to this alarm envelope.",
+          },
+          {
+            agentId: "agent-conditions-specialist",
+            label: "Response conditions specialist",
+            toolName: "open_meteo_villa_conditions" as const,
+            assignment:
+              "Read current conditions at the supplied UAE coordinates and identify only the weather observations relevant to external response or approval-held aerial overwatch.",
+          },
+        ]
+      : [
+          {
+            agentId: "agent-status-specialist",
+            label: "Platform health specialist",
+            toolName: "github_status" as const,
+            assignment:
+              "Inspect current GitHub component health, identify degraded surfaces, and prepare a source-grounded operational handoff.",
+          },
+          {
+            agentId: "agent-incident-specialist",
+            label: "Incident evidence specialist",
+            toolName: "github_incidents" as const,
+            assignment:
+              "Inspect unresolved GitHub incidents, extract current impact and chronology, and prepare a source-grounded operational handoff.",
+          },
+        ];
 
   const graphBuilder = new StateGraph(AgentState)
     .addNode("guardrail", async (state) => {
@@ -361,7 +447,8 @@ export async function runAgenticLane(
         type: "node_started",
         nodeId: "agent-guardrail",
         label: "Input guardrail",
-        summary: "Validating scope, tool budget, spend ceiling, and read-only action class.",
+        summary:
+          "Validating scope, tool budget, spend ceiling, and read-only action class.",
         status: "running",
         actor: "LangGraph + Zod",
       });
@@ -428,7 +515,10 @@ export async function runAgenticLane(
       const result = await agent.stream({
         prompt: `${scenario.prompt(state.request.input)}\n\nExact approved tool arguments: ${JSON.stringify(
           Object.fromEntries(
-            scenario.requiredTools.map((name) => [name, toolArguments(name, state.request)]),
+            scenario.requiredTools.map((name) => [
+              name,
+              toolArguments(name, state.request),
+            ]),
           ),
         )}`,
         onStepFinish: emitModelStep(emit, "agent-plan", "Evidence agent", {
@@ -451,33 +541,25 @@ export async function runAgenticLane(
       });
       return { finalText, evidenceCount: evidence.length };
     })
-    .addNode("status_specialist", async (state) => ({
+    .addNode("specialist_one", async (state) => ({
       specialistReports: [
         await runSpecialistAgent({
           request: state.request,
           runId,
           emit,
           evidence,
-          agentId: "agent-status-specialist",
-          label: "Platform health specialist",
-          toolName: "github_status",
-          assignment:
-            "Inspect current GitHub component health, identify degraded surfaces, and prepare a source-grounded operational handoff.",
+          ...specialistAssignments[0],
         }),
       ],
     }))
-    .addNode("incident_specialist", async (state) => ({
+    .addNode("specialist_two", async (state) => ({
       specialistReports: [
         await runSpecialistAgent({
           request: state.request,
           runId,
           emit,
           evidence,
-          agentId: "agent-incident-specialist",
-          label: "Incident evidence specialist",
-          toolName: "github_incidents",
-          assignment:
-            "Inspect unresolved GitHub incidents, extract current impact and chronology, and prepare a source-grounded operational handoff.",
+          ...specialistAssignments[1],
         }),
       ],
     }))
@@ -498,10 +580,10 @@ export async function runAgenticLane(
       });
 
       const supervisor = new ToolLoopAgent({
-        id: "incident-supervisor",
+        id: `${scenario.id}-supervisor`,
         model: languageModel(state.request),
         instructions:
-          "You are the supervising incident agent. Reconcile the two specialist handoffs without adding unsupported facts. Resolve conflicts explicitly, cite every supplied source URL, separate observations from inferences, explain why parallel specialists improved coverage, and keep all production side effects behind policy and human approval. Return sections: Decision, Reconciled evidence, Multi-agent work, Guardrails, Next action.",
+          "You are the supervising enterprise response agent. Reconcile the two specialist handoffs without adding unsupported facts. Resolve conflicts explicitly, cite every supplied source URL, separate operator input, external observations, and inferences, explain why the specialists improved coverage, and keep all production side effects behind policy and authorized human approval. Return sections: Decision, Reconciled evidence, Multi-agent work, Guardrails, Next action.",
         tools: {},
         stopWhen: stepCountIs(1),
         maxOutputTokens: 900,
@@ -509,7 +591,7 @@ export async function runAgenticLane(
         providerOptions: providerOptions(state.request, runId),
         experimental_telemetry: {
           isEnabled: true,
-          functionId: "aegisops.incident.supervisor",
+          functionId: `aegisops.${scenario.id}.supervisor`,
           metadata: { runId, scenarioId: state.request.scenarioId },
         },
       });
@@ -554,11 +636,16 @@ export async function runAgenticLane(
         lane: "policy",
         type: "policy_decision",
         nodeId: "output-policy",
-        label: decision.require_approval ? "Side effects held" : "Read-only output allowed",
+        label: decision.require_approval
+          ? "Side effects held"
+          : "Read-only output allowed",
         summary: decision.reason,
         status: decision.allow ? "passed" : "blocked",
         actor: "OPA 1.18 / Rego WASM",
-        data: { controls: decision.controls, requestedAction: decision.require_approval ? "write" : "read" },
+        data: {
+          controls: decision.controls,
+          requestedAction: decision.require_approval ? "write" : "read",
+        },
       });
       return {};
     })
@@ -580,7 +667,9 @@ export async function runAgenticLane(
         },
       });
       if (!grounded) {
-        throw new Error("Grounding evaluator rejected an incomplete evidence set");
+        throw new Error(
+          "Grounding evaluator rejected an incomplete evidence set",
+        );
       }
       emit({
         lane: "agentic",
@@ -607,12 +696,12 @@ export async function runAgenticLane(
     .addConditionalEdges(
       "guardrail",
       (state) =>
-        state.request.scenarioId === "incident_response"
-          ? ["status_specialist", "incident_specialist"]
+        scenarioById[state.request.scenarioId].orchestration === "multi_agent"
+          ? ["specialist_one", "specialist_two"]
           : "agent",
-      ["agent", "status_specialist", "incident_specialist"],
+      ["agent", "specialist_one", "specialist_two"],
     )
-    .addEdge(["status_specialist", "incident_specialist"], "supervisor")
+    .addEdge(["specialist_one", "specialist_two"], "supervisor")
     .addEdge("supervisor", "policy")
     .addEdge("agent", "policy");
   const graph = graphBuilder

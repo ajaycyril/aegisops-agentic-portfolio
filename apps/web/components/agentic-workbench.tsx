@@ -25,6 +25,7 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  StepForward,
   Waypoints,
   Wrench,
 } from "lucide-react";
@@ -53,6 +54,7 @@ import { scenarios, type ScenarioDefinition } from "@/lib/agentic/scenarios";
 
 type DetailView = "answer" | "tools" | "stack";
 type ExecutionView = "story" | "topology";
+type PresentationMode = "manual" | "auto";
 
 const modelPrices: Record<string, { input: number; output: number }> = {
   "openai/gpt-4.1-mini": { input: 0.4, output: 1.6 },
@@ -89,24 +91,82 @@ function extractToolParts(messages: AegisUIMessage[]) {
     .filter(isToolOrDynamicToolUIPart);
 }
 
-function usePacedEvents(events: RunEvent[]) {
-  const [visibleCount, setVisibleCount] = useState(0);
+function presentationStage(event: RunEvent) {
+  if (event.type === "run_started" || event.type === "guardrail_decision")
+    return 1;
+  if (
+    event.type === "model_step" &&
+    Array.isArray(event.data?.toolCalls) &&
+    event.data.toolCalls.length > 0
+  )
+    return 2;
+  if (event.type === "tool_started" || event.type === "tool_completed")
+    return 3;
+  if (
+    event.type === "evidence_captured" ||
+    event.nodeId === "rules-normalize" ||
+    event.nodeId === "rules-derive"
+  )
+    return 4;
+  if (
+    event.type === "rule_evaluated" ||
+    event.type === "agent_handoff" ||
+    event.nodeId === "rules-evaluate" ||
+    event.nodeId === "agent-supervisor" ||
+    event.type === "model_step"
+  )
+    return 5;
+  if (
+    event.type === "policy_decision" ||
+    event.type === "lane_completed" ||
+    event.type === "run_completed" ||
+    event.nodeId === "agent-evaluate"
+  )
+    return 6;
+  return event.lane === "rules" && event.nodeId === "rules-contract" ? 1 : 2;
+}
+
+function useStagePresentation(events: RunEvent[]) {
+  const [stage, setStage] = useState(1);
+  const [mode, setMode] = useState<PresentationMode>("manual");
+  const agentStage = Math.max(
+    1,
+    ...events.filter((event) => event.lane !== "rules").map(presentationStage),
+  );
+  const rulesStage = Math.max(
+    1,
+    ...events
+      .filter((event) => event.lane === "rules" || event.lane === "system")
+      .map(presentationStage),
+  );
+  const availableStage =
+    events.length > 0 ? Math.min(agentStage, rulesStage) : 1;
 
   useEffect(() => {
-    if (events.length === 0) return;
-    if (visibleCount >= events.length) return;
+    if (mode !== "auto" || stage >= availableStage) return;
     const timer = window.setTimeout(
-      () => setVisibleCount((current) => Math.min(current + 1, events.length)),
-      visibleCount === 0 ? 180 : 1400,
+      () => setStage((current) => Math.min(current + 1, availableStage)),
+      3000,
     );
     return () => window.clearTimeout(timer);
-  }, [events.length, visibleCount]);
+  }, [availableStage, mode, stage]);
+
+  const presentedEvents = events.filter(
+    (event) => presentationStage(event) <= stage,
+  );
 
   return {
-    presentedEvents: events.slice(0, visibleCount),
-    isPresenting: visibleCount < events.length,
-    resetPresentation: () => setVisibleCount(0),
-    showFinalState: () => setVisibleCount(events.length),
+    presentedEvents,
+    stage,
+    availableStage,
+    mode,
+    setMode,
+    canAdvance: stage < availableStage,
+    isPresenting: events.length > 0 && stage < 6,
+    advanceStage: () =>
+      setStage((current) => Math.min(current + 1, availableStage)),
+    resetPresentation: () => setStage(1),
+    showFinalState: () => setStage(6),
   };
 }
 
@@ -217,8 +277,8 @@ function ModeStrip() {
       <div>
         <Braces size={15} />
         <span>
-          <strong>Fixed rules</strong>
-          <small>Known facts to predefined outcome</small>
+          <strong>Deterministic system</strong>
+          <small>Typed facts to versioned decision</small>
         </span>
       </div>
       <i />
@@ -275,8 +335,18 @@ export function AgenticWorkbench() {
     useChat<AegisUIMessage>({ transport, experimental_throttle: 35 });
 
   const events = useMemo(() => extractEvents(messages), [messages]);
-  const { presentedEvents, isPresenting, resetPresentation, showFinalState } =
-    usePacedEvents(events);
+  const {
+    presentedEvents,
+    stage: presentationStageNumber,
+    availableStage,
+    mode: presentationMode,
+    setMode: setPresentationMode,
+    canAdvance,
+    isPresenting,
+    advanceStage,
+    resetPresentation,
+    showFinalState,
+  } = useStagePresentation(events);
   const answer = useMemo(() => extractText(messages), [messages]);
   const toolParts = useMemo(() => extractToolParts(messages), [messages]);
   const agentToolEvents = events.filter(
@@ -338,12 +408,12 @@ export function AgenticWorkbench() {
 
   const runState = error
     ? "failed"
-    : isPresenting
-      ? "presenting"
-      : events.at(-1)?.type === "run_completed"
-        ? events.at(-1)?.status
-        : isRunning
-          ? "running"
+    : isRunning
+      ? "running"
+      : isPresenting
+        ? "presenting"
+        : events.at(-1)?.type === "run_completed"
+          ? events.at(-1)?.status
           : "ready";
 
   return (
@@ -488,6 +558,40 @@ export function AgenticWorkbench() {
             </div>
             <div className="canvas-heading-tools">
               <div
+                className="presentation-controls"
+                aria-label="Stage playback controls"
+              >
+                <div
+                  className="presentation-mode"
+                  role="group"
+                  aria-label="Progress mode"
+                >
+                  <button
+                    className={presentationMode === "manual" ? "active" : ""}
+                    onClick={() => setPresentationMode("manual")}
+                    type="button"
+                  >
+                    Manual
+                  </button>
+                  <button
+                    className={presentationMode === "auto" ? "active" : ""}
+                    onClick={() => setPresentationMode("auto")}
+                    type="button"
+                  >
+                    Auto
+                  </button>
+                </div>
+                <span>Stage {presentationStageNumber} of 6</span>
+                <button
+                  className="next-stage-button"
+                  onClick={advanceStage}
+                  disabled={!canAdvance || presentationMode === "auto"}
+                  type="button"
+                >
+                  <StepForward size={14} /> Next stage
+                </button>
+              </div>
+              <div
                 className="execution-view-switch"
                 role="tablist"
                 aria-label="Execution visualization"
@@ -516,8 +620,8 @@ export function AgenticWorkbench() {
                   <Wrench size={13} /> {presentedAgentToolCount} agent tools
                 </span>
                 <span>
-                  <Activity size={13} /> {presentedEvents.length}/
-                  {events.length} paced events
+                  <Activity size={13} /> {presentationStageNumber}/6 shown ·{" "}
+                  {availableStage}/6 ready
                 </span>
                 <button
                   className={inspectorOpen ? "active" : ""}
@@ -798,7 +902,9 @@ export function AgenticWorkbench() {
 
       <footer className="workbench-footer">
         <span>AegisOps production agent portfolio</span>
-        <span>No synthetic business records. Public live sources only.</span>
+        <span>
+          Operator inputs are labeled. External evidence records are live.
+        </span>
       </footer>
     </main>
   );

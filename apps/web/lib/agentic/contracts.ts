@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { z } from "zod";
 
 export const scenarioIdSchema = z.enum([
+  "hassantuk_villa_response",
   "incident_response",
   "engineering_triage",
   "supplier_risk",

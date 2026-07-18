@@ -24,12 +24,12 @@ cannot perform the same adaptive work.
 Enterprises do not need an agent for every workflow. They need a defensible way to decide where
 agentic control adds value and where deterministic automation remains safer, cheaper, and clearer.
 
-| Control mode | Best fit | What is visible in AegisOps |
-| --- | --- | --- |
-| Fixed rules | Stable facts, thresholds, validation, known routes | Inputs, conditions, matched outcomes, zero model cost |
-| Dynamic policy | Contextual allow, block, and approval decisions | OPA/Rego input, decision, controls, approval requirement |
-| AI workflow | Bounded generation or evaluation inside a fixed graph | Model, prompt boundary, structured output, tokens, eval result |
-| Agentic | Evidence changes the next action, tool choice, handoff, or stopping point | LangGraph state, model decision, MCP call, observation, adaptation, policy |
+| Control mode         | Best fit                                                                  | What is visible in AegisOps                                                |
+| -------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Deterministic system | Stable facts, typed derivations, decision tables, known routes            | Inputs, derived facts, matched outcomes, exception path, zero model cost   |
+| Dynamic policy       | Contextual allow, block, and approval decisions                           | OPA/Rego input, decision, controls, approval requirement                   |
+| AI workflow          | Bounded generation or evaluation inside a fixed graph                     | Model, prompt boundary, structured output, tokens, eval result             |
+| Agentic              | Evidence changes the next action, tool choice, handoff, or stopping point | LangGraph state, model decision, MCP call, observation, adaptation, policy |
 
 The product does not expose or fabricate private model chain-of-thought. It exposes the operational
 decisions required to audit the system: available and selected tools, graph constraints, agent role,
@@ -60,12 +60,12 @@ Press **Run both live** and two concurrent lanes execute against the same offici
 
 Four interactive workflows are deployed:
 
-| Workflow | Live evidence | Enterprise integration pattern | Why agentic |
-| --- | --- | --- | --- |
-| Production Incident Investigator | GitHub Status API | Datadog, PagerDuty, deployment telemetry, GitHub | Parallel specialists reconcile independent operational evidence |
-| Engineering Issue Triage | GitHub REST API | GitHub Enterprise, Jira, CI/CD, code search | Investigation changes as issue and repository context arrive |
-| Supplier Entity Risk | GLEIF LEI API | ERP supplier master, sanctions, procurement | Entity ambiguity and incomplete evidence require explainable research |
-| Finance Evidence Analyst | SEC EDGAR Data API | ERP subledger, filings, policy, approvals | Filing periods and caveats must be grounded before judgment |
+| Workflow                         | Live evidence      | Enterprise integration pattern                   | Why agentic                                                           |
+| -------------------------------- | ------------------ | ------------------------------------------------ | --------------------------------------------------------------------- |
+| Production Incident Investigator | GitHub Status API  | Datadog, PagerDuty, deployment telemetry, GitHub | Parallel specialists reconcile independent operational evidence       |
+| Engineering Issue Triage         | GitHub REST API    | GitHub Enterprise, Jira, CI/CD, code search      | Investigation changes as issue and repository context arrive          |
+| Supplier Entity Risk             | GLEIF LEI API      | ERP supplier master, sanctions, procurement      | Entity ambiguity and incomplete evidence require explainable research |
+| Finance Evidence Analyst         | SEC EDGAR Data API | ERP subledger, filings, policy, approvals        | Filing periods and caveats must be grounded before judgment           |
 
 The repository also contains production contracts for customer support, security remediation,
 invoice exceptions, compliance evidence, sales/RFP, BI analysis, and HR/IT access workflows.
@@ -102,18 +102,18 @@ flowchart LR
 
 ### Stack
 
-| Layer | Production choice |
-| --- | --- |
-| Experience | Next.js 16, React 19, AI Elements, React Flow 12 |
-| Agent orchestration | LangGraph JS 1.4 with fan-out, fan-in, checkpoints, evaluators |
-| Model/tool loop | Vercel AI SDK 6 `ToolLoopAgent`; OpenAI-compatible provider adapters |
-| Tool boundary | MCP TypeScript SDK with Zod input and result contracts |
-| Deterministic decisions | `json-rules-engine` 7 |
-| Dynamic authorization | OPA/Rego compiled to WASM |
-| State and memory | Postgres/pgvector architecture; LangGraph `PostgresSaver` adapter |
-| Observability | Typed run events, trace IDs, model/tool telemetry, token and cost accounting |
-| Full API | FastAPI, Pydantic, SQLAlchemy, Alembic, approval and audit records |
-| Deployment | Vercel Services with a bounded public runtime and read-only registry API |
+| Layer                   | Production choice                                                            |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| Experience              | Next.js 16, React 19, AI Elements, React Flow 12                             |
+| Agent orchestration     | LangGraph JS 1.4 with fan-out, fan-in, checkpoints, evaluators               |
+| Model/tool loop         | Vercel AI SDK 6 `ToolLoopAgent`; OpenAI-compatible provider adapters         |
+| Tool boundary           | MCP TypeScript SDK with Zod input and result contracts                       |
+| Deterministic decisions | `json-rules-engine` 7                                                        |
+| Dynamic authorization   | OPA/Rego compiled to WASM                                                    |
+| State and memory        | Postgres/pgvector architecture; LangGraph `PostgresSaver` adapter            |
+| Observability           | Typed run events, trace IDs, model/tool telemetry, token and cost accounting |
+| Full API                | FastAPI, Pydantic, SQLAlchemy, Alembic, approval and audit records           |
+| Deployment              | Vercel Services with a bounded public runtime and read-only registry API     |
 
 ## Multi-Agent Work That Is Justified
 
@@ -206,7 +206,7 @@ docs/                      architecture, operations, use cases, and runbooks
 
 ## Project Status
 
-The dual-lane live workbench, four public-source workflows, multi-agent incident graph, typed MCP
+The dual-lane live workbench, five public-source workflows, multi-agent incident and UAE villa-fire graphs, typed MCP
 tools, OPA policy, grounding checks, observable decision ledger, unit economics, and live stack map
 are production deployed. Managed shared state and authenticated enterprise write connectors remain
 explicit deployment upgrades, not hidden claims.

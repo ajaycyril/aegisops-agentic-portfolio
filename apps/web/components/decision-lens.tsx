@@ -146,15 +146,17 @@ function StageFocusCard({
         </section>
         <section className="focus-block focus-decision">
           <span className="focus-block-label">
-            {lane === "agentic" ? "Decision made" : "Fixed logic applied"}
+            {lane === "agentic"
+              ? "Decision / control applied"
+              : "Decision logic applied"}
           </span>
           <strong>{stage.controlLabel}</strong>
           <p>{stage.control}</p>
           <div className="focus-rationale">
             <small>
               {lane === "agentic"
-                ? "Observable rationale"
-                : "Why it cannot adapt"}
+                ? "Observable decision basis"
+                : "Strength and boundary"}
             </small>
             <p>{stage.why}</p>
           </div>
@@ -208,8 +210,14 @@ function StoryLane({
         (stage) => stage.state === "completed" || stage.state === "blocked",
       );
   const activeStageId = activeStage?.id ?? stages[0].id;
-  const [manualStageId, setManualStageId] = useState<string | null>(null);
-  const selectedStageId = manualStageId ?? activeStageId;
+  const [manualSelection, setManualSelection] = useState<{
+    stageId: string;
+    activeStageId: string;
+  } | null>(null);
+  const selectedStageId =
+    manualSelection?.activeStageId === activeStageId
+      ? manualSelection.stageId
+      : activeStageId;
   const selectedStage =
     stages.find((stage) => stage.id === selectedStageId) ?? stages[0];
 
@@ -228,13 +236,13 @@ function StoryLane({
           <strong>
             {lane === "agentic"
               ? "Observes, decides, acts, and can adapt"
-              : "Fetches fixed facts and evaluates fixed conditions"}
+              : "Validates, derives, decides, and audits exactly"}
           </strong>
         </div>
         <small>
           {lane === "agentic"
             ? "Evidence can change the next step"
-            : "Every step is known before the run"}
+            : "Strong inside its encoded world model"}
         </small>
       </div>
       <nav className="stage-progress" aria-label={`${lane} stages`}>
@@ -243,7 +251,9 @@ function StoryLane({
             className={`state-${stage.state} ${selectedStage.id === stage.id ? "selected" : ""}`}
             aria-current={selectedStage.id === stage.id ? "step" : undefined}
             key={stage.id}
-            onClick={() => setManualStageId(stage.id)}
+            onClick={() =>
+              setManualSelection({ stageId: stage.id, activeStageId })
+            }
             type="button"
           >
             <span>{stage.step}</span>
@@ -331,6 +341,18 @@ export function DecisionLens({
   );
 
   const rulesFetch = latest(events, (event) => event.nodeId === "rules-fetch");
+  const rulesContract = latest(
+    events,
+    (event) => event.nodeId === "rules-contract",
+  );
+  const rulesNormalize = latest(
+    events,
+    (event) => event.nodeId === "rules-normalize",
+  );
+  const rulesDerive = latest(
+    events,
+    (event) => event.nodeId === "rules-derive",
+  );
   const rulesToolEvents = events.filter(
     (event) => event.lane === "rules" && event.type === "tool_completed",
   );
@@ -350,7 +372,10 @@ export function DecisionLens({
     events,
     (event) => event.nodeId === "rules-output",
   );
-  const facts = dataRows(rulesEvaluateStarted?.data?.facts, 8);
+  const facts = dataRows(
+    rulesDerive?.data?.facts ?? rulesEvaluateStarted?.data?.facts,
+    8,
+  );
   const matchedEvents = asStrings(
     rulesOutput?.data?.matchedEvents ?? rulesEvaluate?.data?.matchedEvents,
   );
@@ -541,50 +566,109 @@ export function DecisionLens({
 
   const ruleStages: StoryStage[] = [
     {
-      id: "fixed-fields",
+      id: "deterministic-contract",
       step: 1,
-      title: "Read fixed inputs",
-      owner: "CONFIGURATION",
+      title: "Validate decision contract",
+      owner: "ZOD + REGISTRY",
       icon: Target,
-      state: stateFromEvent(rulesFetch ?? runStarted),
+      state: stateFromEvent(rulesContract ?? runStarted),
       input: configuredInput,
-      controlLabel: "Fixed contract",
-      control: `The workflow always requests ${scenario.requiredTools.join(", ")}; there is no model deciding what evidence to seek.`,
+      controlLabel: "Versioned boundary",
+      control:
+        rulesContract?.summary ??
+        "The input schema, source allowlist, rule version, and approved outcomes are validated before any source is called.",
       output: [
         {
-          label: "preselected sources",
+          label: "approved sources",
+          value: scenario.requiredTools.join(", "),
+        },
+        { label: "fallback", value: "manual exception review" },
+      ],
+      why: "This is a production strength: every permitted input and outcome is explicit, testable, and reproducible. Its boundary is the model encoded here.",
+      event: rulesContract ?? runStarted,
+    },
+    {
+      id: "deterministic-fetch",
+      step: 2,
+      title: "Plan configured evidence",
+      owner: "VERSIONED DECISION GRAPH",
+      icon: GitBranch,
+      state: stateFromEvent(rulesFetch),
+      input: [
+        { label: "decision goal", value: scenario.businessOutcome },
+        {
+          label: "available connectors",
           value: scenario.requiredTools.join(", "),
         },
       ],
-      why: "Inputs and sources were chosen by a developer in advance; this lane cannot decide that different evidence is needed.",
-      event: rulesFetch ?? runStarted,
+      controlLabel: "Precompiled evidence plan",
+      control:
+        rulesFetch?.summary ??
+        "A tested graph selects the exact source set required for this decision class without model cost or model variance.",
+      output: scenario.requiredTools.map((tool) => ({
+        label: "scheduled tool",
+        value: tool,
+      })),
+      why: "For known cases this is faster and more predictable than an agent. It cannot add a new source when the observed case falls outside the encoded plan.",
+      event: rulesFetch,
     },
     {
-      id: "fixed-fetch",
-      step: 2,
-      title: "Fetch configured facts",
-      owner: "MCP + ZOD",
+      id: "deterministic-action",
+      step: 3,
+      title: "Execute typed connectors",
+      owner: "MCP",
       icon: Wrench,
       state: stateFromEvent(rulesToolEvents.at(-1)),
       input: scenario.requiredTools.map((tool) => ({
         label: "configured tool",
         value: tool,
       })),
-      controlLabel: "Prewired action",
+      controlLabel: "Auditable source acquisition",
       control:
         rulesToolEvents.at(-1)?.summary ??
-        "Every run calls the same typed sources and normalizes the same fact fields.",
+        "The configured connectors run with schema-checked arguments, timeouts, and trace events.",
       output:
-        facts.length > 0
-          ? facts
-          : [{ label: "normalized facts", value: "waiting for live source" }],
-      why: "The same calls happen for every case, even when one source reveals that a different investigation would be more useful.",
+        rulesToolEvents.length > 0
+          ? rulesToolEvents.map((event) => ({
+              label: event.label,
+              value: `${event.durationMs ?? 0}ms · ${event.status}`,
+            }))
+          : [{ label: "connector results", value: "waiting for live sources" }],
+      why: "This lane uses the same production MCP boundary as the agent, so the comparison is about decision capability rather than weaker integrations.",
       event: rulesToolEvents.at(-1) ?? rulesFetch,
     },
     {
-      id: "fixed-conditions",
-      step: 3,
-      title: "Evaluate conditions",
+      id: "deterministic-facts",
+      step: 4,
+      title: "Normalize and derive facts",
+      owner: "ZOD + TYPED TRANSFORMS",
+      icon: Eye,
+      state: stateFromEvent(rulesDerive ?? rulesNormalize),
+      input:
+        rulesNormalize?.data?.sourceCount !== undefined
+          ? [
+              {
+                label: "validated sources",
+                value: String(rulesNormalize.data.sourceCount),
+              },
+            ]
+          : [{ label: "source records", value: "waiting for validation" }],
+      controlLabel: "Reproducible fact model",
+      control:
+        rulesDerive?.summary ??
+        rulesNormalize?.summary ??
+        "Source contracts and deterministic transforms produce the same typed facts for the same evidence.",
+      output:
+        facts.length > 0
+          ? facts
+          : [{ label: "decision facts", value: "waiting for derivation" }],
+      why: "Explicit derivations make audit and regression testing excellent. They cannot interpret a new semantic signal until engineers add it to the model.",
+      event: rulesDerive ?? rulesNormalize,
+    },
+    {
+      id: "deterministic-evaluate",
+      step: 5,
+      title: "Evaluate decision table",
       owner: "JSON-RULES-ENGINE",
       icon: Braces,
       state: stateFromEvent(rulesEvaluate),
@@ -605,14 +689,14 @@ export function DecisionLens({
               }))
               .slice(0, 6)
           : [{ label: "rule results", value: "waiting for evaluation" }],
-      why: "The engine is reliable for known conditions, but it cannot interpret ambiguity or create a new investigation path.",
+      why: "The engine handles complex, versioned combinations reliably. It cannot resolve ambiguity that was never represented as a fact or condition.",
       event: rulesEvaluate,
     },
     {
-      id: "fixed-outcome",
-      step: 4,
-      title: "Return known outcome",
-      owner: "CONFIGURATION",
+      id: "deterministic-outcome",
+      step: 6,
+      title: "Release governed outcome",
+      owner: "DECISION SERVICE",
       icon: BadgeCheck,
       state: stateFromEvent(rulesOutput),
       input: [
@@ -621,16 +705,16 @@ export function DecisionLens({
           value: matchedEvents.length > 0 ? matchedEvents.join(", ") : "none",
         },
       ],
-      controlLabel: "Stopping boundary",
+      controlLabel: "Versioned release",
       control: rulesOutput?.summary ?? scenario.ruleBoundary,
       output: [
         {
           label: "outcome",
           value: rulesOutput?.label ?? "waiting for rule result",
         },
-        { label: "replanning", value: "not available" },
+        { label: "exception path", value: "manual review" },
       ],
-      why: "A matched condition returns its predefined outcome. An unmatched or unfamiliar case simply stops without investigating further.",
+      why: "Known outcomes are fast, consistent, and explainable. Novel cases are safely escalated, but this lane cannot create a new evidence plan or synthesize a new response.",
       event: rulesOutput,
     },
   ];
@@ -646,8 +730,8 @@ export function DecisionLens({
           <h3>Follow one decision at a time</h3>
         </div>
         <span>
-          <Eye size={14} /> paced live trace · observable rationale, not private
-          chain-of-thought
+          <Eye size={14} /> stage-controlled live trace · observable decision
+          basis, not private chain-of-thought
         </span>
       </div>
       <div className="story-lanes">

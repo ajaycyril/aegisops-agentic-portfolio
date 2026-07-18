@@ -19,17 +19,24 @@ The platform must show:
 
 ## Current Status
 
-### Active Live Workbench Milestone - 2026-07-17
+### Active Live Workbench Milestone - 2026-07-18
 
 The obsolete browser path that forwarded to the registry-only `/live-run/start` gateway has been
 replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and locally verified:
 
-- Four scenario-specific live-source workflows switch graph, inputs, tools, rules, and prompts.
+- Five scenario-specific live-source workflows switch graph, inputs, tools, rules, and prompts.
+- The lead physical-AI workflow is a UAE Hassantuk villa-fire response copilot. Parallel protocol
+  and conditions specialists reconcile an operator-supplied alarm envelope with live official MoI
+  protocol evidence and current Open-Meteo conditions. Drone/thermal overwatch and emergency
+  dispatch remain authenticated production connector boundaries held by OPA for human approval.
 - LangGraph streams graph updates and checkpoints through `PostgresSaver` when `DATABASE_URL` is
   configured, with an explicit `MemorySaver` fallback for the free demo.
 - The incident workflow is a real multi-agent graph: two AI SDK specialist agents execute in
   parallel, call separate MCP tools, and hand reports to a supervisor for reconciliation.
-- A `json-rules-engine` lane executes concurrently against the same live evidence.
+- A production-strength `json-rules-engine` decision service executes concurrently against the
+  same live MCP evidence. Its six visible stages cover contract validation, configured evidence
+  planning, connector execution, Zod normalization and typed derivation, versioned decision-table
+  evaluation, and governed outcome/exception routing.
 - OPA/Rego WASM gates intake and holds every requested side effect for approval.
 - React Flow animates active graph edges and every node exposes trace, latency, actor, data,
   evidence, and policy state through the inspector.
@@ -49,9 +56,9 @@ replaced by `POST /api/agent-runs`. The new Next.js runtime is implemented and l
   run completed all ten comparison stages with live source fields, specialist reconciliation,
   policy and grounding outputs, and a deterministic matched outcome visible in the primary view.
 - The presentation layer now keeps runtime truth separate from visual cadence. The API and
-  LangGraph runtime stream at full speed, while the browser presents only received events on a
-  1.4-second readable clock with an explicit received/presented counter and a "Show final state"
-  control. The final model answer remains hidden until its real lane-completion event is presented.
+  LangGraph runtime stream at full speed, while a six-stage semantic controller presents only
+  received events. Manual stepping is the default; users can switch to three-second Auto progress
+  or reveal the final state. Both lanes remain aligned to the same numbered decision phase.
 - The story view now shows one animated stage per lane instead of every large stage card at once.
   Each focus surface separates actual input, observable model decision or fixed-rule logic,
   operational rationale, and actual output. A compact progress rail supports review of every
@@ -80,6 +87,10 @@ Production end-to-end evidence: the incident run completed both lanes with 36 st
 two specialist MCP calls, two evidence records, three model agents, OPA side-effect blocking, a
 passing grounding evaluator, inspectable bounded model-decision metadata, 1,909 measured tokens,
 and a `$0.00167` direct-API equivalent.
+The Hassantuk run completed both lanes with 42 streamed events, two independent specialist MCP
+calls, two validated live-source records, supervisor reconciliation, five versioned deterministic
+rules, an OPA side-effect hold, and a passing grounding evaluator. Responsive browser verification
+at 390px found no horizontal overflow and exposed the complete Manual/Auto stage controller.
 The public release deployment repeated the full incident run successfully after publication:
 parallel specialists called both typed MCP tools, captured two Zod-validated official-source
 records, reconciled through the supervisor, passed policy and grounding controls, and completed
@@ -164,19 +175,19 @@ Current production web deployment:
 
 ## Milestone Map
 
-| Phase | Name                                 | Status                                       | Outcome                                                                             |
-| ----- | ------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 0     | Architecture baseline                | Complete                                     | Docs, stack decisions, workflow portfolio, scaffold                                 |
-| 1     | Foundation runtime                   | Complete                                     | Installable web/API skeleton with health checks                                     |
-| 2     | Governance and data layer            | Implemented, cloud verification pending      | Postgres, migrations, policy checks, audit model                                    |
-| 3     | Workflow registry and run lifecycle  | Implemented, cloud verification pending      | Config-driven workflow catalog and run API                                          |
-| 4     | Visual command center shell          | Implemented                                  | Portfolio UI, graph canvas, multi-agent canvas, review, trace/evidence placeholders |
-| 5     | Tool and connector substrate         | In progress                                  | MCP tool contracts, GitHub and HTTP JSON read adapters                              |
-| 6     | Engineering Issue-to-PR workflow     | In progress                                  | First real production workflow                                                      |
-| 7     | Incident Investigator workflow       | In progress                                  | Real observability/deployment investigation workflow                                |
-| 8     | Customer Support Escalation workflow | Implemented                                  | Real support/KB/CRM workflow path                                                   |
-| 9     | Evals, replay, and demo hardening    | In progress                                  | Captured real-run replay and quality gates                                          |
-| 10    | Deployment and portfolio polish      | Production verified; managed state pending | Public free-tier deployment and executive-grade UI                                |
+| Phase | Name                                 | Status                                     | Outcome                                                                             |
+| ----- | ------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| 0     | Architecture baseline                | Complete                                   | Docs, stack decisions, workflow portfolio, scaffold                                 |
+| 1     | Foundation runtime                   | Complete                                   | Installable web/API skeleton with health checks                                     |
+| 2     | Governance and data layer            | Implemented, cloud verification pending    | Postgres, migrations, policy checks, audit model                                    |
+| 3     | Workflow registry and run lifecycle  | Implemented, cloud verification pending    | Config-driven workflow catalog and run API                                          |
+| 4     | Visual command center shell          | Implemented                                | Portfolio UI, graph canvas, multi-agent canvas, review, trace/evidence placeholders |
+| 5     | Tool and connector substrate         | In progress                                | MCP tool contracts, GitHub and HTTP JSON read adapters                              |
+| 6     | Engineering Issue-to-PR workflow     | In progress                                | First real production workflow                                                      |
+| 7     | Incident Investigator workflow       | In progress                                | Real observability/deployment investigation workflow                                |
+| 8     | Customer Support Escalation workflow | Implemented                                | Real support/KB/CRM workflow path                                                   |
+| 9     | Evals, replay, and demo hardening    | In progress                                | Captured real-run replay and quality gates                                          |
+| 10    | Deployment and portfolio polish      | Production verified; managed state pending | Public free-tier deployment and executive-grade UI                                  |
 
 ## Phase 0: Architecture Baseline
 
@@ -750,7 +761,7 @@ Tasks:
 10. Done: add an in-app Test Drive panel plus `/test-drive/probe` for safe read-only endpoint
     verification without live connector credentials.
 11. Done: replace the registry-gateway run button with a real AI SDK UIMessage streaming route.
-12. Done: add four real-source dual-lane use cases with live MCP calls and deterministic rules.
+12. Done: add five real-source dual-lane use cases with live MCP calls and deterministic rules.
 13. Done: implement and visualize the incident supervisor plus parallel specialist agents.
 14. Done: add OPA/Rego WASM policy, unit economics, tool I/O, and automated web boundary tests.
 15. Done: redeploy the live workbench and verify a production multi-agent run.

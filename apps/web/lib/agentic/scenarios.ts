@@ -1,5 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, Building2, GitPullRequest, ReceiptText } from "lucide-react";
+import {
+  Activity,
+  Building2,
+  Flame,
+  GitPullRequest,
+  ReceiptText,
+} from "lucide-react";
 
 import type { ScenarioId } from "@/lib/agentic/contracts";
 
@@ -31,6 +37,74 @@ export type ScenarioDefinition = {
 };
 
 export const scenarios: ScenarioDefinition[] = [
+  {
+    id: "hassantuk_villa_response",
+    name: "Hassantuk Villa Fire Response Copilot",
+    shortName: "Villa fire",
+    domain: "UAE physical AI / public safety",
+    description:
+      "Assess an operator-supplied villa alarm envelope against the live official Hassantuk operating protocol and current local conditions, then prepare an approval-held response recommendation.",
+    sourceLabel: "UAE MoI Hassantuk + Open-Meteo",
+    icon: Flame,
+    accent: "red",
+    orchestration: "multi_agent",
+    agentPattern:
+      "Parallel protocol and conditions specialists + response supervisor",
+    businessOutcome:
+      "Faster, evidence-grounded villa alarm verification and response preparation",
+    enterpriseSystems:
+      "Hassantuk alarm panel · ARC · ICCC/I999 · Civil Defence dispatch · weather context",
+    agenticAdvantage:
+      "The copilot can reconcile the alarm envelope, current official protocol, local conditions, missing evidence, and safety constraints into a case-specific response plan while holding dispatch for authorized human verification.",
+    ruleBoundary:
+      "A mature decision engine can execute the known MoI verification and escalation protocol exactly; it cannot seek unmodeled context, interpret conflicting multi-sensor evidence, or create a new response plan for an unfamiliar villa state.",
+    agentNodes: [
+      "guardrail",
+      "protocol-specialist",
+      "conditions-specialist",
+      "response-supervisor",
+      "dispatch-policy",
+      "evaluate",
+    ],
+    ruleNodes: [
+      "validate-envelope",
+      "fetch-protocol",
+      "derive-risk-facts",
+      "evaluate-response-table",
+      "approval-route",
+    ],
+    requiredTools: ["hassantuk_home_protocol", "open_meteo_villa_conditions"],
+    defaultInput: {
+      alarmType: "smoke and heat",
+      sensorCount: "2",
+      detectorZone: "ground-floor kitchen",
+      occupantsStatus: "telephone verification pending",
+      latitude: "24.4539",
+      longitude: "54.3773",
+    },
+    inputFields: [
+      {
+        key: "alarmType",
+        label: "Operator alarm",
+        placeholder: "smoke and heat",
+      },
+      { key: "sensorCount", label: "Triggered sensors", placeholder: "2" },
+      {
+        key: "detectorZone",
+        label: "Detector zone",
+        placeholder: "ground-floor kitchen",
+      },
+      {
+        key: "occupantsStatus",
+        label: "Verification state",
+        placeholder: "telephone verification pending",
+      },
+      { key: "latitude", label: "Area latitude", placeholder: "24.4539" },
+      { key: "longitude", label: "Area longitude", placeholder: "54.3773" },
+    ],
+    prompt: (input) =>
+      `Act as a read-only UAE villa fire response team for an operator-supplied ${input.alarmType} alarm in ${input.detectorZone}. Occupant verification is ${input.occupantsStatus}. Reconcile the current official Hassantuk operating protocol with current conditions at ${input.latitude}, ${input.longitude}. Clearly label operator-supplied claims versus live external observations and inference. Identify missing sensor or visual evidence, propose the safest next verification and response actions, and state whether authenticated drone or thermal overwatch would add useful situational awareness. Hold any drone launch, Civil Defence, or physical dispatch action behind authorized human approval. Never claim access to Hassantuk sensors, ARC, ICCC/I999, drone control, or dispatch systems.`,
+  },
   {
     id: "incident_response",
     name: "Production Incident Investigator",

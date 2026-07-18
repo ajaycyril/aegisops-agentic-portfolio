@@ -12,25 +12,108 @@ import { scenarioById } from "@/lib/agentic/scenarios";
 type Facts = Record<string, string | number | boolean>;
 
 const rulesByScenario: Record<ScenarioId, RuleProperties[]> = {
+  hassantuk_villa_response: [
+    {
+      name: "verification-required",
+      priority: 100,
+      conditions: {
+        all: [{ fact: "occupantVerified", operator: "equal", value: false }],
+      },
+      event: {
+        type: "continue-arc-verification",
+        params: {
+          outcome:
+            "Continue authorized telephone verification while preserving the local evacuation alarm and incident context.",
+        },
+      },
+    },
+    {
+      name: "multi-sensor-priority",
+      priority: 90,
+      conditions: {
+        all: [{ fact: "multiSensorAlarm", operator: "equal", value: true }],
+      },
+      event: {
+        type: "priority-life-safety-review",
+        params: {
+          outcome:
+            "Route the combined smoke and heat signal to the highest configured life-safety verification queue.",
+        },
+      },
+    },
+    {
+      name: "dispatch-approval-hold",
+      priority: 80,
+      conditions: {
+        all: [{ fact: "dispatchAuthorized", operator: "equal", value: false }],
+      },
+      event: {
+        type: "hold-physical-dispatch",
+        params: {
+          outcome:
+            "Do not claim or initiate physical dispatch until an authorized operator confirms the incident through the production system.",
+        },
+      },
+    },
+    {
+      name: "high-wind-aerial-constraint",
+      priority: 70,
+      conditions: {
+        all: [{ fact: "windGustsKmh", operator: "greaterThan", value: 35 }],
+      },
+      event: {
+        type: "hold-aerial-overwatch",
+        params: {
+          outcome:
+            "Current gusts exceed the configured aerial assessment threshold; keep any drone launch on hold for an authorized flight-safety decision.",
+        },
+      },
+    },
+    {
+      name: "known-response-package",
+      priority: 60,
+      conditions: {
+        all: [
+          { fact: "multiSensorAlarm", operator: "equal", value: true },
+          { fact: "protocolAvailable", operator: "equal", value: true },
+        ],
+      },
+      event: {
+        type: "prepare-verification-package",
+        params: {
+          outcome:
+            "Prepare the configured verification package with alarm zone, contact state, coordinates, protocol evidence, and current external conditions.",
+        },
+      },
+    },
+  ],
   incident_response: [
     {
       name: "active-incident-escalation",
       priority: 100,
-      conditions: { all: [{ fact: "unresolvedCount", operator: "greaterThan", value: 0 }] },
+      conditions: {
+        all: [{ fact: "unresolvedCount", operator: "greaterThan", value: 0 }],
+      },
       event: {
         type: "page-incident-commander",
-        params: { outcome: "Escalate because at least one unresolved incident exists." },
+        params: {
+          outcome: "Escalate because at least one unresolved incident exists.",
+        },
       },
     },
     {
       name: "degraded-component-review",
       priority: 90,
       conditions: {
-        all: [{ fact: "degradedComponentCount", operator: "greaterThan", value: 0 }],
+        all: [
+          { fact: "degradedComponentCount", operator: "greaterThan", value: 0 },
+        ],
       },
       event: {
         type: "open-operations-review",
-        params: { outcome: "Route degraded components to the operations queue." },
+        params: {
+          outcome: "Route degraded components to the operations queue.",
+        },
       },
     },
     {
@@ -52,28 +135,40 @@ const rulesByScenario: Record<ScenarioId, RuleProperties[]> = {
     {
       name: "high-discussion-issue",
       priority: 80,
-      conditions: { all: [{ fact: "comments", operator: "greaterThanInclusive", value: 5 }] },
+      conditions: {
+        all: [{ fact: "comments", operator: "greaterThanInclusive", value: 5 }],
+      },
       event: {
         type: "senior-maintainer-review",
-        params: { outcome: "Route issues with five or more comments to senior review." },
+        params: {
+          outcome: "Route issues with five or more comments to senior review.",
+        },
       },
     },
     {
       name: "unlabelled-issue",
       priority: 60,
-      conditions: { all: [{ fact: "labelCount", operator: "equal", value: 0 }] },
+      conditions: {
+        all: [{ fact: "labelCount", operator: "equal", value: 0 }],
+      },
       event: {
         type: "needs-manual-labelling",
-        params: { outcome: "Place an unlabelled issue in the manual triage queue." },
+        params: {
+          outcome: "Place an unlabelled issue in the manual triage queue.",
+        },
       },
     },
     {
       name: "active-repository",
       priority: 20,
-      conditions: { all: [{ fact: "archived", operator: "equal", value: false }] },
+      conditions: {
+        all: [{ fact: "archived", operator: "equal", value: false }],
+      },
       event: {
         type: "standard-engineering-queue",
-        params: { outcome: "Repository is active; continue standard queue routing." },
+        params: {
+          outcome: "Repository is active; continue standard queue routing.",
+        },
       },
     },
   ],
@@ -81,10 +176,14 @@ const rulesByScenario: Record<ScenarioId, RuleProperties[]> = {
     {
       name: "entity-not-resolved",
       priority: 100,
-      conditions: { all: [{ fact: "matchCount", operator: "equal", value: 0 }] },
+      conditions: {
+        all: [{ fact: "matchCount", operator: "equal", value: 0 }],
+      },
       event: {
         type: "block-onboarding",
-        params: { outcome: "Block automatic onboarding when no LEI entity is resolved." },
+        params: {
+          outcome: "Block automatic onboarding when no LEI entity is resolved.",
+        },
       },
     },
     {
@@ -98,7 +197,10 @@ const rulesByScenario: Record<ScenarioId, RuleProperties[]> = {
       },
       event: {
         type: "enhanced-due-diligence",
-        params: { outcome: "Route inactive entity or registration status to due diligence." },
+        params: {
+          outcome:
+            "Route inactive entity or registration status to due diligence.",
+        },
       },
     },
     {
@@ -121,25 +223,38 @@ const rulesByScenario: Record<ScenarioId, RuleProperties[]> = {
     {
       name: "filing-evidence-present",
       priority: 50,
-      conditions: { all: [{ fact: "observationCount", operator: "greaterThan", value: 0 }] },
+      conditions: {
+        all: [{ fact: "observationCount", operator: "greaterThan", value: 0 }],
+      },
       event: {
         type: "route-finance-review",
-        params: { outcome: "Current filing evidence is available for analyst review." },
+        params: {
+          outcome: "Current filing evidence is available for analyst review.",
+        },
       },
     },
     {
       name: "stale-filing-review",
       priority: 70,
-      conditions: { all: [{ fact: "latestFilingAgeDays", operator: "greaterThan", value: 180 }] },
+      conditions: {
+        all: [
+          { fact: "latestFilingAgeDays", operator: "greaterThan", value: 180 },
+        ],
+      },
       event: {
         type: "stale-evidence-warning",
-        params: { outcome: "Latest observation was filed more than 180 days ago." },
+        params: {
+          outcome: "Latest observation was filed more than 180 days ago.",
+        },
       },
     },
   ],
 };
 
-function toolArguments(tool: string, request: RunRequest): Record<string, unknown> {
+function toolArguments(
+  tool: string,
+  request: RunRequest,
+): Record<string, unknown> {
   if (tool === "github_issue") {
     return {
       owner: request.input.owner,
@@ -156,6 +271,12 @@ function toolArguments(tool: string, request: RunRequest): Record<string, unknow
   if (tool === "sec_company_facts") {
     return { cik: request.input.cik, metric: request.input.metric };
   }
+  if (tool === "open_meteo_villa_conditions") {
+    return {
+      latitude: Number(request.input.latitude),
+      longitude: Number(request.input.longitude),
+    };
+  }
   return {};
 }
 
@@ -170,33 +291,50 @@ function stringField(result: PublicToolResult, field: string) {
 }
 
 function factsFromResults(results: PublicToolResult[]): Facts {
-  const byTool = Object.fromEntries(results.map((result) => [result.tool, result]));
+  const byTool = Object.fromEntries(
+    results.map((result) => [result.tool, result]),
+  );
   const status = byTool.github_status;
   const incidents = byTool.github_incidents;
   const issue = byTool.github_issue;
   const repository = byTool.github_repository;
   const gleif = byTool.gleif_entity;
   const sec = byTool.sec_company_facts;
+  const protocol = byTool.hassantuk_home_protocol;
+  const weather = byTool.open_meteo_villa_conditions;
   const matches = Array.isArray(gleif?.data.matches) ? gleif.data.matches : [];
   const firstMatch =
     matches.length > 0 && typeof matches[0] === "object" && matches[0] !== null
       ? (matches[0] as Record<string, unknown>)
       : {};
-  const observations = Array.isArray(sec?.data.observations) ? sec.data.observations : [];
+  const observations = Array.isArray(sec?.data.observations)
+    ? sec.data.observations
+    : [];
   const latestObservation =
-    observations.length > 0 && typeof observations[0] === "object" && observations[0] !== null
+    observations.length > 0 &&
+    typeof observations[0] === "object" &&
+    observations[0] !== null
       ? (observations[0] as Record<string, unknown>)
       : {};
-  const filed = typeof latestObservation.filed === "string" ? latestObservation.filed : null;
+  const filed =
+    typeof latestObservation.filed === "string"
+      ? latestObservation.filed
+      : null;
 
   return {
-    degradedComponentCount: status ? numberField(status, "degradedComponentCount") : 0,
+    degradedComponentCount: status
+      ? numberField(status, "degradedComponentCount")
+      : 0,
     unresolvedCount: incidents ? numberField(incidents, "unresolvedCount") : 0,
     comments: issue ? numberField(issue, "comments") : 0,
-    labelCount: issue && Array.isArray(issue.data.labels) ? issue.data.labels.length : 0,
+    labelCount:
+      issue && Array.isArray(issue.data.labels) ? issue.data.labels.length : 0,
     archived: repository?.data.archived === true,
     matchCount: gleif ? numberField(gleif, "matchCount") : 0,
-    entityStatus: typeof firstMatch.entityStatus === "string" ? firstMatch.entityStatus : "UNRESOLVED",
+    entityStatus:
+      typeof firstMatch.entityStatus === "string"
+        ? firstMatch.entityStatus
+        : "UNRESOLVED",
     registrationStatus:
       typeof firstMatch.registrationStatus === "string"
         ? firstMatch.registrationStatus
@@ -206,6 +344,18 @@ function factsFromResults(results: PublicToolResult[]): Facts {
       ? Math.max(0, Math.floor((Date.now() - Date.parse(filed)) / 86_400_000))
       : 99999,
     metric: sec ? stringField(sec, "metric") : "",
+    protocolAvailable: Boolean(protocol),
+    windSpeedKmh: weather ? numberField(weather, "windSpeedKmh") : 0,
+    windGustsKmh: weather ? numberField(weather, "windGustsKmh") : 0,
+    temperatureC: weather ? numberField(weather, "temperatureC") : 0,
+  };
+}
+
+function requestFacts(request: RunRequest): Facts {
+  return {
+    multiSensorAlarm: Number(request.input.sensorCount) >= 2,
+    occupantVerified: request.input.occupantsStatus === "verified fire",
+    dispatchAuthorized: false,
   };
 }
 
@@ -214,10 +364,26 @@ export async function runRulesLane(request: RunRequest, emit: EventEmitter) {
   const startedAt = performance.now();
   emit({
     lane: "rules",
+    type: "node_completed",
+    nodeId: "rules-contract",
+    label: "Decision contract validated",
+    summary:
+      "The versioned input schema, approved source list, and outcome vocabulary are valid for deterministic execution.",
+    status: "completed",
+    actor: "Zod + workflow registry",
+    data: {
+      contractVersion: "2026-07-18",
+      inputFields: Object.keys(request.input),
+      approvedTools: scenario.requiredTools,
+      outcomeCount: rulesByScenario[request.scenarioId].length,
+    },
+  });
+  emit({
+    lane: "rules",
     type: "node_started",
     nodeId: "rules-fetch",
-    label: "Fetch fixed inputs",
-    summary: `Calling ${scenario.requiredTools.length} typed MCP source${scenario.requiredTools.length === 1 ? "" : "s"} without model planning.`,
+    label: "Acquire configured evidence",
+    summary: `Calling ${scenario.requiredTools.length} typed MCP source${scenario.requiredTools.length === 1 ? "" : "s"} from the versioned decision graph.`,
     status: "running",
     actor: "MCP client",
   });
@@ -235,7 +401,10 @@ export async function runRulesLane(request: RunRequest, emit: EventEmitter) {
         actor: "MCP SDK v1",
         data: { arguments: toolArguments(toolName, request) },
       });
-      const result = await callPublicMcpTool(toolName, toolArguments(toolName, request));
+      const result = await callPublicMcpTool(
+        toolName,
+        toolArguments(toolName, request),
+      );
       emit({
         lane: "rules",
         type: "tool_completed",
@@ -255,14 +424,40 @@ export async function runRulesLane(request: RunRequest, emit: EventEmitter) {
     lane: "rules",
     type: "node_completed",
     nodeId: "rules-fetch",
-    label: "Inputs normalized",
-    summary: "Source responses were validated against Zod contracts and converted to rule facts.",
+    label: "Configured evidence acquired",
+    summary: `${results.length} configured live source${results.length === 1 ? "" : "s"} returned through the typed MCP boundary.`,
     status: "completed",
-    actor: "Zod",
+    actor: "MCP client",
     data: { sourceCount: results.length },
   });
 
-  const facts = factsFromResults(results);
+  emit({
+    lane: "rules",
+    type: "node_completed",
+    nodeId: "rules-normalize",
+    label: "Evidence normalized",
+    summary:
+      "Every source response passed its Zod contract and was mapped into a stable decision fact model.",
+    status: "completed",
+    actor: "Zod",
+    data: {
+      sourceCount: results.length,
+      sourceTools: results.map((result) => result.tool),
+      capturedAt: results.map((result) => result.capturedAt),
+    },
+  });
+
+  const facts = { ...factsFromResults(results), ...requestFacts(request) };
+  emit({
+    lane: "rules",
+    type: "node_completed",
+    nodeId: "rules-derive",
+    label: "Decision facts derived",
+    summary: `${Object.keys(facts).length} typed facts were calculated reproducibly from the validated evidence.`,
+    status: "completed",
+    actor: "Typed deterministic transforms",
+    data: { facts, derivationVersion: "2026-07-18" },
+  });
   const engine = new Engine(rulesByScenario[request.scenarioId]);
   const evaluationStart = performance.now();
   emit({
@@ -276,7 +471,9 @@ export async function runRulesLane(request: RunRequest, emit: EventEmitter) {
     data: { facts },
   });
   const evaluation = await engine.run(facts);
-  const successfulNames = new Set(evaluation.results.map((result) => result.name));
+  const successfulNames = new Set(
+    evaluation.results.map((result) => result.name),
+  );
 
   for (const rule of rulesByScenario[request.scenarioId]) {
     const passed = rule.name ? successfulNames.has(rule.name) : false;
@@ -310,17 +507,19 @@ export async function runRulesLane(request: RunRequest, emit: EventEmitter) {
     lane: "rules",
     type: "lane_completed",
     nodeId: "rules-output",
-    label: "Fixed workflow complete",
+    label: "Deterministic decision released",
     summary:
       evaluation.events.length > 0
-        ? `${evaluation.events.length} predefined outcome${evaluation.events.length === 1 ? "" : "s"} matched. The lane cannot investigate beyond its configured facts.`
-        : "No predefined outcome matched. The lane stops without adapting its plan.",
+        ? `${evaluation.events.length} versioned outcome${evaluation.events.length === 1 ? "" : "s"} matched with a fully reproducible audit path.`
+        : "No configured outcome matched; the decision is safely routed to manual exception review.",
     status: "completed",
     actor: "json-rules-engine 7",
     durationMs: Math.round(performance.now() - startedAt),
     data: {
       matchedEvents: evaluation.events.map((event) => event.type),
       evaluationMs: Math.round(performance.now() - evaluationStart),
+      limitation:
+        "The engine cannot seek unmodeled evidence or create an outcome outside its versioned decision model.",
     },
   });
 

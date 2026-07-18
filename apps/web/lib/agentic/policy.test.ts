@@ -16,6 +16,18 @@ describe("public demo OPA policy", () => {
     expect(decision.controls).toContain("approved_tool_allowlist");
   });
 
+  it("allows the Hassantuk public evidence tools", async () => {
+    const decision = await evaluatePublicDemoPolicy({
+      action: "read",
+      max_tool_calls: 4,
+      max_cost_usd: 0.05,
+      tools: ["hassantuk_home_protocol", "open_meteo_villa_conditions"],
+    });
+
+    expect(decision.allow).toBe(true);
+    expect(decision.controls).toContain("approved_tool_allowlist");
+  });
+
   it("blocks unapproved tools", async () => {
     const decision = await evaluatePublicDemoPolicy({
       action: "read",

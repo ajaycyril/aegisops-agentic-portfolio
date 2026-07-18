@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { load } from "cheerio";
 import { z } from "zod";
 
 import {
@@ -113,6 +114,23 @@ const secCompanyFactsSchema = z.object({
   ),
 });
 
+const openMeteoCurrentSchema = z.object({
+  latitude: z.number(),
+  longitude: z.number(),
+  timezone: z.string(),
+  current: z.object({
+    time: z.string(),
+    temperature_2m: z.number(),
+    relative_humidity_2m: z.number(),
+    precipitation: z.number(),
+    weather_code: z.number(),
+    wind_speed_10m: z.number(),
+    wind_direction_10m: z.number(),
+    wind_gusts_10m: z.number(),
+  }),
+  current_units: z.record(z.string(), z.string()),
+});
+
 const capturedAt = () => new Date().toISOString();
 
 async function fetchJson(url: string, schema: z.ZodType) {
@@ -132,6 +150,20 @@ async function fetchJson(url: string, schema: z.ZodType) {
   return schema.parse(await response.json());
 }
 
+async function fetchHtml(url: string) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": "AegisOps Agentic Portfolio contact@aegisops.dev",
+    },
+    signal: AbortSignal.timeout(12_000),
+    cache: "no-store",
+  });
+  if (!response.ok)
+    throw new Error(`Public source returned HTTP ${response.status}`);
+  return response.text();
+}
+
 function asToolResponse(result: PublicToolResult) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(result) }],
@@ -146,10 +178,90 @@ async function buildMcpClient() {
   );
 
   server.registerTool(
+    "hassantuk_home_protocol",
+    {
+      title: "Official Hassantuk operating protocol",
+      description:
+        "Read the current public Ministry of Interior Hassantuk operating protocol.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async () => {
+      const sourceUrl = "https://building.moi.gov.ae/en-US/faqs/";
+      const $ = load(await fetchHtml(sourceUrl));
+      const pageText = $("main").text().trim() || $("body").text().trim();
+      const headings = $("h1, h2, h3, h4, h5")
+        .map((_, element) => $(element).text().trim())
+        .get()
+        .filter(Boolean)
+        .slice(0, 24);
+      return asToolResponse({
+        tool: "hassantuk_home_protocol",
+        source: "UAE Ministry of Interior - Hassantuk",
+        sourceUrl,
+        capturedAt: capturedAt(),
+        data: {
+          pageTitle: $("title").text().trim(),
+          headings,
+          publishedProtocolExcerpt: pageText.slice(0, 8_000),
+          homesProgramUrl: "https://home.moi.gov.ae/en/index.html",
+        },
+      });
+    },
+  );
+
+  server.registerTool(
+    "open_meteo_villa_conditions",
+    {
+      title: "Current villa-area weather conditions",
+      description:
+        "Read current weather at operator-supplied UAE coordinates from Open-Meteo.",
+      inputSchema: z.object({
+        latitude: z.number().min(22).max(27),
+        longitude: z.number().min(51).max(57),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ latitude, longitude }) => {
+      const url = new URL("https://api.open-meteo.com/v1/forecast");
+      url.searchParams.set("latitude", String(latitude));
+      url.searchParams.set("longitude", String(longitude));
+      url.searchParams.set(
+        "current",
+        "temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m",
+      );
+      url.searchParams.set("timezone", "Asia/Dubai");
+      const payload = openMeteoCurrentSchema.parse(
+        await fetchJson(url.toString(), openMeteoCurrentSchema),
+      );
+      return asToolResponse({
+        tool: "open_meteo_villa_conditions",
+        source: "Open-Meteo Forecast API",
+        sourceUrl: url.toString(),
+        capturedAt: capturedAt(),
+        data: {
+          latitude: payload.latitude,
+          longitude: payload.longitude,
+          timezone: payload.timezone,
+          observedAt: payload.current.time,
+          temperatureC: payload.current.temperature_2m,
+          relativeHumidityPct: payload.current.relative_humidity_2m,
+          precipitationMm: payload.current.precipitation,
+          weatherCode: payload.current.weather_code,
+          windSpeedKmh: payload.current.wind_speed_10m,
+          windDirectionDegrees: payload.current.wind_direction_10m,
+          windGustsKmh: payload.current.wind_gusts_10m,
+        },
+      });
+    },
+  );
+
+  server.registerTool(
     "github_status",
     {
       title: "GitHub platform status",
-      description: "Read current component status from the official GitHub Status API.",
+      description:
+        "Read current component status from the official GitHub Status API.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -160,7 +272,10 @@ async function buildMcpClient() {
       );
       const degradedComponents = payload.components
         .filter((component) => component.status !== "operational")
-        .map((component) => ({ name: component.name, status: component.status }));
+        .map((component) => ({
+          name: component.name,
+          status: component.status,
+        }));
 
       return asToolResponse({
         tool: "github_status",
@@ -182,12 +297,14 @@ async function buildMcpClient() {
     "github_incidents",
     {
       title: "GitHub unresolved incidents",
-      description: "Read unresolved incidents from the official GitHub Status API.",
+      description:
+        "Read unresolved incidents from the official GitHub Status API.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async () => {
-      const sourceUrl = "https://www.githubstatus.com/api/v2/incidents/unresolved.json";
+      const sourceUrl =
+        "https://www.githubstatus.com/api/v2/incidents/unresolved.json";
       const payload = githubIncidentsSchema.parse(
         await fetchJson(sourceUrl, githubIncidentsSchema),
       );
@@ -214,12 +331,16 @@ async function buildMcpClient() {
     {
       title: "GitHub issue evidence",
       description: "Read one public GitHub issue from the official REST API.",
-      inputSchema: githubEntityInput.extend({ issueNumber: z.number().int().positive() }),
+      inputSchema: githubEntityInput.extend({
+        issueNumber: z.number().int().positive(),
+      }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ owner, repository, issueNumber }) => {
       const sourceUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/issues/${issueNumber}`;
-      const issue = githubIssueSchema.parse(await fetchJson(sourceUrl, githubIssueSchema));
+      const issue = githubIssueSchema.parse(
+        await fetchJson(sourceUrl, githubIssueSchema),
+      );
       return asToolResponse({
         tool: "github_issue",
         source: "GitHub REST API",
@@ -244,7 +365,8 @@ async function buildMcpClient() {
     "github_repository",
     {
       title: "GitHub repository evidence",
-      description: "Read public repository metadata from the official GitHub REST API.",
+      description:
+        "Read public repository metadata from the official GitHub REST API.",
       inputSchema: githubEntityInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -284,7 +406,9 @@ async function buildMcpClient() {
       const url = new URL("https://api.gleif.org/api/v1/lei-records");
       url.searchParams.set("filter[entity.legalName]", legalName);
       url.searchParams.set("page[size]", "5");
-      const payload = gleifSchema.parse(await fetchJson(url.toString(), gleifSchema));
+      const payload = gleifSchema.parse(
+        await fetchJson(url.toString(), gleifSchema),
+      );
       const matches = payload.data.map(({ attributes }) => ({
         lei: attributes.lei,
         legalName: attributes.entity.legalName.name,
@@ -309,7 +433,8 @@ async function buildMcpClient() {
     "sec_company_facts",
     {
       title: "SEC company facts",
-      description: "Read one US-GAAP metric from the official SEC EDGAR Data API.",
+      description:
+        "Read one US-GAAP metric from the official SEC EDGAR Data API.",
       inputSchema: z.object({
         cik: z.string().min(1).max(10),
         metric: z.string().min(1).max(100),
@@ -328,7 +453,9 @@ async function buildMcpClient() {
       }
       const [unit, observations] = Object.entries(fact.units)[0] ?? [];
       if (!unit || !observations) {
-        throw new Error(`US-GAAP metric ${metric} has no reported observations`);
+        throw new Error(
+          `US-GAAP metric ${metric} has no reported observations`,
+        );
       }
       const latest = [...observations]
         .sort((left, right) => Date.parse(right.filed) - Date.parse(left.filed))
@@ -352,8 +479,12 @@ async function buildMcpClient() {
   );
 
   const client = new Client({ name: "aegisops-runtime", version: "1.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await Promise.all([
+    server.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
   return client;
 }
 
@@ -366,5 +497,23 @@ export async function callPublicMcpTool(
   mcpClientPromise ??= buildMcpClient();
   const client = await mcpClientPromise;
   const result = await client.callTool({ name, arguments: args });
+  if (result.isError || !result.structuredContent) {
+    const content = Array.isArray(result.content) ? result.content : [];
+    const detail = content
+      .filter(
+        (item): item is { type: "text"; text: string } =>
+          typeof item === "object" &&
+          item !== null &&
+          "type" in item &&
+          item.type === "text" &&
+          "text" in item &&
+          typeof item.text === "string",
+      )
+      .map((item) => item.text)
+      .join(" ");
+    throw new Error(
+      detail || `MCP tool ${name} returned no structured content`,
+    );
+  }
   return publicToolResultSchema.parse(result.structuredContent);
 }

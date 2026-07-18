@@ -9,6 +9,8 @@ approved_tools := {
   "github_repository",
   "gleif_entity",
   "sec_company_facts",
+  "hassantuk_home_protocol",
+  "open_meteo_villa_conditions",
 }
 
 default decision := {

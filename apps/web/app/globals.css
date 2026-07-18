@@ -283,7 +283,7 @@ code {
 
 .scenario-rail {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -729,8 +729,72 @@ code {
 
 .canvas-heading-tools {
   display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
   justify-items: end;
   gap: 7px;
+}
+
+.canvas-heading-tools .canvas-stats {
+  grid-column: 1 / -1;
+}
+
+.presentation-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.presentation-controls > span {
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.presentation-mode {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #090d12;
+}
+
+.presentation-mode button,
+.next-stage-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.presentation-mode button.active {
+  background: #1a222d;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px #344150;
+}
+
+.next-stage-button {
+  border: 1px solid rgba(67, 209, 181, 0.4);
+  background: rgba(67, 209, 181, 0.08);
+  color: var(--teal);
+}
+
+.next-stage-button:disabled {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: not-allowed;
 }
 
 .execution-view-switch {
@@ -2983,8 +3047,17 @@ code {
   }
 
   .canvas-heading-tools {
+    grid-template-columns: 1fr;
     width: 100%;
     justify-items: stretch;
+  }
+
+  .canvas-heading-tools .canvas-stats {
+    grid-column: 1;
+  }
+
+  .presentation-controls {
+    justify-content: space-between;
   }
 
   .execution-view-switch,
@@ -3175,6 +3248,16 @@ code {
   }
   .run-command-row {
     grid-template-columns: 1fr;
+  }
+  .presentation-controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+  .presentation-mode {
+    grid-column: 1 / -1;
+  }
+  .presentation-mode button {
+    flex: 1;
   }
   .setup-toggle {
     width: 100%;
