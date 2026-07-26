@@ -1,23 +1,34 @@
 # AegisOps
 
-### A live enterprise agent systems lab
+### See exactly when an enterprise workflow should be agentic, deterministic, or policy-driven
 
-[![Live demo](https://img.shields.io/badge/live-demo-43d1b5?style=flat-square)](https://aegisops-agentic-portfolio.vercel.app)
+[![Live demo](https://img.shields.io/badge/launch-live%20workbench-43d1b5?style=flat-square)](https://aegisops-agentic-portfolio.vercel.app)
+[![GitHub stars](https://img.shields.io/github/stars/ajaycyril/aegisops-agentic-portfolio?style=social)](https://github.com/ajaycyril/aegisops-agentic-portfolio/stargazers)
+[![Follow Ajay](https://img.shields.io/github/followers/ajaycyril?label=Follow%20Ajay&style=social)](https://github.com/ajaycyril)
 [![CI](https://img.shields.io/github/actions/workflow/status/ajaycyril/aegisops-agentic-portfolio/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/ajaycyril/aegisops-agentic-portfolio/actions)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/ajaycyril/aegisops-agentic-portfolio/codeql.yml?branch=main&style=flat-square&label=CodeQL)](https://github.com/ajaycyril/aegisops-agentic-portfolio/security/code-scanning)
 [![License: MIT](https://img.shields.io/badge/license-MIT-75a7ff?style=flat-square)](./LICENSE)
 [![No synthetic business data](https://img.shields.io/badge/data-real%20sources-edc55f?style=flat-square)](./docs/architecture/05-live-workbench-runtime.md)
 
-**AegisOps runs agentic and deterministic systems side by side against the same live evidence.**
-It makes the control boundary visible: what the graph constrains, what the model chooses, which
-typed tools execute, what evidence returns, where policy intervenes, and why a fixed rule engine
-cannot perform the same adaptive work.
+**AegisOps is a live enterprise agent systems lab.** It runs agentic and deterministic systems side by side against the same live evidence, then makes the control boundary visible.
 
-[Open the production workbench](https://aegisops-agentic-portfolio.vercel.app) ·
-[Read the user guide](./docs/USER_GUIDE.md) ·
-[Explore the enterprise playbook](./docs/ENTERPRISE_AGENTIC_PLAYBOOK.md)
+You can inspect what the graph constrains, what the model chooses, which typed tools execute, what evidence returns, where policy intervenes, when approval is required, and why a fixed rule engine cannot perform the same adaptive work.
 
-![AegisOps live workbench](docs/assets/screenshots/live-workbench.jpg)
+[**Launch the workbench**](https://aegisops-agentic-portfolio.vercel.app) | [**Run locally**](#run-locally) | [**Read the architecture**](./docs/architecture/01-system-architecture.md) | [**Enterprise playbook**](./docs/ENTERPRISE_AGENTIC_PLAYBOOK.md)
+
+<a href="https://aegisops-agentic-portfolio.vercel.app">
+  <img src="docs/assets/screenshots/live-workbench.jpg" alt="AegisOps live enterprise agent systems workbench" width="1100" />
+</a>
+
+## See the difference in five minutes
+
+1. Open the live workbench and press **Run both live**.
+2. Watch an agentic lane and a deterministic rules lane process the same official evidence.
+3. Inspect selected tools, observations, handoffs, policy decisions, grounding, latency, and cost.
+4. Switch to the architecture view to see which stack layers produced real runtime evidence.
+5. Change the input and observe where adaptation creates value and where fixed logic remains sufficient.
+
+> Building governed agent systems in public. Star the repository and follow [@ajaycyril](https://github.com/ajaycyril) for releases, architecture notes, and new workflows.
 
 ## The Question This Project Answers
 
@@ -218,6 +229,13 @@ The dual-lane live workbench, five public-source workflows, multi-agent incident
 tools, OPA policy, grounding checks, observable decision ledger, unit economics, and live stack map
 are production deployed. Managed shared state and authenticated enterprise write connectors remain
 explicit deployment upgrades, not hidden claims.
+
+## Follow the Build
+
+- Star this repository to keep it easy to find.
+- Follow [@ajaycyril](https://github.com/ajaycyril) for new releases and related AI, physical-AI, and edge-video projects.
+- Open an issue for a reproducible bug, workflow proposal, or architecture question.
+- Read [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting a pull request.
 
 ## Author
 
